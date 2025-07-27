@@ -14,7 +14,7 @@ const PersonalBests = () => {
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const { personalBests, isLoading, error } = usePersonalBests({
+  const { personalBests, isLoading } = usePersonalBests({
     distance: selectedDistance,
     timeFilter,
     customDateFrom,

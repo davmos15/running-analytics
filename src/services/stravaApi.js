@@ -151,4 +151,5 @@ class StravaAPI {
   }
 }
 
-export default new StravaAPI();
+const stravaApi = new StravaAPI();
+export default stravaApi;
