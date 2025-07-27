@@ -1,8 +1,8 @@
 import React from 'react';
 
 const DebugInfo = () => {
-  // Only show in development or if explicitly enabled
-  const showDebug = process.env.NODE_ENV === 'development' || window.location.search.includes('debug=true');
+  // Always show for now to debug the production issue
+  const showDebug = true;
   
   if (!showDebug) return null;
 

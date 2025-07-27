@@ -38,9 +38,17 @@ class StravaAPI {
 
   async exchangeToken(code) {
     try {
+      console.log('Exchanging token with:', {
+        client_id: process.env.REACT_APP_STRAVA_CLIENT_ID,
+        redirect_uri: process.env.REACT_APP_STRAVA_REDIRECT_URI,
+        code: code,
+        has_secret: !!process.env.REACT_APP_STRAVA_CLIENT_SECRET
+      });
+
       const response = await axios.post('https://www.strava.com/oauth/token', {
         client_id: process.env.REACT_APP_STRAVA_CLIENT_ID,
         client_secret: process.env.REACT_APP_STRAVA_CLIENT_SECRET,
+        redirect_uri: process.env.REACT_APP_STRAVA_REDIRECT_URI,
         code,
         grant_type: 'authorization_code'
       });
