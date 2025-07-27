@@ -4,6 +4,8 @@
 
 [![Deploy Status](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml)
 
+🔥 **Live App**: https://davmos15.github.io/running-analytics
+
 A personal running performance analyzer that integrates with Strava to find your best segments at any distance within your runs. Built with React and Firebase.
 
 ## 🏃‍♂️ Features
