@@ -1,5 +1,7 @@
 # Running Analytics
 
+🏃‍♂️ Personal running performance analyzer powered by Strava
+
 A personal running performance analyzer that integrates with Strava to find your best segments at any distance within your runs. Built with React and Firebase.
 
 ## 🏃‍♂️ Features
