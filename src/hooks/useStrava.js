@@ -31,7 +31,14 @@ export const useStrava = () => {
         try {
           setIsLoading(true);
           await stravaApi.exchangeToken(code);
-          window.history.replaceState({}, document.title, "/");
+          
+          // Clean up URL parameters after token exchange
+          const url = new URL(window.location);
+          url.searchParams.delete('code');
+          url.searchParams.delete('scope');
+          url.searchParams.delete('state');
+          window.history.replaceState({}, document.title, url.pathname);
+          
           await checkAuthentication();
         } catch (error) {
           setError('Failed to authenticate with Strava');
