@@ -2,6 +2,8 @@
 
 🏃‍♂️ Personal running performance analyzer powered by Strava
 
+[![Deploy Status](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml)
+
 A personal running performance analyzer that integrates with Strava to find your best segments at any distance within your runs. Built with React and Firebase.
 
 ## 🏃‍♂️ Features
