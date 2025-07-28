@@ -8,6 +8,13 @@ export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customD
 
   useEffect(() => {
     const fetchPersonalBests = async () => {
+      // Don't fetch if distance is empty
+      if (!distance) {
+        setPersonalBests([]);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         console.log('Fetching personal bests for:', { distance, timeFilter, customDateFrom, customDateTo });

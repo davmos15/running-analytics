@@ -86,6 +86,8 @@ class FirebaseService {
           return []; // Invalid custom distance
         }
       }
+      
+      console.log('Querying for distance:', queryDistance);
 
       let q = query(
         collection(db, 'segments'),
@@ -118,6 +120,11 @@ class FirebaseService {
       const querySnapshot = await getDocs(q);
       let results = querySnapshot.docs.map((doc, index) => {
         const data = doc.data();
+        console.log('Personal best data:', data); // Debug log
+        
+        // Get the full run distance from the activity if not in segment
+        const fullDistance = data.fullRunDistance || data.totalDistance || 'N/A';
+        
         return {
           rank: index + 1,
           id: doc.id,
@@ -125,7 +132,7 @@ class FirebaseService {
           pace: data.pace,
           date: data.date,
           runName: data.activityName || 'Unknown Run',
-          fullRunDistance: data.fullRunDistance || 'N/A',
+          fullRunDistance: fullDistance,
           ...data
         };
       });

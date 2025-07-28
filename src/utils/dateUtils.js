@@ -1,4 +1,14 @@
 export const formatDate = (dateStr) => {
+  // Handle Firestore Timestamp objects
+  if (dateStr && typeof dateStr === 'object' && dateStr.seconds) {
+    return new Date(dateStr.seconds * 1000).toLocaleDateString('en-AU', { 
+      day: 'numeric', 
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+  
+  // Handle regular date strings
   return new Date(dateStr).toLocaleDateString('en-AU', { 
     day: 'numeric', 
     month: 'short',
