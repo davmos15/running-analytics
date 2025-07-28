@@ -40,6 +40,6 @@ export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customD
     personalBests,
     isLoading,
     error,
-    refetch
+    refetch: fetchPersonalBests
   };
 };
