@@ -105,14 +105,36 @@ class FirebaseService {
       }
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc, index) => ({ 
-        rank: index + 1,
-        id: doc.id, 
-        ...doc.data() 
-      }));
+      return querySnapshot.docs.map((doc, index) => {
+        const data = doc.data();
+        return {
+          rank: index + 1,
+          id: doc.id,
+          time: this.formatTime(data.time),
+          pace: data.pace,
+          date: data.date,
+          runName: data.activityName || 'Unknown Run',
+          totalDistance: `${Math.round(data.distanceMeters / 1000 * 100) / 100}K`,
+          effort: 'Moderate', // Default effort since we don't have this data
+          avgHR: 'N/A', // We don't have heart rate data
+          ...data
+        };
+      });
     } catch (error) {
       console.error('Error getting personal bests:', error);
       throw error;
+    }
+  }
+
+  formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
     }
   }
 

@@ -10,12 +10,14 @@ export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customD
     const fetchPersonalBests = async () => {
       try {
         setIsLoading(true);
+        console.log('Fetching personal bests for:', { distance, timeFilter, customDateFrom, customDateTo });
         const bests = await firebaseService.getPersonalBests(
           distance, 
           timeFilter, 
           customDateFrom, 
           customDateTo
         );
+        console.log('Personal bests fetched:', bests.length, 'results');
         setPersonalBests(bests);
         setError(null);
       } catch (err) {

@@ -24,8 +24,24 @@ export const useRecentRuns = () => {
       if (runningActivities.length > 0) {
         setRecentRuns(runningActivities);
         setIsLoading(false); // Show cached data immediately
+        
+        // Check for new activities in the background
+        checkForNewActivities();
+      } else {
+        // No cached data, fetch from Strava
+        await fetchFromStrava();
       }
 
+      setError(null);
+    } catch (err) {
+      setError('Failed to load recent runs');
+      console.error('Error fetching recent runs:', err);
+      setIsLoading(false);
+    }
+  };
+
+  const checkForNewActivities = async () => {
+    try {
       // Fetch fresh data from Strava to check for new activities
       const stravaActivities = await stravaApi.getActivities(1, 20);
       const newRunningActivities = stravaActivities
@@ -49,13 +65,31 @@ export const useRecentRuns = () => {
           .slice(0, 10);
         setRecentRuns(updatedRunningActivities);
       }
-
-      setError(null);
     } catch (err) {
-      setError('Failed to load recent runs');
-      console.error('Error fetching recent runs:', err);
-    } finally {
+      console.error('Error checking for new activities:', err);
+    }
+  };
+
+  const fetchFromStrava = async () => {
+    try {
+      const stravaActivities = await stravaApi.getActivities(1, 20);
+      const runningActivities = stravaActivities
+        .filter(activity => ['Run', 'TrailRun'].includes(activity.type))
+        .slice(0, 10);
+
+      // Save activities to Firebase for future caching
+      for (const activity of runningActivities) {
+        const exists = await firebaseService.activityExists(activity.id);
+        if (!exists) {
+          await firebaseService.saveActivityWithSegments(activity.id, activity);
+        }
+      }
+
+      setRecentRuns(runningActivities);
       setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching from Strava:', err);
+      throw err;
     }
   };
 
