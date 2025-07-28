@@ -118,12 +118,24 @@ class FirebaseService {
       }
 
       const querySnapshot = await getDocs(q);
-      let results = querySnapshot.docs.map((doc, index) => {
+      let results = await Promise.all(querySnapshot.docs.map(async (doc, index) => {
         const data = doc.data();
         console.log('Personal best data:', data); // Debug log
         
         // Get the full run distance from the activity if not in segment
-        const fullDistance = data.fullRunDistance || data.totalDistance || 'N/A';
+        let fullDistance = data.fullRunDistance || data.totalDistance;
+        
+        // If we don't have the full distance, fetch it from the activity
+        if (!fullDistance && data.activityId) {
+          try {
+            const activity = await this.getActivity(data.activityId);
+            if (activity && activity.distance) {
+              fullDistance = `${Math.round(activity.distance / 1000 * 100) / 100}K`;
+            }
+          } catch (err) {
+            console.error('Error fetching activity for distance:', err);
+          }
+        }
         
         return {
           rank: index + 1,
@@ -132,10 +144,10 @@ class FirebaseService {
           pace: data.pace,
           date: data.date,
           runName: data.activityName || 'Unknown Run',
-          fullRunDistance: fullDistance,
+          fullRunDistance: fullDistance || 'N/A',
           ...data
         };
-      });
+      }));
 
       // If no results found for custom distance, try to create segments from existing activities
       if (results.length === 0 && queryDistance !== distance) {
@@ -153,8 +165,24 @@ class FirebaseService {
 
           // Re-query for the newly created segments
           const newQuerySnapshot = await getDocs(q);
-          results = newQuerySnapshot.docs.map((doc, index) => {
+          results = await Promise.all(newQuerySnapshot.docs.map(async (doc, index) => {
             const data = doc.data();
+            
+            // Get the full run distance from the activity if not in segment
+            let fullDistance = data.fullRunDistance || data.totalDistance;
+            
+            // If we don't have the full distance, fetch it from the activity
+            if (!fullDistance && data.activityId) {
+              try {
+                const activity = await this.getActivity(data.activityId);
+                if (activity && activity.distance) {
+                  fullDistance = `${Math.round(activity.distance / 1000 * 100) / 100}K`;
+                }
+              } catch (err) {
+                console.error('Error fetching activity for distance:', err);
+              }
+            }
+            
             return {
               rank: index + 1,
               id: doc.id,
@@ -162,10 +190,10 @@ class FirebaseService {
               pace: data.pace,
               date: data.date,
               runName: data.activityName || 'Unknown Run',
-              fullRunDistance: data.fullRunDistance || 'N/A',
+              fullRunDistance: fullDistance || 'N/A',
               ...data
             };
-          });
+          }));
         }
       }
 
