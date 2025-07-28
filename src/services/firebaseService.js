@@ -131,6 +131,99 @@ class FirebaseService {
         return new Date(0);
     }
   }
+
+  // Segment processing methods
+  async processActivityForSegments(activity) {
+    try {
+      // Only process running activities
+      if (!['Run', 'TrailRun'].includes(activity.type)) {
+        return;
+      }
+
+      // Extract basic segments from activity data
+      const segments = this.extractSegmentsFromActivity(activity);
+      
+      // Save each segment
+      for (const segment of segments) {
+        await this.saveSegment(segment);
+      }
+    } catch (error) {
+      console.error('Error processing activity for segments:', error);
+    }
+  }
+
+  extractSegmentsFromActivity(activity) {
+    const segments = [];
+    const activityDate = new Date(activity.start_date);
+    const distance = activity.distance; // in meters
+    const time = activity.moving_time; // in seconds
+    
+    // Define distances to track (in meters)
+    const distances = [
+      { name: '1K', meters: 1000 },
+      { name: '5K', meters: 5000 },
+      { name: '10K', meters: 10000 },
+      { name: '15K', meters: 15000 },
+      { name: '21.1K', meters: 21097.5 }, // Half marathon
+      { name: '42.2K', meters: 42195 }    // Marathon
+    ];
+
+    // For each distance, check if the activity is long enough
+    distances.forEach(distanceObj => {
+      if (distance >= distanceObj.meters) {
+        // Calculate estimated time for this distance (simple linear estimation)
+        const estimatedTime = (time * distanceObj.meters) / distance;
+        
+        segments.push({
+          activityId: activity.id,
+          activityName: activity.name,
+          distance: distanceObj.name,
+          distanceMeters: distanceObj.meters,
+          time: Math.round(estimatedTime),
+          pace: this.calculatePace(estimatedTime, distanceObj.meters),
+          date: activityDate,
+          startTime: activity.start_date,
+          averageSpeed: distanceObj.meters / estimatedTime, // m/s
+          createdAt: new Date()
+        });
+      }
+    });
+
+    return segments;
+  }
+
+  calculatePace(timeSeconds, distanceMeters) {
+    // Calculate pace in minutes per kilometer
+    const pacePerKm = (timeSeconds / 60) / (distanceMeters / 1000);
+    const minutes = Math.floor(pacePerKm);
+    const seconds = Math.round((pacePerKm - minutes) * 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Enhanced activity saving with segment processing
+  async saveActivityWithSegments(activityId, activityData) {
+    try {
+      // Save the activity
+      await this.saveActivity(activityId, activityData);
+      
+      // Process segments
+      await this.processActivityForSegments(activityData);
+    } catch (error) {
+      console.error('Error saving activity with segments:', error);
+      throw error;
+    }
+  }
+
+  // Check if activity already exists to avoid reprocessing
+  async activityExists(activityId) {
+    try {
+      const activity = await this.getActivity(activityId);
+      return activity !== null;
+    } catch (error) {
+      console.error('Error checking if activity exists:', error);
+      return false;
+    }
+  }
 }
 
 const firebaseService = new FirebaseService();
