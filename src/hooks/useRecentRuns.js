@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import stravaApi from '../services/stravaApi';
 import firebaseService from '../services/firebaseService';
 
@@ -7,11 +7,7 @@ export const useRecentRuns = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchRecentRuns();
-  }, []);
-
-  const fetchRecentRuns = async () => {
+  const fetchRecentRuns = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -38,7 +34,7 @@ export const useRecentRuns = () => {
       console.error('Error fetching recent runs:', err);
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const checkForNewActivities = async () => {
     try {
@@ -92,6 +88,10 @@ export const useRecentRuns = () => {
       throw err;
     }
   };
+
+  useEffect(() => {
+    fetchRecentRuns();
+  }, [fetchRecentRuns]);
 
   return {
     recentRuns,
