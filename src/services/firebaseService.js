@@ -76,9 +76,20 @@ class FirebaseService {
 
   async getPersonalBests(distance, timeFilter, customDateFrom, customDateTo) {
     try {
+      // Handle custom distance parsing
+      let queryDistance = distance;
+      if (distance && !['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
+        const parsed = this.parseCustomDistance(distance);
+        if (parsed) {
+          queryDistance = parsed.name;
+        } else {
+          return []; // Invalid custom distance
+        }
+      }
+
       let q = query(
         collection(db, 'segments'),
-        where('distance', '==', distance),
+        where('distance', '==', queryDistance),
         orderBy('time', 'asc'),
         limit(10)
       );
@@ -88,7 +99,7 @@ class FirebaseService {
         const startDate = this.getDateFromFilter(timeFilter);
         q = query(
           collection(db, 'segments'),
-          where('distance', '==', distance),
+          where('distance', '==', queryDistance),
           where('date', '>=', startDate),
           orderBy('time', 'asc'),
           limit(10)
@@ -96,7 +107,7 @@ class FirebaseService {
       } else if (timeFilter === 'custom' && customDateFrom && customDateTo) {
         q = query(
           collection(db, 'segments'),
-          where('distance', '==', distance),
+          where('distance', '==', queryDistance),
           where('date', '>=', new Date(customDateFrom)),
           where('date', '<=', new Date(customDateTo)),
           orderBy('time', 'asc'),
@@ -105,33 +116,71 @@ class FirebaseService {
       }
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc, index) => {
+      let results = querySnapshot.docs.map((doc, index) => {
         const data = doc.data();
         return {
           rank: index + 1,
           id: doc.id,
-          time: this.formatTime(data.time),
+          time: data.time,
           pace: data.pace,
           date: data.date,
           runName: data.activityName || 'Unknown Run',
-          totalDistance: `${Math.round(data.distanceMeters / 1000 * 100) / 100}K`,
-          effort: 'Moderate', // Default effort since we don't have this data
-          avgHR: 'N/A', // We don't have heart rate data
+          fullRunDistance: data.fullRunDistance || 'N/A',
           ...data
         };
       });
+
+      // If no results found for custom distance, try to create segments from existing activities
+      if (results.length === 0 && queryDistance !== distance) {
+        const parsed = this.parseCustomDistance(distance);
+        if (parsed) {
+          const activities = await this.getActivities();
+          const runningActivities = activities.filter(activity => 
+            ['Run', 'TrailRun'].includes(activity.type) && 
+            activity.distance >= parsed.meters
+          );
+
+          for (const activity of runningActivities) {
+            await this.createCustomSegment(activity, distance);
+          }
+
+          // Re-query for the newly created segments
+          const newQuerySnapshot = await getDocs(q);
+          results = newQuerySnapshot.docs.map((doc, index) => {
+            const data = doc.data();
+            return {
+              rank: index + 1,
+              id: doc.id,
+              time: data.time,
+              pace: data.pace,
+              date: data.date,
+              runName: data.activityName || 'Unknown Run',
+              fullRunDistance: data.fullRunDistance || 'N/A',
+              ...data
+            };
+          });
+        }
+      }
+
+      // Format times based on whether the 10th fastest is under an hour
+      const shouldShowHours = results.length > 0 && results[Math.min(9, results.length - 1)].time >= 3600;
+      
+      return results.map(result => ({
+        ...result,
+        time: this.formatTime(result.time, shouldShowHours)
+      }));
     } catch (error) {
       console.error('Error getting personal bests:', error);
       throw error;
     }
   }
 
-  formatTime(seconds) {
+  formatTime(seconds, forceHours = false) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
     
-    if (hours > 0) {
+    if (forceHours || hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     } else {
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
@@ -174,15 +223,48 @@ class FirebaseService {
     }
   }
 
+  parseCustomDistance(distanceString) {
+    if (!distanceString) return null;
+    
+    const trimmed = distanceString.trim().toLowerCase();
+    
+    // Handle patterns like "5K", "10k"
+    if (trimmed.endsWith('k')) {
+      const num = parseFloat(trimmed.slice(0, -1));
+      return isNaN(num) ? null : { name: trimmed.toUpperCase(), meters: num * 1000 };
+    }
+    
+    // Handle patterns like "5000m", "3000M"
+    if (trimmed.endsWith('m')) {
+      const num = parseFloat(trimmed.slice(0, -1));
+      return isNaN(num) ? null : { name: trimmed, meters: num };
+    }
+    
+    // Handle just numbers (assume meters)
+    const num = parseFloat(trimmed);
+    if (!isNaN(num)) {
+      return { name: `${num}m`, meters: num };
+    }
+    
+    return null;
+  }
+
   extractSegmentsFromActivity(activity) {
     const segments = [];
     const activityDate = new Date(activity.start_date);
     const distance = activity.distance; // in meters
     const time = activity.moving_time; // in seconds
     
-    // Define distances to track (in meters)
+    // Define common distances to track (in meters)
     const distances = [
+      { name: '100m', meters: 100 },
+      { name: '200m', meters: 200 },
+      { name: '400m', meters: 400 },
+      { name: '800m', meters: 800 },
       { name: '1K', meters: 1000 },
+      { name: '1.5K', meters: 1500 },
+      { name: '2K', meters: 2000 },
+      { name: '3K', meters: 3000 },
       { name: '5K', meters: 5000 },
       { name: '10K', meters: 10000 },
       { name: '15K', meters: 15000 },
@@ -206,12 +288,45 @@ class FirebaseService {
           date: activityDate,
           startTime: activity.start_date,
           averageSpeed: distanceObj.meters / estimatedTime, // m/s
+          fullRunDistance: `${Math.round(distance / 1000 * 100) / 100}K`,
+          fullRunTime: time,
           createdAt: new Date()
         });
       }
     });
 
     return segments;
+  }
+
+  // Method to create segment for any custom distance
+  async createCustomSegment(activity, customDistanceString) {
+    const parsed = this.parseCustomDistance(customDistanceString);
+    if (!parsed || activity.distance < parsed.meters) {
+      return null;
+    }
+
+    const activityDate = new Date(activity.start_date);
+    const distance = activity.distance;
+    const time = activity.moving_time;
+    const estimatedTime = (time * parsed.meters) / distance;
+
+    const segment = {
+      activityId: activity.id,
+      activityName: activity.name,
+      distance: parsed.name,
+      distanceMeters: parsed.meters,
+      time: Math.round(estimatedTime),
+      pace: this.calculatePace(estimatedTime, parsed.meters),
+      date: activityDate,
+      startTime: activity.start_date,
+      averageSpeed: parsed.meters / estimatedTime,
+      fullRunDistance: `${Math.round(distance / 1000 * 100) / 100}K`,
+      fullRunTime: time,
+      createdAt: new Date()
+    };
+
+    await this.saveSegment(segment);
+    return segment;
   }
 
   calculatePace(timeSeconds, distanceMeters) {

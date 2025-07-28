@@ -9,13 +9,14 @@ import { DISTANCES } from '../../utils/constants';
 
 const PersonalBests = () => {
   const [selectedDistance, setSelectedDistance] = useState('5K');
+  const [customDistance, setCustomDistance] = useState('');
   const [timeFilter, setTimeFilter] = useState('all-time');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const { personalBests, isLoading } = usePersonalBests({
-    distance: selectedDistance,
+    distance: selectedDistance === 'Custom' ? customDistance : selectedDistance,
     timeFilter,
     customDateFrom,
     customDateTo
@@ -33,6 +34,8 @@ const PersonalBests = () => {
         distances={DISTANCES}
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
+        customDistance={customDistance}
+        setCustomDistance={setCustomDistance}
       />
 
       {isFilterOpen && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDate, getEffortColor } from '../../utils/dateUtils';
+import { formatDate } from '../../utils/dateUtils';
 
 const ResultsCards = ({ personalBests }) => {
   return (
@@ -22,16 +22,12 @@ const ResultsCards = ({ personalBests }) => {
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">{formatDate(run.date)}</div>
-              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEffortColor(run.effort)}`}>
-                {run.effort}
-              </span>
             </div>
           </div>
           <div>
             <div className="font-medium text-gray-900 mb-1">{run.runName}</div>
             <div className="flex items-center justify-between text-sm text-gray-500">
-              <span>Total: {run.totalDistance}</span>
-              <span>Avg HR: {run.avgHR}</span>
+              <span>Run Distance: {run.fullRunDistance}</span>
             </div>
           </div>
         </div>

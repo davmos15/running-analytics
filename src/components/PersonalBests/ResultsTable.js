@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDate, getEffortColor } from '../../utils/dateUtils';
+import { formatDate } from '../../utils/dateUtils';
 
 const ResultsTable = ({ personalBests }) => {
   return (
@@ -24,10 +24,7 @@ const ResultsTable = ({ personalBests }) => {
                 Run
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Distance
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Effort
+                Run Distance
               </th>
             </tr>
           </thead>
@@ -58,12 +55,7 @@ const ResultsTable = ({ personalBests }) => {
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900">{run.totalDistance}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getEffortColor(run.effort)}`}>
-                    {run.effort}
-                  </span>
+                  <div className="text-sm text-gray-900">{run.fullRunDistance}</div>
                 </td>
               </tr>
             ))}

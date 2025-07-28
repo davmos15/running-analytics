@@ -1,6 +1,6 @@
 export const DISTANCES = [
   '100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', 
-  '5K', '10K', '15K', '21.1K', '42.2K'
+  '5K', '10K', '15K', '21.1K', '42.2K', 'Custom'
 ];
 
 export const DISTANCE_METERS = {
