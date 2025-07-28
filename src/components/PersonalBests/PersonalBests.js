@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DistanceSelector from './DistanceSelector';
 import DateFilter from './DateFilter';
 import ResultsTable from './ResultsTable';
 import ResultsCards from './ResultsCards';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { usePersonalBests } from '../../hooks/usePersonalBests';
-import { DISTANCES } from '../../utils/constants';
-import firebaseService from '../../services/firebaseService';
+import { DISTANCES, AVAILABLE_COLUMNS } from '../../utils/constants';
 
 const PersonalBests = () => {
   const [selectedDistance, setSelectedDistance] = useState('5K');
@@ -15,29 +14,35 @@ const PersonalBests = () => {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isReprocessing, setIsReprocessing] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState([]);
 
-  const { personalBests, isLoading, refetch } = usePersonalBests({
+  // Initialize visible columns on mount
+  useEffect(() => {
+    const savedColumns = localStorage.getItem('visibleColumns');
+    if (savedColumns) {
+      setVisibleColumns(JSON.parse(savedColumns));
+    } else {
+      // Use default columns
+      const defaultColumns = AVAILABLE_COLUMNS
+        .filter(col => col.default)
+        .map(col => col.key);
+      setVisibleColumns(defaultColumns);
+    }
+  }, []);
+
+  // Save visible columns to localStorage when changed
+  useEffect(() => {
+    if (visibleColumns.length > 0) {
+      localStorage.setItem('visibleColumns', JSON.stringify(visibleColumns));
+    }
+  }, [visibleColumns]);
+
+  const { personalBests, isLoading } = usePersonalBests({
     distance: selectedDistance === 'Custom' ? (customDistance || '') : selectedDistance,
     timeFilter,
     customDateFrom,
     customDateTo
   });
-
-  const handleReprocessActivities = async () => {
-    if (window.confirm('This will reprocess all your activities to create segments for all distances. This may take a few minutes. Continue?')) {
-      setIsReprocessing(true);
-      try {
-        await firebaseService.reprocessAllActivitiesForSegments();
-        alert('Activities reprocessed successfully!');
-        refetch(); // Refresh the current view
-      } catch (error) {
-        alert('Error reprocessing activities: ' + error.message);
-      } finally {
-        setIsReprocessing(false);
-      }
-    }
-  };
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -53,6 +58,8 @@ const PersonalBests = () => {
         setIsFilterOpen={setIsFilterOpen}
         customDistance={customDistance}
         setCustomDistance={setCustomDistance}
+        visibleColumns={visibleColumns}
+        setVisibleColumns={setVisibleColumns}
       />
 
       {isFilterOpen && (
@@ -75,17 +82,8 @@ const PersonalBests = () => {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Personal Bests Found</h3>
           <p className="text-gray-500 mb-4">
-            No activities found for {selectedDistance} distance. Try selecting a different distance or check that your activities have been synced.
+            No activities found for {selectedDistance} distance. Try selecting a different distance or go to Settings to generate segments for all distances.
           </p>
-          {['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K'].includes(selectedDistance) && (
-            <button
-              onClick={handleReprocessActivities}
-              disabled={isReprocessing}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isReprocessing ? 'Reprocessing...' : 'Generate Segments for All Distances'}
-            </button>
-          )}
         </div>
       ) : (
         <>
@@ -96,7 +94,7 @@ const PersonalBests = () => {
 
           {/* Desktop Table */}
           <div className="hidden md:block">
-            <ResultsTable personalBests={personalBests} />
+            <ResultsTable personalBests={personalBests} visibleColumns={visibleColumns} />
           </div>
         </>
       )}

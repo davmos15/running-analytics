@@ -1,19 +1,39 @@
 export const formatDate = (dateStr) => {
-  // Handle Firestore Timestamp objects
+  // Get saved date format from localStorage
+  const dateFormat = localStorage.getItem('dateFormat') || 'DD MMM YYYY';
+  
+  // Convert dateStr to Date object
+  let date;
   if (dateStr && typeof dateStr === 'object' && dateStr.seconds) {
-    return new Date(dateStr.seconds * 1000).toLocaleDateString('en-AU', { 
-      day: 'numeric', 
-      month: 'short',
-      year: 'numeric'
-    });
+    // Handle Firestore Timestamp objects
+    date = new Date(dateStr.seconds * 1000);
+  } else {
+    // Handle regular date strings
+    date = new Date(dateStr);
   }
   
-  // Handle regular date strings
-  return new Date(dateStr).toLocaleDateString('en-AU', { 
-    day: 'numeric', 
-    month: 'short',
-    year: 'numeric'
-  });
+  // Format based on selected format
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const monthShort = date.toLocaleDateString('en-US', { month: 'short' });
+  
+  switch (dateFormat) {
+    case 'DD MMM YYYY':
+      return `${day} ${monthShort} ${year}`;
+    case 'MM/DD/YYYY':
+      return `${month}/${day}/${year}`;
+    case 'DD/MM/YYYY':
+      return `${day}/${month}/${year}`;
+    case 'YYYY-MM-DD':
+      return `${year}-${month}-${day}`;
+    case 'MMM DD, YYYY':
+      return `${monthShort} ${day}, ${year}`;
+    case 'DD.MM.YYYY':
+      return `${day}.${month}.${year}`;
+    default:
+      return `${day} ${monthShort} ${year}`;
+  }
 };
 
 export const getEffortColor = (effort) => {

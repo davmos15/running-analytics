@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Layout from './components/Layout/Layout';
 import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
-import SyncButton from './components/SyncButton/SyncButton';
+import Settings from './components/Settings/Settings';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
 import { useStrava } from './hooks/useStrava';
@@ -11,8 +11,6 @@ import './styles/globals.css';
 function App() {
   const [activeTab, setActiveTab] = useState('personal-bests');
   const { isAuthenticated, isLoading, error, login } = useStrava();
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -42,19 +40,11 @@ function App() {
     );
   }
 
-  const handleSyncComplete = () => {
-    // Trigger a refresh of data
-    setRefreshTrigger(prev => prev + 1);
-  };
-
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      <div className="mb-6">
-        <SyncButton onSyncComplete={handleSyncComplete} />  
-      </div>
-      
-      {activeTab === 'personal-bests' && <PersonalBests key={refreshTrigger} />}
-      {activeTab === 'recent-runs' && <RecentRuns key={refreshTrigger} />}
+      {activeTab === 'personal-bests' && <PersonalBests />}
+      {activeTab === 'recent-runs' && <RecentRuns />}
+      {activeTab === 'settings' && <Settings />}
     </Layout>
   );
 }

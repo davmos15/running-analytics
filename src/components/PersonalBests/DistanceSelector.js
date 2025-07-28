@@ -1,5 +1,6 @@
 import React from 'react';
 import { Filter } from 'lucide-react';
+import ColumnSelector from './ColumnSelector';
 
 const DistanceSelector = ({ 
   selectedDistance, 
@@ -8,7 +9,9 @@ const DistanceSelector = ({
   isFilterOpen, 
   setIsFilterOpen,
   customDistance,
-  setCustomDistance
+  setCustomDistance,
+  visibleColumns,
+  setVisibleColumns
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm p-4">
@@ -42,6 +45,10 @@ const DistanceSelector = ({
             <Filter className="w-4 h-4" />
             <span className="text-sm font-medium">Date Filter</span>
           </button>
+          <ColumnSelector
+            visibleColumns={visibleColumns}
+            setVisibleColumns={setVisibleColumns}
+          />
         </div>
       </div>
     </div>

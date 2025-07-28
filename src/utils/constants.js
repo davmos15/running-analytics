@@ -33,3 +33,15 @@ export const STRAVA_ACTIVITY_TYPES = {
   TRAIL_RUNNING: 'TrailRun',
   RACE: 'Race'
 };
+
+export const AVAILABLE_COLUMNS = [
+  { key: 'rank', label: 'Rank', default: true, description: 'Position in rankings' },
+  { key: 'time', label: 'Time', default: true, description: 'Segment completion time' },
+  { key: 'pace', label: 'Pace', default: true, description: 'Average pace per kilometer' },
+  { key: 'date', label: 'Date', default: true, description: 'Date of the activity' },
+  { key: 'runName', label: 'Run', default: true, description: 'Name of the activity' },
+  { key: 'fullRunDistance', label: 'Run Distance', default: true, description: 'Total distance of the full run' },
+  { key: 'averageSpeed', label: 'Avg Speed', default: false, description: 'Average speed in m/s' },
+  { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run' },
+  { key: 'activityId', label: 'Activity ID', default: false, description: 'Strava activity ID' }
+];
