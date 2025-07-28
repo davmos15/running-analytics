@@ -86,8 +86,6 @@ class FirebaseService {
           return []; // Invalid custom distance
         }
       }
-      
-      console.log('Querying for distance:', queryDistance);
 
       let q = query(
         collection(db, 'segments'),
@@ -120,7 +118,6 @@ class FirebaseService {
       const querySnapshot = await getDocs(q);
       let results = await Promise.all(querySnapshot.docs.map(async (doc, index) => {
         const data = doc.data();
-        console.log('Personal best data:', data); // Debug log
         
         // Get the full run distance from the activity if not in segment
         let fullDistance = data.fullRunDistance || data.totalDistance;
@@ -394,6 +391,30 @@ class FirebaseService {
     } catch (error) {
       console.error('Error checking if activity exists:', error);
       return false;
+    }
+  }
+
+  // Reprocess all activities to ensure all distance segments exist
+  async reprocessAllActivitiesForSegments() {
+    try {
+      console.log('Reprocessing all activities for segments...');
+      const activities = await this.getActivities();
+      const runningActivities = activities.filter(activity => 
+        ['Run', 'TrailRun'].includes(activity.type)
+      );
+
+      let processed = 0;
+      for (const activity of runningActivities) {
+        await this.processActivityForSegments(activity);
+        processed++;
+        console.log(`Processed ${processed}/${runningActivities.length} activities`);
+      }
+
+      console.log('Finished reprocessing activities');
+      return processed;
+    } catch (error) {
+      console.error('Error reprocessing activities:', error);
+      throw error;
     }
   }
 }
