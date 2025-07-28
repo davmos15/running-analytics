@@ -4,7 +4,7 @@
   "description": "Personal running performance analyzer powered by Strava",
   "author": "Your Name",
   "license": "MIT",
-  "homepage": "https://davmos15.github.io/running-analytics",
+  "homepage": "https://strava-analytics-b9293.web.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/davmos15/running-analytics.git"

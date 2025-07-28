@@ -18,9 +18,17 @@ class StravaAPI {
     this.api.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          await this.refreshAccessToken();
-          return this.api.request(error.config);
+        if (error.response?.status === 401 && !error.config._retry) {
+          error.config._retry = true;
+          try {
+            await this.refreshAccessToken();
+            error.config.headers['Authorization'] = `Bearer ${this.accessToken}`;
+            return this.api.request(error.config);
+          } catch (refreshError) {
+            console.error('Token refresh failed, logging out');
+            this.logout();
+            return Promise.reject(refreshError);
+          }
         }
         return Promise.reject(error);
       }
@@ -71,6 +79,10 @@ class StravaAPI {
 
   async refreshAccessToken() {
     try {
+      if (!this.refreshToken) {
+        throw new Error('No refresh token available');
+      }
+      
       const response = await axios.post('https://www.strava.com/oauth/token', {
         client_id: process.env.REACT_APP_STRAVA_CLIENT_ID,
         client_secret: process.env.REACT_APP_STRAVA_CLIENT_SECRET,
@@ -86,10 +98,19 @@ class StravaAPI {
       this.accessToken = access_token;
       this.refreshToken = refresh_token;
       
+      // Update the authorization header with the new token
+      this.api.defaults.headers['Authorization'] = `Bearer ${access_token}`;
+      
       return response.data;
     } catch (error) {
       console.error('Token refresh failed:', error);
+      // If refresh fails with 401, the refresh token is invalid (user revoked access)
+      if (error.response?.status === 401) {
+        console.log('Refresh token is invalid, user may have revoked access');
+      }
       this.logout();
+      // Reload the page to show the login screen
+      window.location.reload();
       throw error;
     }
   }
