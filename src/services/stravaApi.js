@@ -9,9 +9,9 @@ class StravaAPI {
     
     this.api = axios.create({
       baseURL: STRAVA_BASE_URL,
-      headers: {
+      headers: this.accessToken ? {
         'Authorization': `Bearer ${this.accessToken}`
-      }
+      } : {}
     });
 
     // Add response interceptor for token refresh
@@ -69,6 +69,9 @@ class StravaAPI {
       
       this.accessToken = access_token;
       this.refreshToken = refresh_token;
+      
+      // Update the authorization header with the new token
+      this.api.defaults.headers['Authorization'] = `Bearer ${access_token}`;
       
       return response.data;
     } catch (error) {
