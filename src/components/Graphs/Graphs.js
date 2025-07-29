@@ -88,22 +88,24 @@ const Graphs = () => {
   return (
     <div className="mt-6 space-y-6 mx-4">
       <div className="athletic-card-gradient p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Performance Graphs</h2>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
             >
               <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium text-slate-300">Date Filter</span>
+              <span className="text-sm font-medium text-slate-300 hidden sm:inline">Date Filter</span>
+              <span className="text-sm font-medium text-slate-300 sm:hidden">Filter</span>
             </button>
             <button
               onClick={() => setIsAddingGraph(true)}
               className="flex items-center space-x-2 px-4 py-2 athletic-button-primary text-white rounded-lg"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Graph</span>
+              <span className="hidden sm:inline">Add Graph</span>
+              <span className="sm:hidden">Add</span>
             </button>
           </div>
         </div>

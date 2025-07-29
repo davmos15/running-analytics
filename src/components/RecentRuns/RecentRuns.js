@@ -16,14 +16,14 @@ const RecentRuns = () => {
   }
 
   return (
-    <div className="mt-6">
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-lg font-medium text-gray-900">Recent Activities</h2>
-          <p className="text-sm text-gray-500 mt-1">Your latest runs from Strava</p>
+    <div className="mt-6 mx-4">
+      <div className="athletic-card-gradient">
+        <div className="p-4 border-b border-blue-500/20">
+          <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Recent Activities</h2>
+          <p className="text-sm text-slate-300 mt-1">Your latest runs from Strava</p>
         </div>
         
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-blue-500/10">
           {recentRuns.map((run) => (
             <RunCard key={run.id} run={run} />
           ))}

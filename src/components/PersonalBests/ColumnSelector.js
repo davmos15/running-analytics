@@ -19,20 +19,20 @@ const ColumnSelector = ({ visibleColumns, setVisibleColumns }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
       >
         <Columns className="w-4 h-4" />
         <span className="text-sm font-medium">Columns</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+        <div className="absolute right-0 top-12 w-80 athletic-card-gradient rounded-lg shadow-lg border border-blue-500/30 z-10">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-900">Customize Columns</h3>
+              <h3 className="text-sm font-medium text-white">Customize Columns</h3>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-gray-100 rounded"
+                className="p-1 hover:bg-blue-500/20 rounded text-slate-400 hover:text-slate-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -42,19 +42,19 @@ const ColumnSelector = ({ visibleColumns, setVisibleColumns }) => {
               {AVAILABLE_COLUMNS.map((column) => (
                 <label
                   key={column.key}
-                  className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                  className="flex items-start space-x-3 p-2 hover:bg-blue-500/10 rounded cursor-pointer"
                 >
                   <input
                     type="checkbox"
                     checked={visibleColumns.includes(column.key)}
                     onChange={() => toggleColumn(column.key)}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-white">
                       {column.label}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-slate-300">
                       {column.description}
                     </div>
                   </div>
@@ -62,7 +62,7 @@ const ColumnSelector = ({ visibleColumns, setVisibleColumns }) => {
               ))}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-gray-200">
+            <div className="mt-4 pt-3 border-t border-blue-500/20">
               <button
                 onClick={() => {
                   const defaultColumns = AVAILABLE_COLUMNS
@@ -70,7 +70,7 @@ const ColumnSelector = ({ visibleColumns, setVisibleColumns }) => {
                     .map(col => col.key);
                   setVisibleColumns(defaultColumns);
                 }}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                className="text-sm text-orange-400 hover:text-orange-300"
               >
                 Reset to default
               </button>

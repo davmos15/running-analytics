@@ -15,9 +15,9 @@ const DistanceSelector = ({
 }) => {
   return (
     <div className="athletic-card-gradient p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Personal Bests</h2>
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>PBs</h2>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
           <div className="flex items-center space-x-2">
             <select 
               value={selectedDistance}
@@ -38,17 +38,20 @@ const DistanceSelector = ({
               />
             )}
           </div>
-          <button 
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
-          >
-            <Filter className="w-4 h-4" />
-            <span className="text-sm font-medium">Date Filter</span>
-          </button>
-          <ColumnSelector
-            visibleColumns={visibleColumns}
-            setVisibleColumns={setVisibleColumns}
-          />
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm font-medium hidden sm:inline">Date Filter</span>
+              <span className="text-sm font-medium sm:hidden">Filter</span>
+            </button>
+            <ColumnSelector
+              visibleColumns={visibleColumns}
+              setVisibleColumns={setVisibleColumns}
+            />
+          </div>
         </div>
       </div>
     </div>

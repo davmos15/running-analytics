@@ -196,16 +196,45 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
         display: true,
         text: `${getMetricLabel()} - ${period.charAt(0).toUpperCase() + period.slice(1)}`,
         font: {
-          size: 16
-        }
+          size: 18,
+          family: 'Rajdhani, sans-serif',
+          weight: 'bold'
+        },
+        color: '#e2e8f0'
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        titleColor: '#e2e8f0',
+        bodyColor: '#e2e8f0',
+        borderColor: '#f97316',
+        borderWidth: 1
       }
     },
     scales: {
+      x: {
+        ticks: {
+          color: '#94a3b8'
+        },
+        grid: {
+          color: 'rgba(148, 163, 184, 0.2)'
+        }
+      },
       y: {
         beginAtZero: true,
         title: {
           display: true,
-          text: getMetricLabel()
+          text: getMetricLabel(),
+          color: '#e2e8f0',
+          font: {
+            family: 'Inter, sans-serif',
+            weight: '500'
+          }
+        },
+        ticks: {
+          color: '#94a3b8'
+        },
+        grid: {
+          color: 'rgba(148, 163, 184, 0.2)'
         }
       }
     }
@@ -213,14 +242,14 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 h-96 flex items-center justify-center">
+      <div className="athletic-card p-6 h-96 flex items-center justify-center">
         <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="athletic-card p-6">
       <div style={{ height: '300px' }}>
         <Bar data={chartData} options={options} />
       </div>

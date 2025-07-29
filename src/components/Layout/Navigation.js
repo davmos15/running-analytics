@@ -62,7 +62,7 @@ const Navigation = ({ activeTab, setActiveTab }) => {
             }`}
           >
             <Star className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">Personal Bests</span>
+            <span className="text-xs font-medium">PBs</span>
           </button>
           <button 
             onClick={() => setActiveTab('recent-runs')}
@@ -71,7 +71,7 @@ const Navigation = ({ activeTab, setActiveTab }) => {
             }`}
           >
             <Timer className="w-6 h-6 mb-1" />
-            <span className="text-xs font-medium">Recent Runs</span>
+            <span className="text-xs font-medium">Recent</span>
           </button>
           <button 
             onClick={() => setActiveTab('graphs')}

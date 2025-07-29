@@ -129,15 +129,15 @@ const Settings = () => {
   ];
 
   return (
-    <div className="mt-6 space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="mt-6 space-y-6 mx-4">
+      <div className="athletic-card-gradient p-6">
         <div className="flex items-center space-x-2 mb-4">
-          <SettingsIcon className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-medium text-gray-900">Settings</h2>
+          <SettingsIcon className="w-5 h-5 text-orange-400" />
+          <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Settings</h2>
         </div>
 
         {showSuccessMessage && (
-          <div className="mb-4 p-3 bg-green-50 text-green-800 rounded-lg">
+          <div className="mb-4 p-3 bg-green-500/20 text-green-300 rounded-lg border border-green-500/30">
             Settings saved successfully!
           </div>
         )}
@@ -145,53 +145,32 @@ const Settings = () => {
         {/* Date Format Settings */}
         <div className="mb-8">
           <div className="flex items-center space-x-2 mb-3">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <h3 className="text-md font-medium text-gray-900">Date Format</h3>
+            <Calendar className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Date Format</h3>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-slate-300 mb-4">
             Choose how dates are displayed throughout the application
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <select
+            value={dateFormat}
+            onChange={(e) => handleDateFormatChange(e.target.value)}
+            className="w-full md:w-1/2 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white"
+          >
             {dateFormatOptions.map((option) => (
-              <label
-                key={option.value}
-                className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
-                  dateFormat === option.value
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="dateFormat"
-                  value={option.value}
-                  checked={dateFormat === option.value}
-                  onChange={() => handleDateFormatChange(option.value)}
-                  className="sr-only"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    {option.label}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {option.value}
-                  </div>
-                </div>
-                {dateFormat === option.value && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full ml-2" />
-                )}
-              </label>
+              <option key={option.value} value={option.value}>
+                {option.label} ({option.value})
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Unit System Settings */}
-        <div className="border-t pt-6">
+        <div className="border-t border-blue-500/20 pt-6">
           <div className="flex items-center space-x-2 mb-3">
-            <Globe className="w-4 h-4 text-gray-500" />
-            <h3 className="text-md font-medium text-gray-900">Unit System</h3>
+            <Globe className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Unit System</h3>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-slate-300 mb-4">
             Choose between metric (kilometers) and imperial (miles) units
           </p>
           <div className="flex space-x-3">
@@ -199,8 +178,8 @@ const Settings = () => {
               onClick={() => handleUnitSystemChange('metric')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 unitSystem === 'metric'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'athletic-button-primary text-white'
+                  : 'athletic-button-secondary text-slate-300'
               }`}
             >
               Metric (km)
@@ -209,8 +188,8 @@ const Settings = () => {
               onClick={() => handleUnitSystemChange('imperial')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 unitSystem === 'imperial'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'athletic-button-primary text-white'
+                  : 'athletic-button-secondary text-slate-300'
               }`}
             >
               Imperial (miles)
@@ -219,12 +198,12 @@ const Settings = () => {
         </div>
 
         {/* Custom Distances */}
-        <div className="border-t pt-6">
+        <div className="border-t border-blue-500/20 pt-6">
           <div className="flex items-center space-x-2 mb-3">
-            <Plus className="w-4 h-4 text-gray-500" />
-            <h3 className="text-md font-medium text-gray-900">Custom Distances</h3>
+            <Plus className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Custom Distances</h3>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-slate-300 mb-4">
             Add custom distances for Personal Bests tracking (enter values in kilometers)
           </p>
           
@@ -236,12 +215,12 @@ const Settings = () => {
                 placeholder="Enter distance in km (e.g., 7.5)"
                 value={newDistance}
                 onChange={(e) => setNewDistance(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400"
               />
               <button
                 onClick={handleAddDistance}
                 disabled={isAddingDistance || !newDistance}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isAddingDistance ? 'Adding...' : 'Add'}</span>
@@ -250,13 +229,13 @@ const Settings = () => {
             
             {customDistances.length > 0 && (
               <div className="space-y-2 mt-4">
-                <p className="text-sm font-medium text-gray-700">Your custom distances:</p>
+                <p className="text-sm font-medium text-slate-300">Your custom distances:</p>
                 {customDistances.map((distance) => (
-                  <div key={distance.meters} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium text-gray-900">{distance.label}</span>
+                  <div key={distance.meters} className="flex items-center justify-between p-3 athletic-card rounded-lg">
+                    <span className="font-medium text-white">{distance.label}</span>
                     <button
                       onClick={() => handleDeleteDistance(distance)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -268,25 +247,25 @@ const Settings = () => {
         </div>
 
         {/* Data Management */}
-        <div className="border-t pt-6">
+        <div className="border-t border-blue-500/20 pt-6">
           <div className="flex items-center space-x-2 mb-3">
-            <Database className="w-4 h-4 text-gray-500" />
-            <h3 className="text-md font-medium text-gray-900">Data Management</h3>
+            <Database className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Data Management</h3>
           </div>
           
           <div className="space-y-4">
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">
+              <h4 className="text-sm font-medium text-white mb-2">
                 Import Recent Activities
               </h4>
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-slate-300 mb-3">
                 Import your latest activities from Strava (last 20 runs). 
                 This is useful for keeping your data up to date without a full sync.
               </p>
               <button
                 onClick={handleImportRecentRuns}
                 disabled={isImportingRuns}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>{isImportingRuns ? 'Importing...' : 'Import Recent Runs'}</span>
@@ -294,17 +273,17 @@ const Settings = () => {
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">
+              <h4 className="text-sm font-medium text-white mb-2">
                 Generate Segments for All Distances
               </h4>
-              <p className="text-sm text-gray-500 mb-3">
+              <p className="text-sm text-slate-300 mb-3">
                 Process all your activities to create segments for every supported distance (100m to Marathon).
                 This is useful if you're missing data for shorter distances.
               </p>
               <button
                 onClick={handleReprocessActivities}
                 disabled={isReprocessing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
               >
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
               </button>
