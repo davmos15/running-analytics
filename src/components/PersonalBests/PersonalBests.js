@@ -21,12 +21,27 @@ const PersonalBests = () => {
   useEffect(() => {
     const savedColumns = localStorage.getItem('visibleColumns');
     if (savedColumns) {
-      setVisibleColumns(JSON.parse(savedColumns));
+      const parsedColumns = JSON.parse(savedColumns);
+      // Ensure rank is always first
+      if (!parsedColumns.includes('rank')) {
+        setVisibleColumns(['rank', ...parsedColumns]);
+      } else if (parsedColumns[0] !== 'rank') {
+        const withoutRank = parsedColumns.filter(col => col !== 'rank');
+        setVisibleColumns(['rank', ...withoutRank]);
+      } else {
+        setVisibleColumns(parsedColumns);
+      }
     } else {
       // Use default columns
       const defaultColumns = AVAILABLE_COLUMNS
         .filter(col => col.default)
         .map(col => col.key);
+      // Ensure rank is first
+      const rankIndex = defaultColumns.indexOf('rank');
+      if (rankIndex > 0) {
+        defaultColumns.splice(rankIndex, 1);
+        defaultColumns.unshift('rank');
+      }
       setVisibleColumns(defaultColumns);
     }
     
