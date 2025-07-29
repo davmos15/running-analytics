@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Eye, EyeOff } from 'lucide-react';
+import { Plus, X, Eye, EyeOff, Filter } from 'lucide-react';
 import ProgressionGraph from './ProgressionGraph';
 import BarGraph from './BarGraph';
 import GraphSettings from './GraphSettings';
+import { TIME_FILTERS } from '../../utils/constants';
 
 const Graphs = () => {
   const [graphs, setGraphs] = useState([]);
@@ -12,6 +13,10 @@ const Graphs = () => {
   const [selectedMetric, setSelectedMetric] = useState('speed');
   const [selectedPeriod, setSelectedPeriod] = useState('monthly');
   const [allDistances, setAllDistances] = useState([]);
+  const [timeFilter, setTimeFilter] = useState('all-time');
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Load saved graphs and distances on mount
   useEffect(() => {
@@ -85,14 +90,66 @@ const Graphs = () => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Performance Graphs</h2>
-          <button
-            onClick={() => setIsAddingGraph(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Graph</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm font-medium">Date Filter</span>
+            </button>
+            <button
+              onClick={() => setIsAddingGraph(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Graph</span>
+            </button>
+          </div>
         </div>
+
+        {isFilterOpen && (
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="font-medium text-blue-900 mb-3">Date Filter</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">Time Period</label>
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  {TIME_FILTERS.map(filter => (
+                    <option key={filter.value} value={filter.value}>{filter.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {timeFilter === 'custom' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-800 mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={customDateFrom}
+                      onChange={(e) => setCustomDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-blue-800 mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={customDateTo}
+                      onChange={(e) => setCustomDateTo(e.target.value)}
+                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {isAddingGraph && (
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -152,6 +209,9 @@ const Graphs = () => {
                       <option value="speed">Average Speed</option>
                       <option value="distance">Average Distance</option>
                       <option value="time">Average Time</option>
+                      <option value="totalDistance">Total Distance</option>
+                      <option value="totalTime">Total Time</option>
+                      <option value="totalRuns">Total Number of Runs</option>
                     </select>
                   </div>
                   <div>
@@ -210,7 +270,9 @@ const Graphs = () => {
                     <ProgressionGraph
                       distance={graph.distance}
                       color={graph.color}
-                      timePeriod={graph.timePeriod}
+                      timePeriod={timeFilter}
+                      customDateFrom={customDateFrom}
+                      customDateTo={customDateTo}
                     />
                   )}
                   {graph.type === 'bar' && (
@@ -218,6 +280,9 @@ const Graphs = () => {
                       metric={graph.metric}
                       period={graph.period}
                       color={graph.color}
+                      timeFilter={timeFilter}
+                      customDateFrom={customDateFrom}
+                      customDateTo={customDateTo}
                     />
                   )}
                 </>

@@ -26,26 +26,45 @@ ChartJS.register(
   TimeScale
 );
 
-const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all' }) => {
+const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', customDateFrom, customDateTo }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadProgressionData();
-  }, [distance, timePeriod]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [distance, timePeriod, customDateFrom, customDateTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProgressionData = async () => {
     try {
       setIsLoading(true);
-      const personalBests = await firebaseService.getPersonalBests(distance, timePeriod);
+      const personalBests = await firebaseService.getPersonalBests(distance, timePeriod, customDateFrom, customDateTo);
       
       // Sort by date and prepare data for chart
       const sortedData = personalBests
         .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .map(pb => ({
-          x: new Date(pb.date),
-          y: pb.time / 60 // Convert to minutes
-        }));
+        .map(pb => {
+          // Convert formatted time string back to seconds, then to minutes
+          let timeInSeconds;
+          if (typeof pb.time === 'string') {
+            const timeParts = pb.time.split(':');
+            if (timeParts.length === 3) {
+              // HH:MM:SS format
+              timeInSeconds = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);
+            } else if (timeParts.length === 2) {
+              // MM:SS format
+              timeInSeconds = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
+            } else {
+              timeInSeconds = parseInt(pb.time);
+            }
+          } else {
+            timeInSeconds = pb.time;
+          }
+          
+          return {
+            x: new Date(pb.date),
+            y: timeInSeconds / 60 // Convert to minutes for chart
+          };
+        });
       
       setData(sortedData);
     } catch (error) {

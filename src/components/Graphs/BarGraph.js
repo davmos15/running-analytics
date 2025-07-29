@@ -22,42 +22,99 @@ ChartJS.register(
   Legend
 );
 
-const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981' }) => {
+const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadBarData();
-  }, [metric, period]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, period, timeFilter, customDateFrom, customDateTo]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filterActivitiesByDate = (activities, timeFilter, customDateFrom, customDateTo) => {
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (timeFilter) {
+      case 'this-year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = now;
+        break;
+      case 'last-12-months':
+        startDate = new Date(now.setMonth(now.getMonth() - 12));
+        endDate = new Date();
+        break;
+      case 'last-6-months':
+        startDate = new Date(now.setMonth(now.getMonth() - 6));
+        endDate = new Date();
+        break;
+      case 'last-3-months':
+        startDate = new Date(now.setMonth(now.getMonth() - 3));
+        endDate = new Date();
+        break;
+      case 'custom':
+        if (customDateFrom && customDateTo) {
+          startDate = new Date(customDateFrom);
+          endDate = new Date(customDateTo);
+        } else {
+          return activities; // No filter if dates not provided
+        }
+        break;
+      default:
+        return activities;
+    }
+
+    return activities.filter(activity => {
+      const activityDate = new Date(activity.start_date);
+      return activityDate >= startDate && activityDate <= endDate;
+    });
+  };
 
   const loadBarData = async () => {
     try {
       setIsLoading(true);
-      const activities = await firebaseService.getActivities();
+      let activities = await firebaseService.getActivities();
+      
+      // Apply date filtering
+      if (timeFilter !== 'all-time') {
+        activities = filterActivitiesByDate(activities, timeFilter, customDateFrom, customDateTo);
+      }
       
       // Group activities by period
       const groupedData = groupActivitiesByPeriod(activities, period);
       
-      // Calculate averages for each period
+      // Calculate values for each period (averages or totals)
       const chartData = Object.entries(groupedData).map(([periodKey, activities]) => {
         let value;
+        const isTotal = metric.startsWith('total');
+        
         switch (metric) {
           case 'distance':
-            value = activities.reduce((sum, act) => sum + act.distance, 0) / activities.length / 1000; // km
+            value = activities.reduce((sum, act) => sum + act.distance, 0) / activities.length / 1000; // avg km
             break;
           case 'speed':
-            value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // km/h
+            value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // avg km/h
             break;
           case 'time':
-            value = activities.reduce((sum, act) => sum + act.moving_time, 0) / activities.length / 60; // minutes
+            value = activities.reduce((sum, act) => sum + act.moving_time, 0) / activities.length / 60; // avg minutes
+            break;
+          case 'totalDistance':
+            value = activities.reduce((sum, act) => sum + act.distance, 0) / 1000; // total km
+            break;
+          case 'totalTime':
+            value = activities.reduce((sum, act) => sum + act.moving_time, 0) / 60; // total minutes
+            break;
+          case 'totalRuns':
+            value = activities.length; // total number of runs
             break;
           default:
             value = 0;
         }
-        return { label: periodKey, value };
+        return { label: periodKey, value, date: activities[0]?.start_date };
       });
       
-      setData(chartData);
+      // Sort by date to ensure chronological order
+      const sortedData = chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setData(sortedData);
     } catch (error) {
       console.error('Error loading bar data:', error);
     } finally {
@@ -105,6 +162,12 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981' }
         return 'Average Speed (km/h)';
       case 'time':
         return 'Average Time (minutes)';
+      case 'totalDistance':
+        return 'Total Distance (km)';
+      case 'totalTime':
+        return 'Total Time (minutes)';
+      case 'totalRuns':
+        return 'Total Number of Runs';
       default:
         return 'Average';
     }

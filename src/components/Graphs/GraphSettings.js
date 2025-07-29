@@ -55,6 +55,9 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
                     <option value="speed">Average Speed</option>
                     <option value="distance">Average Distance</option>
                     <option value="time">Average Time</option>
+                    <option value="totalDistance">Total Distance</option>
+                    <option value="totalTime">Total Time</option>
+                    <option value="totalRuns">Total Number of Runs</option>
                   </select>
                 </div>
                 <div>
