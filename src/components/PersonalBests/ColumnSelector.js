@@ -26,7 +26,7 @@ const ColumnSelector = ({ visibleColumns, setVisibleColumns }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 w-80 athletic-card-gradient rounded-lg shadow-lg border border-blue-500/30 z-10">
+        <div className="absolute right-0 top-12 w-80 max-w-[calc(100vw-2rem)] athletic-card-gradient rounded-lg shadow-lg border border-blue-500/30 z-50">
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-white">Customize Columns</h3>

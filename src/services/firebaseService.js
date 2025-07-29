@@ -87,37 +87,45 @@ class FirebaseService {
         }
       }
 
-      let q = query(
+      // Get all segments for the distance
+      const q = query(
         collection(db, 'segments'),
-        where('distance', '==', queryDistance),
-        orderBy('time', 'asc'),
-        limit(10)
+        where('distance', '==', queryDistance)
       );
 
-      // Add date filters
-      if (timeFilter !== 'all-time' && timeFilter !== 'custom') {
-        const startDate = this.getDateFromFilter(timeFilter);
-        q = query(
-          collection(db, 'segments'),
-          where('distance', '==', queryDistance),
-          where('date', '>=', startDate),
-          orderBy('time', 'asc'),
-          limit(10)
-        );
-      } else if (timeFilter === 'custom' && customDateFrom && customDateTo) {
-        q = query(
-          collection(db, 'segments'),
-          where('distance', '==', queryDistance),
-          where('date', '>=', new Date(customDateFrom)),
-          where('date', '<=', new Date(customDateTo)),
-          orderBy('time', 'asc'),
-          limit(10)
-        );
-      }
-
       const querySnapshot = await getDocs(q);
-      let results = await Promise.all(querySnapshot.docs.map(async (doc, index) => {
-        const data = doc.data();
+      
+      // Convert to array and apply date filters in memory
+      let allSegments = querySnapshot.docs.map(doc => ({
+        doc: doc,
+        data: doc.data()
+      }));
+
+      // Apply date filters
+      if (timeFilter !== 'all-time') {
+        let startDate, endDate;
+        
+        if (timeFilter === 'custom' && customDateFrom && customDateTo) {
+          startDate = new Date(customDateFrom);
+          endDate = new Date(customDateTo);
+          endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        } else {
+          startDate = this.getDateFromFilter(timeFilter);
+          endDate = new Date(); // Today
+        }
+        
+        allSegments = allSegments.filter(segment => {
+          const segmentDate = segment.data.date?.toDate ? segment.data.date.toDate() : new Date(segment.data.date);
+          return segmentDate >= startDate && segmentDate <= endDate;
+        });
+      }
+      
+      // Sort by time and take top 10
+      allSegments.sort((a, b) => a.data.time - b.data.time);
+      const topSegments = allSegments.slice(0, 10);
+      let results = await Promise.all(topSegments.map(async (segment, index) => {
+        const doc = segment.doc;
+        const data = segment.data;
         
         // Get the full run distance from the activity if not in segment
         let fullDistance = data.fullRunDistance || data.totalDistance;
@@ -220,36 +228,45 @@ class FirebaseService {
         }
       }
 
-      let q = query(
+      // Get all segments for the distance
+      const q = query(
         collection(db, 'segments'),
-        where('distance', '==', queryDistance),
-        orderBy('date', 'asc')
+        where('distance', '==', queryDistance)
       );
 
-      // Add date filters
-      if (timeFilter !== 'all-time' && timeFilter !== 'custom') {
-        const startDate = this.getDateFromFilter(timeFilter);
-        q = query(
-          collection(db, 'segments'),
-          where('distance', '==', queryDistance),
-          where('date', '>=', startDate),
-          orderBy('date', 'asc')
-        );
-      } else if (timeFilter === 'custom' && customDateFrom && customDateTo) {
-        q = query(
-          collection(db, 'segments'),
-          where('distance', '==', queryDistance),
-          where('date', '>=', new Date(customDateFrom)),
-          where('date', '<=', new Date(customDateTo)),
-          orderBy('date', 'asc')
-        );
-      }
-
       const querySnapshot = await getDocs(q);
-      const allResults = querySnapshot.docs.map(doc => ({
+      
+      // Convert to array for filtering
+      let allResults = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      // Apply date filters in memory
+      if (timeFilter !== 'all-time') {
+        let startDate, endDate;
+        
+        if (timeFilter === 'custom' && customDateFrom && customDateTo) {
+          startDate = new Date(customDateFrom);
+          endDate = new Date(customDateTo);
+          endDate.setHours(23, 59, 59, 999); // Include the entire end date
+        } else {
+          startDate = this.getDateFromFilter(timeFilter);
+          endDate = new Date(); // Today
+        }
+        
+        allResults = allResults.filter(result => {
+          const resultDate = result.date?.toDate ? result.date.toDate() : new Date(result.date);
+          return resultDate >= startDate && resultDate <= endDate;
+        });
+      }
+      
+      // Sort by date ascending for progression tracking
+      allResults.sort((a, b) => {
+        const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+        const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+        return dateA - dateB;
+      });
 
       // If no results found for custom distance, try to create segments from existing activities
       if (allResults.length === 0 && queryDistance !== distance) {
