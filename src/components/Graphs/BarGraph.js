@@ -85,7 +85,6 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
       // Calculate values for each period (averages or totals)
       const chartData = Object.entries(groupedData).map(([periodKey, activities]) => {
         let value;
-        const isTotal = metric.startsWith('total');
         
         switch (metric) {
           case 'distance':
