@@ -8,8 +8,7 @@ import {
   getDocs, 
   query, 
   where, 
-  orderBy, 
-  limit 
+  orderBy
 } from 'firebase/firestore';
 
 const firebaseConfig = {
