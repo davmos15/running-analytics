@@ -1,36 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Eye, EyeOff, Filter } from 'lucide-react';
+import { Plus, Filter, Settings, Eye, EyeOff } from 'lucide-react';
 import ProgressionGraph from './ProgressionGraph';
 import BarGraph from './BarGraph';
+import DistanceThresholdGraph from './DistanceThresholdGraph';
 import GraphSettings from './GraphSettings';
 import { TIME_FILTERS } from '../../utils/constants';
 
 const Graphs = () => {
-  const [graphs, setGraphs] = useState([]);
-  const [isAddingGraph, setIsAddingGraph] = useState(false);
-  const [newGraphType, setNewGraphType] = useState('progression');
-  const [selectedDistance, setSelectedDistance] = useState('5K');
-  const [selectedMetric, setSelectedMetric] = useState('speed');
-  const [selectedPeriod, setSelectedPeriod] = useState('monthly');
-  const [allDistances, setAllDistances] = useState([]);
+  const [activeSection, setActiveSection] = useState('progression');
   const [timeFilter, setTimeFilter] = useState('all-time');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [allDistances, setAllDistances] = useState([]);
+  
+  // Progression settings
+  const [progressionSettings, setProgressionSettings] = useState({
+    distance: '5K',
+    maxResults: 10,
+    color: '#3B82F6',
+    visible: true
+  });
 
-  // Load saved graphs and distances on mount
+  // Average graphs
+  const [averageGraphs, setAverageGraphs] = useState([]);
+  
+  // Totals/Distance threshold settings
+  const [distanceThresholdSettings, setDistanceThresholdSettings] = useState({
+    chartType: 'bar',
+    color: '#f97316',
+    visibleDistances: null,
+    visible: true
+  });
+
+  // Load distances and settings on mount
   useEffect(() => {
-    const savedGraphs = localStorage.getItem('dashboardGraphs');
-    if (savedGraphs) {
-      setGraphs(JSON.parse(savedGraphs));
-    } else {
-      // Default graphs
-      setGraphs([
-        { id: '1', type: 'progression', distance: '5K', visible: true, color: '#3B82F6' },
-        { id: '2', type: 'bar', metric: 'distance', period: 'monthly', visible: true, color: '#10B981' }
-      ]);
-    }
-
     // Load all available distances
     const customDistances = localStorage.getItem('customDistances');
     const baseDistances = ['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'];
@@ -40,74 +44,83 @@ const Graphs = () => {
     } else {
       setAllDistances(baseDistances);
     }
+
+    // Load saved settings
+    const savedProgressionSettings = localStorage.getItem('progressionGraphSettings');
+    if (savedProgressionSettings) {
+      setProgressionSettings(JSON.parse(savedProgressionSettings));
+    }
+
+    const savedAverageGraphs = localStorage.getItem('averageGraphs');
+    if (savedAverageGraphs) {
+      setAverageGraphs(JSON.parse(savedAverageGraphs));
+    } else {
+      // Default average graphs
+      setAverageGraphs([
+        { id: '1', type: 'bar', metric: 'distance', period: 'monthly', visible: true, color: '#10B981' },
+        { id: '2', type: 'bar', metric: 'speed', period: 'monthly', visible: true, color: '#8B5CF6' }
+      ]);
+    }
+
+    const savedDistanceSettings = localStorage.getItem('distanceThresholdSettings');
+    if (savedDistanceSettings) {
+      setDistanceThresholdSettings(JSON.parse(savedDistanceSettings));
+    }
   }, []);
 
-  // Save graphs to localStorage when changed
+  // Save settings when changed
   useEffect(() => {
-    if (graphs.length > 0) {
-      localStorage.setItem('dashboardGraphs', JSON.stringify(graphs));
-    }
-  }, [graphs]);
+    localStorage.setItem('progressionGraphSettings', JSON.stringify(progressionSettings));
+  }, [progressionSettings]);
 
-  const addGraph = () => {
+  useEffect(() => {
+    localStorage.setItem('averageGraphs', JSON.stringify(averageGraphs));
+  }, [averageGraphs]);
+
+  useEffect(() => {
+    localStorage.setItem('distanceThresholdSettings', JSON.stringify(distanceThresholdSettings));
+  }, [distanceThresholdSettings]);
+
+  const addAverageGraph = () => {
     const newGraph = {
       id: Date.now().toString(),
-      type: newGraphType,
+      type: 'bar',
+      metric: 'distance',
+      period: 'monthly',
       visible: true,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16) // Random color
+      color: '#' + Math.floor(Math.random()*16777215).toString(16)
     };
-
-    if (newGraphType === 'progression') {
-      newGraph.distance = selectedDistance;
-    } else if (newGraphType === 'bar') {
-      newGraph.metric = selectedMetric;
-      newGraph.period = selectedPeriod;
-    }
-
-    setGraphs([...graphs, newGraph]);
-    setIsAddingGraph(false);
-    setNewGraphType('progression');
+    setAverageGraphs([...averageGraphs, newGraph]);
   };
 
-  const updateGraph = (id, updates) => {
-    setGraphs(graphs.map(graph => 
+  const updateAverageGraph = (id, updates) => {
+    setAverageGraphs(averageGraphs.map(graph => 
       graph.id === id ? { ...graph, ...updates } : graph
     ));
   };
 
-  const deleteGraph = (id) => {
-    setGraphs(graphs.filter(graph => graph.id !== id));
+  const deleteAverageGraph = (id) => {
+    setAverageGraphs(averageGraphs.filter(graph => graph.id !== id));
   };
 
-  const toggleGraphVisibility = (id) => {
-    setGraphs(graphs.map(graph => 
-      graph.id === id ? { ...graph, visible: !graph.visible } : graph
-    ));
-  };
+  const sections = [
+    { id: 'progression', label: 'Progression', description: 'Track your personal best improvements over time' },
+    { id: 'average', label: 'Average', description: 'View average performance metrics by period' },
+    { id: 'total', label: 'Total', description: 'Analyze total distances and run counts' }
+  ];
 
   return (
     <div className="mt-6 space-y-6 mx-4">
       <div className="athletic-card-gradient p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Performance Graphs</h2>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
-            <button
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
-            >
-              <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium text-slate-300 hidden sm:inline">Date Filter</span>
-              <span className="text-sm font-medium text-slate-300 sm:hidden">Filter</span>
-            </button>
-            <button
-              onClick={() => setIsAddingGraph(true)}
-              className="flex items-center space-x-2 px-4 py-2 athletic-button-primary text-white rounded-lg"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Graph</span>
-              <span className="sm:hidden">Add</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
+          >
+            <Filter className="w-4 h-4" />
+            <span className="text-sm font-medium">Date Filter</span>
+          </button>
         </div>
 
         {isFilterOpen && (
@@ -153,131 +166,114 @@ const Graphs = () => {
           </div>
         )}
 
-        {isAddingGraph && (
-          <div className="mb-6 p-4 athletic-card rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-white">Add New Graph</h3>
-              <button
-                onClick={() => setIsAddingGraph(false)}
-                className="text-slate-400 hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
+        {/* Section Navigation */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {sections.map(section => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                activeSection === section.id
+                  ? 'athletic-button-primary text-white'
+                  : 'athletic-button-secondary text-slate-300'
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Section Content */}
+        {activeSection === 'progression' && (
+          <div>
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Graph Type
-                </label>
-                <select
-                  value={newGraphType}
-                  onChange={(e) => setNewGraphType(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
+                <h3 className="text-lg font-semibold text-white mb-1">Personal Best Progression</h3>
+                <p className="text-sm text-slate-300">Track your fastest times improving over time</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setProgressionSettings({...progressionSettings, visible: !progressionSettings.visible})}
+                  className="p-2 athletic-button-secondary rounded-lg"
                 >
-                  <option value="progression">Distance Progression</option>
-                  <option value="bar">Average Metrics</option>
+                  {progressionSettings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+                <select
+                  value={progressionSettings.distance}
+                  onChange={(e) => setProgressionSettings({...progressionSettings, distance: e.target.value})}
+                  className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+                >
+                  {allDistances.map(distance => (
+                    <option key={distance} value={distance}>{distance}</option>
+                  ))}
+                </select>
+                <select
+                  value={progressionSettings.maxResults}
+                  onChange={(e) => setProgressionSettings({...progressionSettings, maxResults: parseInt(e.target.value)})}
+                  className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+                >
+                  <option value={5}>Top 5</option>
+                  <option value={10}>Top 10</option>
+                  <option value={15}>Top 15</option>
+                  <option value={20}>Top 20</option>
+                  <option value={50}>Top 50</option>
                 </select>
               </div>
-
-              {newGraphType === 'progression' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Distance
-                  </label>
-                  <select
-                    value={selectedDistance}
-                    onChange={(e) => setSelectedDistance(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
-                  >
-                    {allDistances.map(distance => (
-                      <option key={distance} value={distance}>{distance}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {newGraphType === 'bar' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Metric
-                    </label>
-                    <select
-                      value={selectedMetric}
-                      onChange={(e) => setSelectedMetric(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
-                    >
-                      <option value="speed">Average Speed</option>
-                      <option value="distance">Average Distance</option>
-                      <option value="time">Average Time</option>
-                      <option value="totalDistance">Total Distance</option>
-                      <option value="totalTime">Total Time</option>
-                      <option value="totalRuns">Total Number of Runs</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Period
-                    </label>
-                    <select
-                      value={selectedPeriod}
-                      onChange={(e) => setSelectedPeriod(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
-                    >
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              <button
-                onClick={addGraph}
-                className="w-full px-4 py-2 athletic-button-primary text-white rounded-lg"
-              >
-                Add Graph
-              </button>
             </div>
+            
+            {progressionSettings.visible && (
+              <ProgressionGraph
+                distance={progressionSettings.distance}
+                color={progressionSettings.color}
+                timePeriod={timeFilter}
+                customDateFrom={customDateFrom}
+                customDateTo={customDateTo}
+                maxResults={progressionSettings.maxResults}
+              />
+            )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {graphs.map(graph => (
-            <div key={graph.id} className="relative">
-              <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
-                <button
-                  onClick={() => toggleGraphVisibility(graph.id)}
-                  className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
-                >
-                  {graph.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-                <GraphSettings
-                  graph={graph}
-                  allDistances={allDistances}
-                  onUpdate={(updates) => updateGraph(graph.id, updates)}
-                />
-                <button
-                  onClick={() => deleteGraph(graph.id)}
-                  className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+        {activeSection === 'average' && (
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1">Average Performance</h3>
+                <p className="text-sm text-slate-300">View your average metrics over different time periods</p>
               </div>
-
-              {graph.visible && (
-                <>
-                  {graph.type === 'progression' && (
-                    <ProgressionGraph
-                      distance={graph.distance}
-                      color={graph.color}
-                      timePeriod={timeFilter}
-                      customDateFrom={customDateFrom}
-                      customDateTo={customDateTo}
+              <button
+                onClick={addAverageGraph}
+                className="flex items-center space-x-2 px-3 py-2 athletic-button-primary text-white rounded-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Graph</span>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {averageGraphs.map(graph => (
+                <div key={graph.id} className="relative">
+                  <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
+                    <button
+                      onClick={() => updateAverageGraph(graph.id, {visible: !graph.visible})}
+                      className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
+                    >
+                      {graph.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    <GraphSettings
+                      graph={graph}
+                      allDistances={allDistances}
+                      onUpdate={(updates) => updateAverageGraph(graph.id, updates)}
                     />
-                  )}
-                  {graph.type === 'bar' && (
+                    <button
+                      onClick={() => deleteAverageGraph(graph.id)}
+                      className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {graph.visible && (
                     <BarGraph
                       metric={graph.metric}
                       period={graph.period}
@@ -287,21 +283,59 @@ const Graphs = () => {
                       customDateTo={customDateTo}
                     />
                   )}
-                </>
-              )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {graphs.length === 0 && !isAddingGraph && (
-          <div className="text-center py-12">
-            <p className="text-slate-300 mb-4">No graphs added yet. Create your first graph to visualize your performance!</p>
-            <button
-              onClick={() => setIsAddingGraph(true)}
-              className="px-4 py-2 athletic-button-primary text-white rounded-lg"
-            >
-              Add Your First Graph
-            </button>
+            {averageGraphs.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-slate-300 mb-4">No average graphs added yet.</p>
+                <button
+                  onClick={addAverageGraph}
+                  className="px-4 py-2 athletic-button-primary text-white rounded-lg"
+                >
+                  Add Your First Graph
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'total' && (
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1">Distance Analysis</h3>
+                <p className="text-sm text-slate-300">See how many runs exceed each distance threshold</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setDistanceThresholdSettings({...distanceThresholdSettings, visible: !distanceThresholdSettings.visible})}
+                  className="p-2 athletic-button-secondary rounded-lg"
+                >
+                  {distanceThresholdSettings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+                <select
+                  value={distanceThresholdSettings.chartType}
+                  onChange={(e) => setDistanceThresholdSettings({...distanceThresholdSettings, chartType: e.target.value})}
+                  className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+                >
+                  <option value="bar">Bar Chart</option>
+                  <option value="column">Column Chart</option>
+                </select>
+              </div>
+            </div>
+            
+            {distanceThresholdSettings.visible && (
+              <DistanceThresholdGraph
+                color={distanceThresholdSettings.color}
+                timePeriod={timeFilter}
+                customDateFrom={customDateFrom}
+                customDateTo={customDateTo}
+                chartType={distanceThresholdSettings.chartType}
+                visibleDistances={distanceThresholdSettings.visibleDistances}
+              />
+            )}
           </div>
         )}
       </div>

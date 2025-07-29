@@ -26,7 +26,7 @@ ChartJS.register(
   TimeScale
 );
 
-const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', customDateFrom, customDateTo }) => {
+const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', customDateFrom, customDateTo, maxResults = 10 }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,7 +66,9 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
         };
       });
       
-      setData(sortedData);
+      // Limit to maxResults most recent improvements
+      const limitedData = sortedData.slice(-maxResults);
+      setData(limitedData);
     } catch (error) {
       console.error('Error loading progression data:', error);
     } finally {
@@ -75,9 +77,16 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
   };
 
   const formatTime = (minutes) => {
-    const mins = Math.floor(minutes);
-    const secs = Math.round((minutes - mins) * 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const totalSeconds = Math.round(minutes * 60);
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
   };
 
   const chartData = {
@@ -152,7 +161,7 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
       y: {
         title: {
           display: true,
-          text: 'Time (minutes)',
+          text: 'Time',
           color: '#e2e8f0',
           font: {
             family: 'Inter, sans-serif',
@@ -166,7 +175,17 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
         grid: {
           color: 'rgba(148, 163, 184, 0.2)'
         },
-        reverse: true // Lower times (better performance) at the top
+        reverse: false, // Faster times at bottom
+        min: function(context) {
+          // Add 10% padding below the fastest time
+          const minValue = Math.min(...context.chart.data.datasets[0].data.map(d => d.y));
+          return minValue * 0.9;
+        },
+        max: function(context) {
+          // Add 5% padding above the slowest time
+          const maxValue = Math.max(...context.chart.data.datasets[0].data.map(d => d.y));
+          return maxValue * 1.05;
+        }
       }
     }
   };

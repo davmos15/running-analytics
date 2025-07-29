@@ -47,12 +47,33 @@ class FirebaseService {
     }
   }
 
-  async getActivities() {
+  async getActivities(timeFilter = 'all-time', customDateFrom = null, customDateTo = null) {
     try {
       const querySnapshot = await getDocs(
         query(collection(db, 'activities'), orderBy('start_date', 'desc'))
       );
-      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let activities = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Apply date filters in memory
+      if (timeFilter !== 'all-time') {
+        let startDate, endDate;
+        
+        if (timeFilter === 'custom' && customDateFrom && customDateTo) {
+          startDate = new Date(customDateFrom);
+          endDate = new Date(customDateTo);
+          endDate.setHours(23, 59, 59, 999);
+        } else {
+          startDate = this.getDateFromFilter(timeFilter);
+          endDate = new Date();
+        }
+        
+        activities = activities.filter(activity => {
+          const activityDate = new Date(activity.start_date);
+          return activityDate >= startDate && activityDate <= endDate;
+        });
+      }
+
+      return activities;
     } catch (error) {
       console.error('Error getting activities:', error);
       throw error;
