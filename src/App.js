@@ -22,17 +22,17 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Running Analytics
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="athletic-card-gradient p-8 text-center max-w-md">
+          <h1 className="text-3xl font-bold text-white mb-4" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            Athletic Performance Hub
           </h1>
-          <p className="text-gray-600 mb-6">
-            Connect with Strava to analyze your running performance
+          <p className="text-slate-300 mb-6">
+            Connect with Strava to unlock your running potential
           </p>
           <button
             onClick={login}
-            className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition-colors font-medium"
+            className="athletic-button-primary text-white px-8 py-3 rounded-lg font-semibold text-lg"
           >
             Connect with Strava
           </button>

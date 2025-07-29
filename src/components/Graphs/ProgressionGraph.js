@@ -37,34 +37,31 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
   const loadProgressionData = async () => {
     try {
       setIsLoading(true);
-      const personalBests = await firebaseService.getPersonalBests(distance, timePeriod, customDateFrom, customDateTo);
+      const progressionData = await firebaseService.getProgressionData(distance, timePeriod, customDateFrom, customDateTo);
       
-      // Sort by date and prepare data for chart
-      const sortedData = personalBests
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .map(pb => {
-          // Convert formatted time string back to seconds, then to minutes
-          let timeInSeconds;
-          if (typeof pb.time === 'string') {
-            const timeParts = pb.time.split(':');
-            if (timeParts.length === 3) {
-              // HH:MM:SS format
-              timeInSeconds = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);
-            } else if (timeParts.length === 2) {
-              // MM:SS format
-              timeInSeconds = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
-            } else {
-              timeInSeconds = parseInt(pb.time);
-            }
+      // Prepare data for chart
+      const sortedData = progressionData.map(pd => {
+        let timeInSeconds = pd.time;
+        
+        // Handle case where time might be formatted string
+        if (typeof pd.time === 'string') {
+          const timeParts = pd.time.split(':');
+          if (timeParts.length === 3) {
+            // HH:MM:SS format
+            timeInSeconds = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);
+          } else if (timeParts.length === 2) {
+            // MM:SS format
+            timeInSeconds = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
           } else {
-            timeInSeconds = pb.time;
+            timeInSeconds = parseInt(pd.time);
           }
-          
-          return {
-            x: new Date(pb.date),
-            y: timeInSeconds / 60 // Convert to minutes for chart
-          };
-        });
+        }
+        
+        return {
+          x: new Date(pd.date),
+          y: timeInSeconds / 60 // Convert to minutes for chart
+        };
+      });
       
       setData(sortedData);
     } catch (error) {
@@ -105,10 +102,18 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
         display: true,
         text: `${distance} Time Progression`,
         font: {
-          size: 16
-        }
+          size: 18,
+          family: 'Rajdhani, sans-serif',
+          weight: 'bold'
+        },
+        color: '#e2e8f0'
       },
       tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+        titleColor: '#e2e8f0',
+        bodyColor: '#e2e8f0',
+        borderColor: '#f97316',
+        borderWidth: 1,
         callbacks: {
           label: (context) => {
             return `Time: ${formatTime(context.parsed.y)}`;
@@ -127,16 +132,36 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
         },
         title: {
           display: true,
-          text: 'Date'
+          text: 'Date',
+          color: '#e2e8f0',
+          font: {
+            family: 'Inter, sans-serif',
+            weight: '500'
+          }
+        },
+        ticks: {
+          color: '#94a3b8'
+        },
+        grid: {
+          color: 'rgba(148, 163, 184, 0.2)'
         }
       },
       y: {
         title: {
           display: true,
-          text: 'Time (minutes)'
+          text: 'Time (minutes)',
+          color: '#e2e8f0',
+          font: {
+            family: 'Inter, sans-serif',
+            weight: '500'
+          }
         },
         ticks: {
+          color: '#94a3b8',
           callback: (value) => formatTime(value)
+        },
+        grid: {
+          color: 'rgba(148, 163, 184, 0.2)'
         },
         reverse: true // Lower times (better performance) at the top
       }
@@ -145,14 +170,14 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 h-96 flex items-center justify-center">
+      <div className="athletic-card p-6 h-96 flex items-center justify-center">
         <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="athletic-card p-6">
       <div style={{ height: '300px' }}>
         <Line data={chartData} options={options} />
       </div>

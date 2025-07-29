@@ -1,12 +1,12 @@
-# Running Analytics
+# Athletic Performance Hub
 
-🏃‍♂️ Personal running performance analyzer powered by Strava
+🏃‍♂️ Professional running performance analyzer with athletic dark theme
 
 [![Deploy Status](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml)
 
 🔥 **Live App**: https://strava-analytics-b9293.web.app ✅
 
-A personal running performance analyzer that integrates with Strava to find your best segments at any distance within your runs. Built with React and Firebase.
+A professional running performance analyzer with a sleek athletic dark theme that integrates with Strava to find your best segments at any distance within your runs. Features glassmorphism effects, metallic ranking badges, and a performance-focused UI designed for athletes. Built with React and Firebase.
 
 ## 🏃‍♂️ Features
 
@@ -17,14 +17,23 @@ A personal running performance analyzer that integrates with Strava to find your
 - **Mobile Responsive**: Clean Material Design interface optimized for all devices
 - **Strava Integration**: Seamlessly sync your running data with Full Sync or Recent Sync options
 
-### New Features
-- **🏅 Medal Rankings**: Top 3 performances displayed with medal icons (🥇🥈🥉)
+### 🎨 Athletic Performance Theme
+- **🌙 Dark Athletic UI**: Professional dark slate background with blue gradients
+- **⚡ Glassmorphism Effects**: Semi-transparent cards with backdrop blur for modern aesthetics
+- **🏆 Metallic Ranking Badges**: Gold, silver, and bronze gradient effects for top 3 performances
+- **🎯 Athletic Typography**: Rajdhani font for headings with Inter for body text
+- **🔥 Orange/Red Accents**: Vibrant athletic-inspired button and accent colors
+- **👁️ Eye-Friendly**: Dark theme optimized for comfortable viewing during workouts
+
+### 📊 Fixed & Enhanced Features
+- **✅ Progression Graphs**: Fixed chronological progression charts showing true improvement over time
+- **🏅 Enhanced Rankings**: Metallic badge styling with professional athletic feel
 - **📏 Custom Distances**: Create and manage custom distances in Settings (e.g., 7.5K, 12K)
 - **🌍 Unit System**: Toggle between metric (km) and imperial (miles) units
 - **🔗 Strava Links**: Quick access to view runs directly in Strava
 - **📊 Performance Graphs**: 
-  - Distance progression charts showing improvement over time
-  - Average metrics (speed, distance, time) bar charts
+  - ✅ Fixed distance progression charts showing actual improvement over time
+  - Average metrics (speed, distance, time) bar charts with dark theme
   - Customizable graph colors and time periods
   - Add/remove graphs from your dashboard
 - **⚙️ Customizable Columns**: Choose which data columns to display in Personal Bests

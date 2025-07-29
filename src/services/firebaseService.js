@@ -207,6 +207,97 @@ class FirebaseService {
     }
   }
 
+  async getProgressionData(distance, timeFilter, customDateFrom, customDateTo) {
+    try {
+      // Handle custom distance parsing
+      let queryDistance = distance;
+      if (distance && !['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
+        const parsed = this.parseCustomDistance(distance);
+        if (parsed) {
+          queryDistance = parsed.name;
+        } else {
+          return []; // Invalid custom distance
+        }
+      }
+
+      let q = query(
+        collection(db, 'segments'),
+        where('distance', '==', queryDistance),
+        orderBy('date', 'asc')
+      );
+
+      // Add date filters
+      if (timeFilter !== 'all-time' && timeFilter !== 'custom') {
+        const startDate = this.getDateFromFilter(timeFilter);
+        q = query(
+          collection(db, 'segments'),
+          where('distance', '==', queryDistance),
+          where('date', '>=', startDate),
+          orderBy('date', 'asc')
+        );
+      } else if (timeFilter === 'custom' && customDateFrom && customDateTo) {
+        q = query(
+          collection(db, 'segments'),
+          where('distance', '==', queryDistance),
+          where('date', '>=', new Date(customDateFrom)),
+          where('date', '<=', new Date(customDateTo)),
+          orderBy('date', 'asc')
+        );
+      }
+
+      const querySnapshot = await getDocs(q);
+      const allResults = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // If no results found for custom distance, try to create segments from existing activities
+      if (allResults.length === 0 && queryDistance !== distance) {
+        const parsed = this.parseCustomDistance(distance);
+        if (parsed) {
+          const activities = await this.getActivities();
+          const runningActivities = activities.filter(activity => 
+            ['Run', 'TrailRun'].includes(activity.type) && 
+            activity.distance >= parsed.meters
+          );
+
+          for (const activity of runningActivities) {
+            await this.createCustomSegment(activity, distance);
+          }
+
+          // Re-query for the newly created segments
+          const newQuerySnapshot = await getDocs(q);
+          return newQuerySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+        }
+      }
+
+      // Track personal best progression over time
+      const progressionData = [];
+      let bestTime = Infinity;
+
+      allResults.forEach(result => {
+        if (result.time < bestTime) {
+          bestTime = result.time;
+          progressionData.push({
+            time: result.time,
+            date: result.date,
+            activityName: result.activityName,
+            id: result.id,
+            pace: result.pace
+          });
+        }
+      });
+
+      return progressionData;
+    } catch (error) {
+      console.error('Error getting progression data:', error);
+      throw error;
+    }
+  }
+
   formatTime(seconds, forceHours = false) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);

@@ -86,21 +86,21 @@ const Graphs = () => {
   };
 
   return (
-    <div className="mt-6 space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
+    <div className="mt-6 space-y-6 mx-4">
+      <div className="athletic-card-gradient p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Performance Graphs</h2>
+          <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Performance Graphs</h2>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
             >
               <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium">Date Filter</span>
+              <span className="text-sm font-medium text-slate-300">Date Filter</span>
             </button>
             <button
               onClick={() => setIsAddingGraph(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center space-x-2 px-4 py-2 athletic-button-primary text-white rounded-lg"
             >
               <Plus className="w-4 h-4" />
               <span>Add Graph</span>
@@ -109,15 +109,15 @@ const Graphs = () => {
         </div>
 
         {isFilterOpen && (
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="font-medium text-blue-900 mb-3">Date Filter</h3>
+          <div className="mb-6 p-4 athletic-card rounded-lg">
+            <h3 className="font-medium text-white mb-3">Date Filter</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-blue-800 mb-1">Time Period</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Time Period</label>
                 <select
                   value={timeFilter}
                   onChange={(e) => setTimeFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm text-white"
                 >
                   {TIME_FILTERS.map(filter => (
                     <option key={filter.value} value={filter.value}>{filter.label}</option>
@@ -128,21 +128,21 @@ const Graphs = () => {
               {timeFilter === 'custom' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-blue-800 mb-1">From Date</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">From Date</label>
                     <input
                       type="date"
                       value={customDateFrom}
                       onChange={(e) => setCustomDateFrom(e.target.value)}
-                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-blue-800 mb-1">To Date</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">To Date</label>
                     <input
                       type="date"
                       value={customDateTo}
                       onChange={(e) => setCustomDateTo(e.target.value)}
-                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm text-white"
                     />
                   </div>
                 </>
@@ -152,12 +152,12 @@ const Graphs = () => {
         )}
 
         {isAddingGraph && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="mb-6 p-4 athletic-card rounded-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium">Add New Graph</h3>
+              <h3 className="font-medium text-white">Add New Graph</h3>
               <button
                 onClick={() => setIsAddingGraph(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-slate-400 hover:text-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -165,13 +165,13 @@ const Graphs = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Graph Type
                 </label>
                 <select
                   value={newGraphType}
                   onChange={(e) => setNewGraphType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
                 >
                   <option value="progression">Distance Progression</option>
                   <option value="bar">Average Metrics</option>
@@ -180,13 +180,13 @@ const Graphs = () => {
 
               {newGraphType === 'progression' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Distance
                   </label>
                   <select
                     value={selectedDistance}
                     onChange={(e) => setSelectedDistance(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
                   >
                     {allDistances.map(distance => (
                       <option key={distance} value={distance}>{distance}</option>
@@ -198,13 +198,13 @@ const Graphs = () => {
               {newGraphType === 'bar' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
                       Metric
                     </label>
                     <select
                       value={selectedMetric}
                       onChange={(e) => setSelectedMetric(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
                     >
                       <option value="speed">Average Speed</option>
                       <option value="distance">Average Distance</option>
@@ -215,13 +215,13 @@ const Graphs = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
                       Period
                     </label>
                     <select
                       value={selectedPeriod}
                       onChange={(e) => setSelectedPeriod(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 text-white"
                     >
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
@@ -233,7 +233,7 @@ const Graphs = () => {
 
               <button
                 onClick={addGraph}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="w-full px-4 py-2 athletic-button-primary text-white rounded-lg"
               >
                 Add Graph
               </button>
@@ -247,7 +247,7 @@ const Graphs = () => {
               <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
                 <button
                   onClick={() => toggleGraphVisibility(graph.id)}
-                  className="p-1 text-gray-400 hover:text-gray-600 bg-white rounded shadow"
+                  className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
                 >
                   {graph.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
@@ -258,7 +258,7 @@ const Graphs = () => {
                 />
                 <button
                   onClick={() => deleteGraph(graph.id)}
-                  className="p-1 text-red-400 hover:text-red-600 bg-white rounded shadow"
+                  className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -293,10 +293,10 @@ const Graphs = () => {
 
         {graphs.length === 0 && !isAddingGraph && (
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">No graphs added yet. Create your first graph to visualize your performance!</p>
+            <p className="text-slate-300 mb-4">No graphs added yet. Create your first graph to visualize your performance!</p>
             <button
               onClick={() => setIsAddingGraph(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 athletic-button-primary text-white rounded-lg"
             >
               Add Your First Graph
             </button>
