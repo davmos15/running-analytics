@@ -4,21 +4,35 @@
 
 [![Deploy Status](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/davmos15/running-analytics/actions/workflows/deploy.yml)
 
-🔥 **Live App**: https://davmos15.github.io/running-analytics
+🔥 **Live App**: https://strava-analytics-b9293.web.app
 
 A personal running performance analyzer that integrates with Strava to find your best segments at any distance within your runs. Built with React and Firebase.
 
 ## 🏃‍♂️ Features
 
+### Core Features
 - **Personal Bests Analysis**: Find your fastest segments (5K, 10K, etc.) within longer runs
-- **Flexible Distance Selection**: Analyze performance at any standard running distance
+- **Flexible Distance Selection**: Analyze performance at any standard or custom distance
 - **Advanced Filtering**: Filter by time periods or custom date ranges
-- **Mobile Responsive**: Clean Google Material Design interface
-- **Strava Integration**: Seamlessly sync your running data
+- **Mobile Responsive**: Clean Material Design interface optimized for all devices
+- **Strava Integration**: Seamlessly sync your running data with Full Sync or Recent Sync options
+
+### New Features
+- **🏅 Medal Rankings**: Top 3 performances displayed with medal icons (🥇🥈🥉)
+- **📏 Custom Distances**: Create and manage custom distances in Settings (e.g., 7.5K, 12K)
+- **🌍 Unit System**: Toggle between metric (km) and imperial (miles) units
+- **🔗 Strava Links**: Quick access to view runs directly in Strava
+- **📊 Performance Graphs**: 
+  - Distance progression charts showing improvement over time
+  - Average metrics (speed, distance, time) bar charts
+  - Customizable graph colors and time periods
+  - Add/remove graphs from your dashboard
+- **⚙️ Customizable Columns**: Choose which data columns to display in Personal Bests
+- **📅 Enhanced Date Formatting**: Multiple date format options in Settings
 
 ## 🚀 Demo
 
-[Live Demo](https://your-app-url.web.app) (Replace with your actual URL)
+[Live Demo](https://strava-analytics-b9293.web.app)
 
 ## 📋 Prerequisites
 
@@ -92,6 +106,9 @@ src/
 │   ├── Layout/         # Layout components
 │   ├── PersonalBests/  # Personal bests feature
 │   ├── RecentRuns/     # Recent runs feature
+│   ├── Graphs/         # Performance graphs and charts
+│   ├── Settings/       # Settings and configuration
+│   ├── SyncButton/     # Sync functionality
 │   └── common/         # Shared components
 ├── services/           # API services
 ├── hooks/              # Custom React hooks

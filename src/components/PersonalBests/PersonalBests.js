@@ -15,8 +15,9 @@ const PersonalBests = () => {
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState([]);
+  const [allDistances, setAllDistances] = useState(DISTANCES);
 
-  // Initialize visible columns on mount
+  // Initialize visible columns and distances on mount
   useEffect(() => {
     const savedColumns = localStorage.getItem('visibleColumns');
     if (savedColumns) {
@@ -27,6 +28,16 @@ const PersonalBests = () => {
         .filter(col => col.default)
         .map(col => col.key);
       setVisibleColumns(defaultColumns);
+    }
+    
+    // Load custom distances
+    const savedDistances = localStorage.getItem('customDistances');
+    if (savedDistances) {
+      const customDistances = JSON.parse(savedDistances);
+      // Merge custom distances with default ones, removing 'Custom' option temporarily
+      const baseDistances = DISTANCES.filter(d => d !== 'Custom');
+      const allDistanceLabels = [...baseDistances, ...customDistances.map(d => d.label), 'Custom'];
+      setAllDistances(allDistanceLabels);
     }
   }, []);
 
@@ -53,7 +64,7 @@ const PersonalBests = () => {
       <DistanceSelector
         selectedDistance={selectedDistance}
         setSelectedDistance={setSelectedDistance}
-        distances={DISTANCES}
+        distances={allDistances}
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
         customDistance={customDistance}

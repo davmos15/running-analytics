@@ -417,6 +417,49 @@ class FirebaseService {
       throw error;
     }
   }
+
+  // Generate segments for a specific distance across all activities
+  async generateSegmentsForDistance(distanceMeters) {
+    try {
+      console.log(`Generating segments for ${distanceMeters}m distance...`);
+      const activities = await this.getActivities();
+      const runningActivities = activities.filter(activity => 
+        ['Run', 'TrailRun'].includes(activity.type) && activity.distance >= distanceMeters
+      );
+
+      const distanceLabel = distanceMeters >= 1000 ? `${distanceMeters / 1000}K` : `${distanceMeters}m`;
+      
+      for (const activity of runningActivities) {
+        const activityDate = new Date(activity.start_date);
+        const distance = activity.distance;
+        const time = activity.moving_time;
+        const estimatedTime = (time * distanceMeters) / distance;
+
+        const segment = {
+          activityId: activity.id,
+          activityName: activity.name,
+          distance: distanceLabel,
+          distanceMeters: distanceMeters,
+          time: Math.round(estimatedTime),
+          pace: this.calculatePace(estimatedTime, distanceMeters),
+          date: activityDate,
+          startTime: activity.start_date,
+          averageSpeed: distanceMeters / estimatedTime,
+          fullRunDistance: `${Math.round(distance / 1000 * 100) / 100}K`,
+          fullRunTime: time,
+          createdAt: new Date()
+        };
+
+        await this.saveSegment(segment);
+      }
+
+      console.log(`Generated segments for ${runningActivities.length} activities`);
+      return runningActivities.length;
+    } catch (error) {
+      console.error('Error generating segments for distance:', error);
+      throw error;
+    }
+  }
 }
 
 const firebaseService = new FirebaseService();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Timer, Settings } from 'lucide-react';
+import { Star, Timer, Settings, BarChart3 } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   return (
@@ -29,6 +29,17 @@ const Navigation = ({ activeTab, setActiveTab }) => {
           Recent Runs
         </button>
         <button 
+          onClick={() => setActiveTab('graphs')}
+          className={`flex-1 flex items-center justify-center px-6 py-3 rounded-md font-medium transition-all ${
+            activeTab === 'graphs' 
+              ? 'bg-blue-50 text-blue-700 shadow-sm' 
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+          }`}
+        >
+          <BarChart3 className="w-5 h-5 mr-2" />
+          Graphs
+        </button>
+        <button 
           onClick={() => setActiveTab('settings')}
           className={`flex-1 flex items-center justify-center px-6 py-3 rounded-md font-medium transition-all ${
             activeTab === 'settings' 
@@ -43,7 +54,7 @@ const Navigation = ({ activeTab, setActiveTab }) => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-4">
           <button 
             onClick={() => setActiveTab('personal-bests')}
             className={`flex flex-col items-center py-3 px-2 ${
@@ -61,6 +72,15 @@ const Navigation = ({ activeTab, setActiveTab }) => {
           >
             <Timer className="w-6 h-6 mb-1" />
             <span className="text-xs font-medium">Recent Runs</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('graphs')}
+            className={`flex flex-col items-center py-3 px-2 ${
+              activeTab === 'graphs' ? 'text-blue-600' : 'text-gray-400'
+            }`}
+          >
+            <BarChart3 className="w-6 h-6 mb-1" />
+            <span className="text-xs font-medium">Graphs</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}

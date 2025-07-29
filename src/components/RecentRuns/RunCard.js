@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDate, getTypeColor } from '../../utils/dateUtils';
+import { ExternalLink } from 'lucide-react';
 
 const RunCard = ({ run }) => {
   const formatTime = (seconds) => {
@@ -36,6 +37,16 @@ const RunCard = ({ run }) => {
             <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(run.type)}`}>
               {run.type}
             </span>
+            {run.id && (
+              <a
+                href={`https://www.strava.com/activities/${run.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
           <div className="flex items-center space-x-4 text-sm text-gray-500">
             <span>{formatDate(run.start_date)}</span>

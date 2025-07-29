@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDate } from '../../utils/dateUtils';
 import { AVAILABLE_COLUMNS } from '../../utils/constants';
+import { ExternalLink } from 'lucide-react';
 
 const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
   // If no visible columns specified, use all default columns
@@ -11,24 +12,45 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
     switch (columnKey) {
       case 'rank':
         return (
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
             run.rank === 1 ? 'bg-yellow-500' : 
             run.rank === 2 ? 'bg-gray-400' : 
             run.rank === 3 ? 'bg-orange-600' : 'bg-blue-500'
-          }`}>
-            {run.rank}
+          } text-white font-bold text-sm`}>
+            {run.rank <= 3 ? (
+              <span className="text-lg">
+                {run.rank === 1 ? '🥇' : run.rank === 2 ? '🥈' : '🥉'}
+              </span>
+            ) : (
+              run.rank
+            )}
           </div>
         );
       case 'time':
         return <div className="text-lg font-semibold text-gray-900">{run.time}</div>;
       case 'pace':
-        return <div className="text-sm text-gray-900">{run.pace}/km</div>;
+        const unitSystem = localStorage.getItem('unitSystem') || 'metric';
+        const paceUnit = unitSystem === 'metric' ? '/km' : '/mi';
+        return <div className="text-sm text-gray-900">{run.pace}{paceUnit}</div>;
       case 'date':
         return <div className="text-sm text-gray-900">{formatDate(run.date)}</div>;
       case 'runName':
         return (
-          <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
-            {run.runName}
+          <div className="flex items-center space-x-2">
+            <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+              {run.runName}
+            </div>
+            {run.activityId && (
+              <a
+                href={`https://www.strava.com/activities/${run.activityId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-blue-600 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
         );
       case 'fullRunDistance':

@@ -3,6 +3,7 @@ import Layout from './components/Layout/Layout';
 import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
 import Settings from './components/Settings/Settings';
+import Graphs from './components/Graphs/Graphs';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
 import { useStrava } from './hooks/useStrava';
@@ -44,6 +45,7 @@ function App() {
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}
+      {activeTab === 'graphs' && <Graphs />}
       {activeTab === 'settings' && <Settings />}
     </Layout>
   );

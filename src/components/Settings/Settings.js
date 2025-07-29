@@ -1,17 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Calendar, Database } from 'lucide-react';
+import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [customDistances, setCustomDistances] = useState([]);
+  const [newDistance, setNewDistance] = useState('');
+  const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
+  const [isAddingDistance, setIsAddingDistance] = useState(false);
 
   // Load settings from localStorage
   useEffect(() => {
     const savedDateFormat = localStorage.getItem('dateFormat');
     if (savedDateFormat) {
       setDateFormat(savedDateFormat);
+    }
+    
+    const savedDistances = localStorage.getItem('customDistances');
+    if (savedDistances) {
+      setCustomDistances(JSON.parse(savedDistances));
+    }
+    
+    const savedUnitSystem = localStorage.getItem('unitSystem');
+    if (savedUnitSystem) {
+      setUnitSystem(savedUnitSystem);
     }
   }, []);
 
@@ -34,6 +48,57 @@ const Settings = () => {
         setIsReprocessing(false);
       }
     }
+  };
+
+  const handleAddDistance = async () => {
+    if (!newDistance || isNaN(parseFloat(newDistance))) {
+      alert('Please enter a valid distance in kilometers');
+      return;
+    }
+    
+    const distanceKm = parseFloat(newDistance);
+    const distanceMeters = distanceKm * 1000;
+    const distanceLabel = distanceKm >= 1 ? `${distanceKm}K` : `${distanceMeters}m`;
+    
+    if (customDistances.some(d => d.meters === distanceMeters)) {
+      alert('This distance already exists');
+      return;
+    }
+    
+    setIsAddingDistance(true);
+    try {
+      // Add the new distance
+      const newDistanceObj = { label: distanceLabel, meters: distanceMeters };
+      const updatedDistances = [...customDistances, newDistanceObj].sort((a, b) => a.meters - b.meters);
+      setCustomDistances(updatedDistances);
+      localStorage.setItem('customDistances', JSON.stringify(updatedDistances));
+      
+      // Generate segments for this new distance
+      await firebaseService.generateSegmentsForDistance(distanceMeters);
+      
+      setNewDistance('');
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 3000);
+    } catch (error) {
+      alert('Error creating distance: ' + error.message);
+    } finally {
+      setIsAddingDistance(false);
+    }
+  };
+  
+  const handleDeleteDistance = (distanceToDelete) => {
+    const updatedDistances = customDistances.filter(d => d.meters !== distanceToDelete.meters);
+    setCustomDistances(updatedDistances);
+    localStorage.setItem('customDistances', JSON.stringify(updatedDistances));
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+  
+  const handleUnitSystemChange = (newSystem) => {
+    setUnitSystem(newSystem);
+    localStorage.setItem('unitSystem', newSystem);
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
   };
 
   const dateFormatOptions = [
@@ -99,6 +164,88 @@ const Settings = () => {
                 )}
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Unit System Settings */}
+        <div className="border-t pt-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <Globe className="w-4 h-4 text-gray-500" />
+            <h3 className="text-md font-medium text-gray-900">Unit System</h3>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Choose between metric (kilometers) and imperial (miles) units
+          </p>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => handleUnitSystemChange('metric')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                unitSystem === 'metric'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Metric (km)
+            </button>
+            <button
+              onClick={() => handleUnitSystemChange('imperial')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                unitSystem === 'imperial'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Imperial (miles)
+            </button>
+          </div>
+        </div>
+
+        {/* Custom Distances */}
+        <div className="border-t pt-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <Plus className="w-4 h-4 text-gray-500" />
+            <h3 className="text-md font-medium text-gray-900">Custom Distances</h3>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Add custom distances for Personal Bests tracking (enter values in kilometers)
+          </p>
+          
+          <div className="space-y-3">
+            <div className="flex space-x-2">
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Enter distance in km (e.g., 7.5)"
+                value={newDistance}
+                onChange={(e) => setNewDistance(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={handleAddDistance}
+                disabled={isAddingDistance || !newDistance}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isAddingDistance ? 'Adding...' : 'Add'}</span>
+              </button>
+            </div>
+            
+            {customDistances.length > 0 && (
+              <div className="space-y-2 mt-4">
+                <p className="text-sm font-medium text-gray-700">Your custom distances:</p>
+                {customDistances.map((distance) => (
+                  <div key={distance.meters} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="font-medium text-gray-900">{distance.label}</span>
+                    <button
+                      onClick={() => handleDeleteDistance(distance)}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
