@@ -57,8 +57,11 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
           }
         }
         
+        // Handle Firebase Timestamp objects
+        const dateValue = pd.date?.toDate ? pd.date.toDate() : new Date(pd.date);
+        
         return {
-          x: new Date(pd.date),
+          x: dateValue,
           y: timeInSeconds / 60 // Convert to minutes for chart
         };
       });
@@ -172,6 +175,16 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
     return (
       <div className="athletic-card p-6 h-96 flex items-center justify-center">
         <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (data.length === 0) {
+    return (
+      <div className="athletic-card p-6">
+        <div className="text-center py-8">
+          <p className="text-slate-400">No progression data available for {distance}</p>
+        </div>
       </div>
     );
   }

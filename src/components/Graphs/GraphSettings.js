@@ -14,25 +14,25 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1 text-gray-400 hover:text-gray-600 bg-white rounded shadow"
+        className="p-1 text-slate-400 hover:text-slate-200 athletic-button-secondary rounded"
       >
         <Settings className="w-4 h-4" />
       </button>
 
       {isOpen && (
-        <div className="absolute top-8 right-0 w-64 bg-white rounded-lg shadow-lg p-4 z-20">
-          <h4 className="font-medium mb-3">Graph Settings</h4>
+        <div className="absolute top-8 right-0 w-64 athletic-card-gradient rounded-lg shadow-lg p-4 z-50 border border-blue-500/30">
+          <h4 className="font-medium mb-3 text-white">Graph Settings</h4>
           
           <div className="space-y-3">
             {graph.type === 'progression' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-white mb-1">
                   Distance
                 </label>
                 <select
                   value={graph.distance}
                   onChange={(e) => onUpdate({ distance: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
                   {allDistances.map(distance => (
                     <option key={distance} value={distance}>{distance}</option>
@@ -44,13 +44,13 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
             {graph.type === 'bar' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Metric
                   </label>
                   <select
                     value={graph.metric}
                     onChange={(e) => onUpdate({ metric: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value="speed">Average Speed</option>
                     <option value="distance">Average Distance</option>
@@ -61,13 +61,13 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-1">
                     Period
                   </label>
                   <select
                     value={graph.period}
                     onChange={(e) => onUpdate({ period: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
@@ -78,7 +78,7 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-white mb-1">
                 Color
               </label>
               <div className="flex items-center space-x-2">
@@ -86,13 +86,13 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
                   type="color"
                   value={tempColor}
                   onChange={(e) => setTempColor(e.target.value)}
-                  className="w-12 h-8 border border-gray-300 rounded cursor-pointer"
+                  className="w-12 h-8 border border-slate-600 rounded cursor-pointer"
                 />
                 <input
                   type="text"
                   value={tempColor}
                   onChange={(e) => setTempColor(e.target.value)}
-                  className="flex-1 px-3 py-1 border border-gray-300 rounded-lg text-sm"
+                  className="flex-1 px-3 py-1 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 />
               </div>
             </div>
@@ -101,13 +101,13 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
           <div className="flex justify-end space-x-2 mt-4">
             <button
               onClick={() => setIsOpen(false)}
-              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+              className="px-3 py-1 text-sm text-slate-300 hover:text-slate-100"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-3 py-1 text-sm athletic-button-primary text-white rounded"
             >
               Save
             </button>
