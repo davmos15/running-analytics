@@ -5,7 +5,7 @@ import ResultsTable from './ResultsTable';
 import ResultsCards from './ResultsCards';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { usePersonalBests } from '../../hooks/usePersonalBests';
-import { DISTANCES, AVAILABLE_COLUMNS } from '../../utils/constants';
+import { DISTANCES, AVAILABLE_COLUMNS, DISTANCE_METERS } from '../../utils/constants';
 
 const PersonalBests = () => {
   const [selectedDistance, setSelectedDistance] = useState('5K');
@@ -30,13 +30,23 @@ const PersonalBests = () => {
       setVisibleColumns(defaultColumns);
     }
     
-    // Load custom distances
+    // Load custom distances and sort them properly
     const savedDistances = localStorage.getItem('customDistances');
     if (savedDistances) {
       const customDistances = JSON.parse(savedDistances);
-      // Merge custom distances with default ones, removing 'Custom' option temporarily
+      // Merge custom distances with default ones
       const baseDistances = DISTANCES.filter(d => d !== 'Custom');
-      const allDistanceLabels = [...baseDistances, ...customDistances.map(d => d.label), 'Custom'];
+      const customLabels = customDistances.map(d => d.label);
+      
+      // Sort all distances by their meter values
+      const allDistanceLabels = [...baseDistances, ...customLabels].sort((a, b) => {
+        const aMeters = DISTANCE_METERS[a] || (customDistances.find(d => d.label === a)?.meters) || 0;
+        const bMeters = DISTANCE_METERS[b] || (customDistances.find(d => d.label === b)?.meters) || 0;
+        return aMeters - bMeters;
+      });
+      
+      // Add 'Custom' at the end
+      allDistanceLabels.push('Custom');
       setAllDistances(allDistanceLabels);
     }
   }, []);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe } from 'lucide-react';
+import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, Download } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
+import syncService from '../../services/syncService';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
@@ -10,6 +11,7 @@ const Settings = () => {
   const [newDistance, setNewDistance] = useState('');
   const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
   const [isAddingDistance, setIsAddingDistance] = useState(false);
+  const [isImportingRuns, setIsImportingRuns] = useState(false);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -99,6 +101,22 @@ const Settings = () => {
     localStorage.setItem('unitSystem', newSystem);
     setShowSuccessMessage(true);
     setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  const handleImportRecentRuns = async () => {
+    if (window.confirm('This will import your recent activities from Strava. Continue?')) {
+      setIsImportingRuns(true);
+      try {
+        const result = await syncService.syncRecentActivities();
+        alert(`Import complete! Found ${result.newActivitiesCount} new activities.`);
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+      } catch (error) {
+        alert('Error importing recent runs: ' + error.message);
+      } finally {
+        setIsImportingRuns(false);
+      }
+    }
   };
 
   const dateFormatOptions = [
@@ -257,6 +275,24 @@ const Settings = () => {
           </div>
           
           <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                Import Recent Activities
+              </h4>
+              <p className="text-sm text-gray-500 mb-3">
+                Import your latest activities from Strava (last 20 runs). 
+                This is useful for keeping your data up to date without a full sync.
+              </p>
+              <button
+                onClick={handleImportRecentRuns}
+                disabled={isImportingRuns}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isImportingRuns ? 'Importing...' : 'Import Recent Runs'}</span>
+              </button>
+            </div>
+
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-2">
                 Generate Segments for All Distances

@@ -10,10 +10,8 @@ const ResultsCards = ({ personalBests }) => {
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                run.rank === 1 ? 'bg-yellow-500' : 
-                run.rank === 2 ? 'bg-gray-400' : 
-                run.rank === 3 ? 'bg-orange-600' : 'bg-blue-500'
-              } text-white font-bold`}>
+                run.rank <= 3 ? '' : 'bg-blue-500 text-white'
+              } font-bold`}>
                 {run.rank <= 3 ? (
                   <span className="text-xl">
                     {run.rank === 1 ? '🥇' : run.rank === 2 ? '🥈' : '🥉'}

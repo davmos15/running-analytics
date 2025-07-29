@@ -13,10 +13,8 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
       case 'rank':
         return (
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            run.rank === 1 ? 'bg-yellow-500' : 
-            run.rank === 2 ? 'bg-gray-400' : 
-            run.rank === 3 ? 'bg-orange-600' : 'bg-blue-500'
-          } text-white font-bold text-sm`}>
+            run.rank <= 3 ? '' : 'bg-blue-500 text-white'
+          } font-bold text-sm`}>
             {run.rank <= 3 ? (
               <span className="text-lg">
                 {run.rank === 1 ? '🥇' : run.rank === 2 ? '🥈' : '🥉'}
