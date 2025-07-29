@@ -288,6 +288,22 @@ const Settings = () => {
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
               </button>
             </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-white mb-2">
+                Find Best Segments with GPS Data
+              </h4>
+              <p className="text-sm text-slate-300 mb-3">
+                Re-analyze activities using GPS streams to find your actual fastest segments within each run.
+                This will find your best efforts anywhere in the run, not just from the start.
+              </p>
+              <button
+                onClick={() => alert('This feature will be available after syncing. Use the Sync button to fetch GPS data for new segments.')}
+                className="px-4 py-2 athletic-button-secondary text-slate-300 rounded-lg text-sm"
+              >
+                Coming Soon - Use Sync for Now
+              </button>
+            </div>
           </div>
         </div>
       </div>

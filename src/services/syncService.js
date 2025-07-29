@@ -65,7 +65,17 @@ class SyncService {
 
         const exists = await firebaseService.activityExists(activity.id);
         if (!exists) {
-          await firebaseService.saveActivityWithSegments(activity.id, activity);
+          // Try to get streams for better segment detection
+          let streams = null;
+          try {
+            streams = await stravaApi.getActivityStreams(activity.id, ['time', 'distance']);
+          } catch (streamError) {
+            console.log(`Could not fetch streams for activity ${activity.id}, using basic extraction`);
+          }
+          
+          // Save activity and process segments with streams if available
+          await firebaseService.saveActivity(activity.id, activity);
+          await firebaseService.processActivityForSegments(activity, streams);
           console.log(`Processed new activity: ${activity.name}`);
         }
 

@@ -119,9 +119,45 @@ class FirebaseService {
         });
       }
       
-      // Sort by time and take top 10
+      // Sort by time
       allSegments.sort((a, b) => a.data.time - b.data.time);
-      const topSegments = allSegments.slice(0, 10);
+      
+      // Filter out overlapping segments from the same activity
+      const nonOverlappingSegments = [];
+      const usedRanges = new Map(); // activityId -> array of used ranges
+      
+      for (const segment of allSegments) {
+        const activityId = segment.data.activityId;
+        const segmentStart = segment.data.segmentStart || 0;
+        const segmentEnd = segment.data.segmentEnd || segment.data.distanceMeters;
+        
+        // Check if this segment overlaps with any already selected from the same activity
+        if (!usedRanges.has(activityId)) {
+          usedRanges.set(activityId, []);
+        }
+        
+        const activityRanges = usedRanges.get(activityId);
+        let overlaps = false;
+        
+        for (const range of activityRanges) {
+          if (segmentStart < range.end && segmentEnd > range.start) {
+            overlaps = true;
+            break;
+          }
+        }
+        
+        if (!overlaps) {
+          nonOverlappingSegments.push(segment);
+          activityRanges.push({ start: segmentStart, end: segmentEnd });
+          
+          // Stop if we have 10 segments
+          if (nonOverlappingSegments.length >= 10) {
+            break;
+          }
+        }
+      }
+      
+      const topSegments = nonOverlappingSegments;
       let results = await Promise.all(topSegments.map(async (segment, index) => {
         const doc = segment.doc;
         const data = segment.data;
@@ -141,6 +177,14 @@ class FirebaseService {
           }
         }
         
+        // Format segment range
+        let segmentRange = 'Full Run';
+        if (data.segmentStart !== undefined && data.segmentEnd !== undefined) {
+          const startKm = (data.segmentStart / 1000).toFixed(2);
+          const endKm = (data.segmentEnd / 1000).toFixed(2);
+          segmentRange = `${startKm}km - ${endKm}km`;
+        }
+        
         return {
           rank: index + 1,
           id: doc.id,
@@ -148,6 +192,7 @@ class FirebaseService {
           pace: data.pace,
           date: data.date,
           runName: data.activityName || 'Unknown Run',
+          segment: segmentRange,
           fullRunDistance: fullDistance || 'N/A',
           ...data
         };
@@ -343,15 +388,17 @@ class FirebaseService {
   }
 
   // Segment processing methods
-  async processActivityForSegments(activity) {
+  async processActivityForSegments(activity, streams = null) {
     try {
       // Only process running activities
       if (!['Run', 'TrailRun'].includes(activity.type)) {
         return;
       }
 
-      // Extract basic segments from activity data
-      const segments = this.extractSegmentsFromActivity(activity);
+      // Use streams if available, otherwise fall back to basic extraction
+      const segments = streams 
+        ? await this.findBestSegmentsFromStreams(activity, streams)
+        : this.extractSegmentsFromActivity(activity);
       
       // Save each segment
       for (const segment of segments) {
@@ -429,12 +476,113 @@ class FirebaseService {
           averageSpeed: distanceObj.meters / estimatedTime, // m/s
           fullRunDistance: `${Math.round(distance / 1000 * 100) / 100}K`,
           fullRunTime: time,
-          createdAt: new Date()
+          createdAt: new Date(),
+          // Add placeholder for segment bounds - will be updated when we have GPS data
+          segmentStart: 0,
+          segmentEnd: distanceObj.meters
         });
       }
     });
 
     return segments;
+  }
+
+  // New method to find best segments using GPS streams
+  async findBestSegmentsFromStreams(activity, streams) {
+    if (!streams || !streams.distance || !streams.time) {
+      return this.extractSegmentsFromActivity(activity);
+    }
+
+    const segments = [];
+    const activityDate = new Date(activity.start_date);
+    const distanceStream = streams.distance.data;
+    const timeStream = streams.time.data;
+    
+    // Define common distances to track (in meters)
+    const distances = [
+      { name: '100m', meters: 100 },
+      { name: '200m', meters: 200 },
+      { name: '400m', meters: 400 },
+      { name: '800m', meters: 800 },
+      { name: '1K', meters: 1000 },
+      { name: '1.5K', meters: 1500 },
+      { name: '2K', meters: 2000 },
+      { name: '3K', meters: 3000 },
+      { name: '5K', meters: 5000 },
+      { name: '10K', meters: 10000 },
+      { name: '15K', meters: 15000 },
+      { name: '21.1K', meters: 21097.5 }, // Half marathon
+      { name: '42.2K', meters: 42195 }    // Marathon
+    ];
+
+    // For each distance, find the fastest segment
+    distances.forEach(distanceObj => {
+      if (activity.distance >= distanceObj.meters) {
+        const bestSegment = this.findFastestSegment(
+          distanceStream, 
+          timeStream, 
+          distanceObj.meters
+        );
+        
+        if (bestSegment) {
+          segments.push({
+            activityId: activity.id,
+            activityName: activity.name,
+            distance: distanceObj.name,
+            distanceMeters: distanceObj.meters,
+            time: Math.round(bestSegment.time),
+            pace: this.calculatePace(bestSegment.time, distanceObj.meters),
+            date: activityDate,
+            startTime: activity.start_date,
+            averageSpeed: distanceObj.meters / bestSegment.time, // m/s
+            fullRunDistance: `${Math.round(activity.distance / 1000 * 100) / 100}K`,
+            fullRunTime: activity.moving_time,
+            createdAt: new Date(),
+            segmentStart: bestSegment.startDistance,
+            segmentEnd: bestSegment.endDistance
+          });
+        }
+      }
+    });
+
+    return segments;
+  }
+
+  // Sliding window algorithm to find fastest segment
+  findFastestSegment(distanceStream, timeStream, targetDistance) {
+    let bestTime = Infinity;
+    let bestSegment = null;
+    
+    for (let i = 0; i < distanceStream.length; i++) {
+      // Find the end point for this segment
+      const startDistance = distanceStream[i];
+      const targetEndDistance = startDistance + targetDistance;
+      
+      // Binary search or linear search for the end point
+      let j = i + 1;
+      while (j < distanceStream.length && distanceStream[j] < targetEndDistance) {
+        j++;
+      }
+      
+      // If we found a valid segment
+      if (j < distanceStream.length) {
+        // Interpolate if needed for exact distance
+        const segmentTime = timeStream[j] - timeStream[i];
+        
+        if (segmentTime < bestTime) {
+          bestTime = segmentTime;
+          bestSegment = {
+            time: segmentTime,
+            startDistance: startDistance,
+            endDistance: distanceStream[j],
+            startIndex: i,
+            endIndex: j
+          };
+        }
+      }
+    }
+    
+    return bestSegment;
   }
 
   // Method to create segment for any custom distance

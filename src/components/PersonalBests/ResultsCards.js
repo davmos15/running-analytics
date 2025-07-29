@@ -50,6 +50,11 @@ const ResultsCards = ({ personalBests }) => {
             <div className="flex items-center justify-between text-sm text-slate-300">
               <span>Run Distance: {run.fullRunDistance}</span>
             </div>
+            {run.segment && run.segment !== 'Full Run' && (
+              <div className="text-sm text-slate-400 mt-1">
+                <span className="font-mono">Segment: {run.segment}</span>
+              </div>
+            )}
           </div>
         </div>
       ))}

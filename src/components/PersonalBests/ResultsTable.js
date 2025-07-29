@@ -55,6 +55,8 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
             )}
           </div>
         );
+      case 'segment':
+        return <div className="text-sm text-slate-300 font-mono">{run.segment || 'Full Run'}</div>;
       case 'fullRunDistance':
         return <div className="text-sm text-slate-300">{run.fullRunDistance}</div>;
       case 'averageSpeed':

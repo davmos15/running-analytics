@@ -40,6 +40,7 @@ export const AVAILABLE_COLUMNS = [
   { key: 'pace', label: 'Pace', default: true, description: 'Average pace per kilometer' },
   { key: 'date', label: 'Date', default: true, description: 'Date of the activity' },
   { key: 'runName', label: 'Run', default: true, description: 'Name of the activity' },
+  { key: 'segment', label: 'PB Segment', default: true, description: 'Section of run where PB was achieved' },
   { key: 'fullRunDistance', label: 'Run Distance', default: true, description: 'Total distance of the full run' },
   { key: 'averageSpeed', label: 'Avg Speed', default: false, description: 'Average speed in m/s' },
   { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run' },
