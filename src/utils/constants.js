@@ -35,14 +35,38 @@ export const STRAVA_ACTIVITY_TYPES = {
 };
 
 export const AVAILABLE_COLUMNS = [
-  { key: 'rank', label: 'Rank', default: true, description: 'Position in rankings' },
-  { key: 'time', label: 'Time', default: true, description: 'Segment completion time' },
-  { key: 'pace', label: 'Pace', default: true, description: 'Average pace per kilometer' },
-  { key: 'date', label: 'Date', default: true, description: 'Date of the activity' },
-  { key: 'runName', label: 'Run', default: true, description: 'Name of the activity' },
-  { key: 'segment', label: 'PB Segment', default: true, description: 'Section of run where PB was achieved' },
-  { key: 'fullRunDistance', label: 'Run Distance', default: true, description: 'Total distance of the full run' },
-  { key: 'averageSpeed', label: 'Avg Speed', default: false, description: 'Average speed in m/s' },
-  { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run' },
-  { key: 'activityId', label: 'Activity ID', default: false, description: 'Strava activity ID' }
+  { key: 'rank', label: 'Rank', default: true, description: 'Position in rankings', category: 'core', enabled: true },
+  { key: 'time', label: 'Time', default: true, description: 'Segment completion time', category: 'core', enabled: true },
+  { key: 'pace', label: 'Pace', default: true, description: 'Average pace per kilometer', category: 'core', enabled: true },
+  { key: 'date', label: 'Date', default: true, description: 'Date of the activity', category: 'core', enabled: true },
+  { key: 'runName', label: 'Run', default: true, description: 'Name of the activity', category: 'core', enabled: true },
+  { key: 'segment', label: 'PB Segment', default: true, description: 'Section of run where PB was achieved', category: 'core', enabled: true },
+  { key: 'fullRunDistance', label: 'Run Distance', default: true, description: 'Total distance of the full run', category: 'activity', enabled: true },
+  { key: 'averageSpeed', label: 'Avg Speed', default: false, description: 'Average speed in m/s', category: 'performance', enabled: true },
+  { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run', category: 'activity', enabled: true },
+  { key: 'activityId', label: 'Activity ID', default: false, description: 'Strava activity ID', category: 'technical', enabled: true },
+  // Additional performance columns
+  { key: 'elevation', label: 'Elevation Gain', default: false, description: 'Total elevation gain during run', category: 'performance', enabled: false },
+  { key: 'heartRate', label: 'Avg Heart Rate', default: false, description: 'Average heart rate during segment', category: 'performance', enabled: false },
+  { key: 'maxHeartRate', label: 'Max Heart Rate', default: false, description: 'Maximum heart rate during segment', category: 'performance', enabled: false },
+  { key: 'cadence', label: 'Avg Cadence', default: false, description: 'Average steps per minute', category: 'performance', enabled: false },
+  { key: 'strideLength', label: 'Stride Length', default: false, description: 'Average stride length', category: 'performance', enabled: false },
+  // Weather columns
+  { key: 'temperature', label: 'Temperature', default: false, description: 'Temperature during run', category: 'conditions', enabled: false },
+  { key: 'weather', label: 'Weather', default: false, description: 'Weather conditions', category: 'conditions', enabled: false },
+  // Activity details
+  { key: 'activityType', label: 'Activity Type', default: false, description: 'Type of activity (Run, TrailRun)', category: 'activity', enabled: false },
+  { key: 'startTime', label: 'Start Time', default: false, description: 'Time when activity started', category: 'activity', enabled: false },
+  { key: 'location', label: 'Location', default: false, description: 'Starting location of run', category: 'activity', enabled: false },
+  // Technical columns
+  { key: 'gpsAccuracy', label: 'GPS Accuracy', default: false, description: 'GPS tracking accuracy', category: 'technical', enabled: false },
+  { key: 'deviceType', label: 'Device', default: false, description: 'Recording device used', category: 'technical', enabled: false }
 ];
+
+export const COLUMN_CATEGORIES = {
+  core: { label: 'Core Metrics', description: 'Essential performance data' },
+  performance: { label: 'Performance Data', description: 'Advanced performance metrics' },
+  activity: { label: 'Activity Details', description: 'Information about the full activity' },
+  conditions: { label: 'Environmental', description: 'Weather and environmental conditions' },
+  technical: { label: 'Technical Data', description: 'Device and tracking information' }
+};

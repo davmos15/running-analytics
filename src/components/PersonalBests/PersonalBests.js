@@ -170,7 +170,12 @@ const PersonalBests = () => {
                 Visible Columns
               </label>
               <div className="space-y-2">
-                {AVAILABLE_COLUMNS.map((column) => {
+                {AVAILABLE_COLUMNS.filter(column => {
+                  // Get column settings from localStorage
+                  const columnSettings = JSON.parse(localStorage.getItem('columnSettings') || '{}');
+                  // Always show rank, show others only if enabled in settings
+                  return column.key === 'rank' || columnSettings[column.key];
+                }).map((column) => {
                   const isRank = column.key === 'rank';
                   return (
                     <label
@@ -215,7 +220,7 @@ const PersonalBests = () => {
                 })}
               </div>
               
-              <div className="mt-4 pt-3 border-t border-blue-500/20">
+              <div className="mt-4 pt-3 border-t border-blue-500/20 flex items-center justify-between">
                 <button
                   onClick={() => {
                     const defaultColumns = AVAILABLE_COLUMNS
@@ -232,6 +237,22 @@ const PersonalBests = () => {
                   className="text-sm text-orange-400 hover:text-orange-300"
                 >
                   Reset to default
+                </button>
+                <button
+                  onClick={() => {
+                    // Navigate to settings page with column management focus
+                    window.location.hash = '#/settings';
+                    setTimeout(() => {
+                      const columnSection = document.getElementById('column-management');
+                      if (columnSection) {
+                        columnSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }, 100);
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center space-x-1"
+                >
+                  <span>More Columns</span>
+                  <span>→</span>
                 </button>
               </div>
             </div>

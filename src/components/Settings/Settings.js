@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, Download, ChevronDown, ChevronRight, Columns } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
 import syncService from '../../services/syncService';
+import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
@@ -12,6 +13,8 @@ const Settings = () => {
   const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
   const [isAddingDistance, setIsAddingDistance] = useState(false);
   const [isImportingRuns, setIsImportingRuns] = useState(false);
+  const [columnSettings, setColumnSettings] = useState({});
+  const [expandedCategories, setExpandedCategories] = useState({});
 
   // Load settings from localStorage
   useEffect(() => {
@@ -28,6 +31,19 @@ const Settings = () => {
     const savedUnitSystem = localStorage.getItem('unitSystem');
     if (savedUnitSystem) {
       setUnitSystem(savedUnitSystem);
+    }
+
+    // Load column settings
+    const savedColumnSettings = localStorage.getItem('columnSettings');
+    if (savedColumnSettings) {
+      setColumnSettings(JSON.parse(savedColumnSettings));
+    } else {
+      // Initialize with default enabled state
+      const initialSettings = {};
+      AVAILABLE_COLUMNS.forEach(col => {
+        initialSettings[col.key] = col.enabled;
+      });
+      setColumnSettings(initialSettings);
     }
   }, []);
 
@@ -101,6 +117,26 @@ const Settings = () => {
     localStorage.setItem('unitSystem', newSystem);
     setShowSuccessMessage(true);
     setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  const handleColumnToggle = (columnKey) => {
+    const newSettings = {
+      ...columnSettings,
+      [columnKey]: !columnSettings[columnKey]
+    };
+    setColumnSettings(newSettings);
+    localStorage.setItem('columnSettings', JSON.stringify(newSettings));
+  };
+
+  const toggleCategory = (categoryKey) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryKey]: !prev[categoryKey]
+    }));
+  };
+
+  const getAvailableColumns = () => {
+    return AVAILABLE_COLUMNS.filter(col => columnSettings[col.key]);
   };
 
   const handleImportRecentRuns = async () => {
@@ -194,6 +230,82 @@ const Settings = () => {
             >
               Imperial (miles)
             </button>
+          </div>
+        </div>
+
+        {/* Column Management Settings */}
+        <div className="border-t border-blue-500/20 pt-6" id="column-management">
+          <div className="flex items-center space-x-2 mb-3">
+            <Columns className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Column Management</h3>
+          </div>
+          <p className="text-sm text-slate-300 mb-4">
+            Control which columns are available in the Personal Bests table. Enabled columns will appear in the column selector.
+          </p>
+          
+          <div className="space-y-3">
+            {Object.entries(COLUMN_CATEGORIES).map(([categoryKey, category]) => {
+              const categoryColumns = AVAILABLE_COLUMNS.filter(col => col.category === categoryKey);
+              const isExpanded = expandedCategories[categoryKey];
+              
+              return (
+                <div key={categoryKey} className="athletic-card rounded-lg">
+                  <button
+                    onClick={() => toggleCategory(categoryKey)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-blue-500/10 transition-colors"
+                  >
+                    <div>
+                      <h4 className="text-sm font-medium text-white">{category.label}</h4>
+                      <p className="text-xs text-slate-400 mt-1">{category.description}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-500">
+                        {categoryColumns.filter(col => columnSettings[col.key]).length}/{categoryColumns.length} enabled
+                      </span>
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+                  </button>
+                  
+                  {isExpanded && (
+                    <div className="px-4 pb-4 space-y-2 border-t border-blue-500/20">
+                      {categoryColumns.map(column => (
+                        <label
+                          key={column.key}
+                          className={`flex items-start space-x-3 p-2 rounded cursor-pointer hover:bg-blue-500/10 ${
+                            column.key === 'rank' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={columnSettings[column.key] || false}
+                            onChange={() => column.key !== 'rank' && handleColumnToggle(column.key)}
+                            disabled={column.key === 'rank'}
+                            className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded disabled:opacity-50"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium text-white">
+                                {column.label}
+                              </span>
+                              {column.key === 'rank' && (
+                                <span className="text-xs text-slate-500">(Always enabled)</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-slate-300 mt-1">
+                              {column.description}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
