@@ -25,16 +25,65 @@ const db = getFirestore(app);
 
 class FirebaseService {
   // Activities
-  async saveActivity(activityId, activityData) {
+  async saveActivity(activityId, activityData, streams = null) {
     try {
+      // Calculate enhanced activity metrics from streams if available
+      const enhancedData = { ...activityData };
+      
+      if (streams) {
+        const activityMetrics = this.calculateActivityMetrics(streams);
+        Object.assign(enhancedData, activityMetrics);
+      }
+      
       await setDoc(doc(db, 'activities', activityId.toString()), {
-        ...activityData,
+        ...enhancedData,
         lastUpdated: new Date()
       });
     } catch (error) {
       console.error('Error saving activity:', error);
       throw error;
     }
+  }
+  
+  // Calculate activity-level metrics from streams
+  calculateActivityMetrics(streams) {
+    const metrics = {};
+    
+    // Heart rate metrics
+    if (streams.heartrate?.data) {
+      const hrData = streams.heartrate.data.filter(hr => hr && hr > 0);
+      if (hrData.length > 0) {
+        metrics.average_heartrate = Math.round(hrData.reduce((sum, hr) => sum + hr, 0) / hrData.length);
+        metrics.max_heartrate = Math.max(...hrData);
+      }
+    }
+    
+    // Cadence metrics
+    if (streams.cadence?.data) {
+      const cadenceData = streams.cadence.data.filter(cad => cad && cad > 0);
+      if (cadenceData.length > 0) {
+        metrics.average_cadence = Math.round(cadenceData.reduce((sum, cad) => sum + cad, 0) / cadenceData.length);
+      }
+    }
+    
+    // Elevation metrics
+    if (streams.altitude?.data) {
+      const altData = streams.altitude.data.filter(alt => alt !== null && alt !== undefined);
+      if (altData.length > 1) {
+        let totalElevationGain = 0;
+        for (let i = 1; i < altData.length; i++) {
+          const gain = altData[i] - altData[i - 1];
+          if (gain > 0) {
+            totalElevationGain += gain;
+          }
+        }
+        metrics.total_elevation_gain_calculated = Math.round(totalElevationGain);
+        metrics.start_elevation = Math.round(altData[0]);
+        metrics.end_elevation = Math.round(altData[altData.length - 1]);
+      }
+    }
+    
+    return metrics;
   }
 
   async getActivity(activityId) {
@@ -519,6 +568,11 @@ class FirebaseService {
     const distanceStream = streams.distance.data;
     const timeStream = streams.time.data;
     
+    // Extract additional stream data if available
+    const heartRateStream = streams.heartrate?.data || null;
+    const cadenceStream = streams.cadence?.data || null;
+    const altitudeStream = streams.altitude?.data || null;
+    
     // Define common distances to track (in meters)
     const distances = [
       { name: '100m', meters: 100 },
@@ -546,6 +600,14 @@ class FirebaseService {
         );
         
         if (bestSegment) {
+          // Calculate additional metrics from streams
+          const segmentMetrics = this.calculateSegmentMetrics(
+            bestSegment,
+            heartRateStream,
+            cadenceStream,
+            altitudeStream
+          );
+          
           segments.push({
             activityId: activity.id,
             activityName: activity.name,
@@ -560,13 +622,62 @@ class FirebaseService {
             fullRunTime: activity.moving_time,
             createdAt: new Date(),
             segmentStart: bestSegment.startDistance,
-            segmentEnd: bestSegment.endDistance
+            segmentEnd: bestSegment.endDistance,
+            // Enhanced metrics from streams
+            ...segmentMetrics
           });
         }
       }
     });
 
     return segments;
+  }
+
+  // Calculate enhanced metrics for a segment from stream data
+  calculateSegmentMetrics(segment, heartRateStream, cadenceStream, altitudeStream) {
+    const metrics = {};
+    
+    if (heartRateStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
+      const hrSlice = heartRateStream.slice(segment.startIndex, segment.endIndex + 1);
+      const validHR = hrSlice.filter(hr => hr && hr > 0);
+      
+      if (validHR.length > 0) {
+        metrics.averageHeartRate = Math.round(validHR.reduce((sum, hr) => sum + hr, 0) / validHR.length);
+        metrics.maxHeartRate = Math.max(...validHR);
+      }
+    }
+    
+    if (cadenceStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
+      const cadenceSlice = cadenceStream.slice(segment.startIndex, segment.endIndex + 1);
+      const validCadence = cadenceSlice.filter(cad => cad && cad > 0);
+      
+      if (validCadence.length > 0) {
+        metrics.averageCadence = Math.round(validCadence.reduce((sum, cad) => sum + cad, 0) / validCadence.length);
+      }
+    }
+    
+    if (altitudeStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
+      const altSlice = altitudeStream.slice(segment.startIndex, segment.endIndex + 1);
+      const validAltitude = altSlice.filter(alt => alt !== null && alt !== undefined);
+      
+      if (validAltitude.length > 1) {
+        // Calculate elevation gain during the segment
+        let elevationGain = 0;
+        for (let i = 1; i < validAltitude.length; i++) {
+          const gain = validAltitude[i] - validAltitude[i - 1];
+          if (gain > 0) {
+            elevationGain += gain;
+          }
+        }
+        metrics.elevationGain = Math.round(elevationGain);
+        
+        // Also store start and end elevation
+        metrics.startElevation = Math.round(validAltitude[0]);
+        metrics.endElevation = Math.round(validAltitude[validAltitude.length - 1]);
+      }
+    }
+    
+    return metrics;
   }
 
   // Sliding window algorithm to find fastest segment

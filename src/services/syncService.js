@@ -65,16 +65,18 @@ class SyncService {
 
         const exists = await firebaseService.activityExists(activity.id);
         if (!exists) {
-          // Try to get streams for better segment detection
+          // Try to get streams for better segment detection and enhanced metrics
           let streams = null;
           try {
-            streams = await stravaApi.getActivityStreams(activity.id, ['time', 'distance']);
+            streams = await stravaApi.getActivityStreams(activity.id, [
+              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+            ]);
           } catch (streamError) {
             console.log(`Could not fetch streams for activity ${activity.id}, using basic extraction`);
           }
           
           // Save activity and process segments with streams if available
-          await firebaseService.saveActivity(activity.id, activity);
+          await firebaseService.saveActivity(activity.id, activity, streams);
           await firebaseService.processActivityForSegments(activity, streams);
           console.log(`Processed new activity: ${activity.name}`);
         }
@@ -125,7 +127,19 @@ class SyncService {
       for (const activity of runningActivities) {
         const exists = await firebaseService.activityExists(activity.id);
         if (!exists) {
-          await firebaseService.saveActivityWithSegments(activity.id, activity);
+          // Try to get enhanced streams for new activities
+          let streams = null;
+          try {
+            streams = await stravaApi.getActivityStreams(activity.id, [
+              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+            ]);
+          } catch (streamError) {
+            console.log(`Could not fetch streams for activity ${activity.id}, using basic processing`);
+          }
+          
+          // Save activity and process segments with streams if available
+          await firebaseService.saveActivity(activity.id, activity, streams);
+          await firebaseService.processActivityForSegments(activity, streams);
           newActivitiesCount++;
         }
       }

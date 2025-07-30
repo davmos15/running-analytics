@@ -50,6 +50,20 @@ const ResultsCards = ({ personalBests }) => {
             <div className="flex items-center justify-between text-sm text-slate-300">
               <span>Run Distance: {run.fullRunDistance}</span>
             </div>
+            
+            {/* Enhanced metrics */}
+            <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-300">
+              {run.averageHeartRate && (
+                <span>❤️ {run.averageHeartRate} bpm</span>
+              )}
+              {run.averageCadence && (
+                <span>🦵 {run.averageCadence} spm</span>
+              )}
+              {run.elevationGain !== undefined && run.elevationGain > 0 && (
+                <span>⛰️ {run.elevationGain}m</span>
+              )}
+            </div>
+            
             {run.segment && run.segment !== 'Full Run' && (
               <div className="text-sm text-slate-400 mt-1">
                 <span className="font-mono">Segment: {run.segment}</span>

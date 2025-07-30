@@ -46,10 +46,10 @@ export const AVAILABLE_COLUMNS = [
   { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run', category: 'activity', enabled: true },
   { key: 'activityId', label: 'Activity ID', default: false, description: 'Strava activity ID', category: 'technical', enabled: true },
   // Additional performance columns
-  { key: 'elevation', label: 'Elevation Gain', default: false, description: 'Total elevation gain during run', category: 'performance', enabled: false },
-  { key: 'heartRate', label: 'Avg Heart Rate', default: false, description: 'Average heart rate during segment', category: 'performance', enabled: false },
-  { key: 'maxHeartRate', label: 'Max Heart Rate', default: false, description: 'Maximum heart rate during segment', category: 'performance', enabled: false },
-  { key: 'cadence', label: 'Avg Cadence', default: false, description: 'Average steps per minute', category: 'performance', enabled: false },
+  { key: 'elevation', label: 'Elevation Gain', default: false, description: 'Elevation gain during segment', category: 'performance', enabled: true },
+  { key: 'heartRate', label: 'Avg Heart Rate', default: false, description: 'Average heart rate during segment', category: 'performance', enabled: true },
+  { key: 'maxHeartRate', label: 'Max Heart Rate', default: false, description: 'Maximum heart rate during segment', category: 'performance', enabled: true },
+  { key: 'cadence', label: 'Avg Cadence', default: false, description: 'Average steps per minute', category: 'performance', enabled: true },
   { key: 'strideLength', label: 'Stride Length', default: false, description: 'Average stride length', category: 'performance', enabled: false },
   // Weather columns
   { key: 'temperature', label: 'Temperature', default: false, description: 'Temperature during run', category: 'conditions', enabled: false },

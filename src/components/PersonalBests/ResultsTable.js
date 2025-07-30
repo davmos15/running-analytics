@@ -65,6 +65,30 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
         return <div className="text-sm text-slate-300">{run.fullRunTime ? `${Math.floor(run.fullRunTime / 60)}:${(run.fullRunTime % 60).toString().padStart(2, '0')}` : 'N/A'}</div>;
       case 'activityId':
         return <div className="text-xs text-slate-500 font-mono">{run.activityId}</div>;
+      case 'heartRate':
+        return (
+          <div className="text-sm text-slate-300">
+            {run.averageHeartRate ? `${run.averageHeartRate} bpm` : 'N/A'}
+          </div>
+        );
+      case 'maxHeartRate':
+        return (
+          <div className="text-sm text-slate-300">
+            {run.maxHeartRate ? `${run.maxHeartRate} bpm` : 'N/A'}
+          </div>
+        );
+      case 'cadence':
+        return (
+          <div className="text-sm text-slate-300">
+            {run.averageCadence ? `${run.averageCadence} spm` : 'N/A'}
+          </div>
+        );
+      case 'elevation':
+        return (
+          <div className="text-sm text-slate-300">
+            {run.elevationGain !== undefined ? `${run.elevationGain}m` : 'N/A'}
+          </div>
+        );
       default:
         return <div className="text-sm text-slate-300">{run[columnKey] || 'N/A'}</div>;
     }
