@@ -135,9 +135,6 @@ const Settings = () => {
     }));
   };
 
-  const getAvailableColumns = () => {
-    return AVAILABLE_COLUMNS.filter(col => columnSettings[col.key]);
-  };
 
   const handleImportRecentRuns = async () => {
     if (window.confirm('This will import your recent activities from Strava. Continue?')) {
