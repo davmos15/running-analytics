@@ -132,7 +132,23 @@ class FirebaseService {
   async getActivity(activityId) {
     try {
       const docSnap = await getDoc(doc(db, 'activities', activityId.toString()));
-      return docSnap.exists() ? docSnap.data() : null;
+      if (!docSnap.exists()) return null;
+      
+      const data = docSnap.data();
+      const activity = { ...data };
+      
+      // Handle heart rate field naming inconsistency
+      if (data.average_heartrate && !data.averageHeartRate) {
+        activity.averageHeartRate = data.average_heartrate;
+      }
+      if (data.max_heartrate && !data.maxHeartRate) {
+        activity.maxHeartRate = data.max_heartrate;
+      }
+      if (data.average_cadence && !data.averageCadence) {
+        activity.averageCadence = data.average_cadence;
+      }
+      
+      return activity;
     } catch (error) {
       console.error('Error getting activity:', error);
       throw error;
@@ -150,7 +166,23 @@ class FirebaseService {
         );
       });
       
-      let activities = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let activities = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        const activity = { id: doc.id, ...data };
+        
+        // Handle heart rate field naming inconsistency
+        if (data.average_heartrate && !data.averageHeartRate) {
+          activity.averageHeartRate = data.average_heartrate;
+        }
+        if (data.max_heartrate && !data.maxHeartRate) {
+          activity.maxHeartRate = data.max_heartrate;
+        }
+        if (data.average_cadence && !data.averageCadence) {
+          activity.averageCadence = data.average_cadence;
+        }
+        
+        return activity;
+      });
 
       // Apply date filters in memory
       if (timeFilter !== 'all-time') {
@@ -312,7 +344,8 @@ class FirebaseService {
           segmentRange = `${startKm}km - ${endKm}km`;
         }
         
-        return {
+        // Map underscore field names to camelCase for frontend consistency
+        const result = {
           rank: index + 1,
           id: doc.id,
           time: data.time,
@@ -323,6 +356,19 @@ class FirebaseService {
           fullRunDistance: fullDistance || 'N/A',
           ...data
         };
+        
+        // Handle heart rate field naming inconsistency
+        if (data.average_heartrate && !data.averageHeartRate) {
+          result.averageHeartRate = data.average_heartrate;
+        }
+        if (data.max_heartrate && !data.maxHeartRate) {
+          result.maxHeartRate = data.max_heartrate;
+        }
+        if (data.average_cadence && !data.averageCadence) {
+          result.averageCadence = data.average_cadence;
+        }
+        
+        return result;
       }));
 
       // If no results found for custom distance, try to create segments from existing activities
@@ -363,7 +409,8 @@ class FirebaseService {
               }
             }
             
-            return {
+            // Map underscore field names to camelCase for frontend consistency
+            const result = {
               rank: index + 1,
               id: doc.id,
               time: data.time,
@@ -373,6 +420,19 @@ class FirebaseService {
               fullRunDistance: fullDistance || 'N/A',
               ...data
             };
+            
+            // Handle heart rate field naming inconsistency
+            if (data.average_heartrate && !data.averageHeartRate) {
+              result.averageHeartRate = data.average_heartrate;
+            }
+            if (data.max_heartrate && !data.maxHeartRate) {
+              result.maxHeartRate = data.max_heartrate;
+            }
+            if (data.average_cadence && !data.averageCadence) {
+              result.averageCadence = data.average_cadence;
+            }
+            
+            return result;
           }));
         }
       }
@@ -952,7 +1012,7 @@ class FirebaseService {
           pace: activity.moving_time / (activity.distance / 1000),
           type: 'activity',
           name: activity.name,
-          averageHeartRate: activity.average_heartrate,
+          averageHeartRate: activity.averageHeartRate || activity.average_heartrate,
           elevationGain: activity.total_elevation_gain_calculated || activity.total_elevation_gain
         });
       });

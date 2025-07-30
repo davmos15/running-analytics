@@ -219,7 +219,7 @@ class PredictionService {
 
     // Recent pace trends (4, 8, 12 week averages)
     const recentActivities = data.activities.filter(activity => {
-      const daysSince = (now - new Date(activity.date)) / (1000 * 60 * 60 * 24);
+      const daysSince = (now - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
       return daysSince <= 84; // 12 weeks
     });
 
@@ -292,14 +292,16 @@ class PredictionService {
   calculateAveragePace(activities, maxDays) {
     const now = new Date();
     const filtered = activities.filter(activity => {
-      const daysSince = (now - new Date(activity.date)) / (1000 * 60 * 60 * 24);
+      const daysSince = (now - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
       return daysSince <= maxDays;
     });
 
     if (filtered.length === 0) return { avg: 0, count: 0 };
 
     const totalPace = filtered.reduce((sum, activity) => {
-      const pace = activity.time / (activity.distanceMeters / 1000); // seconds per km
+      const time = activity.time || activity.moving_time;
+      const distance = activity.distanceMeters || activity.distance;
+      const pace = time / (distance / 1000); // seconds per km
       return sum + pace;
     }, 0);
 
@@ -318,8 +320,8 @@ class PredictionService {
     // Group by week and calculate weekly volumes
     const weeklyVolumes = {};
     activities.forEach(activity => {
-      const week = this.getWeekKey(new Date(activity.date));
-      weeklyVolumes[week] = (weeklyVolumes[week] || 0) + activity.distanceMeters;
+      const week = this.getWeekKey(new Date(activity.start_date || activity.date));
+      weeklyVolumes[week] = (weeklyVolumes[week] || 0) + (activity.distanceMeters || activity.distance || 0);
     });
 
     const volumes = Object.values(weeklyVolumes);
@@ -350,7 +352,9 @@ class PredictionService {
   calculateHREfficiency(hrActivities) {
     // Calculate pace/HR ratio trend - improvement means better efficiency
     const ratios = hrActivities.map(activity => {
-      const pace = activity.time / (activity.distanceMeters / 1000);
+      const time = activity.time || activity.moving_time;
+      const distance = activity.distanceMeters || activity.distance;
+      const pace = time / (distance / 1000);
       return activity.averageHeartRate / pace; // Higher is better efficiency
     });
 
@@ -412,8 +416,8 @@ class PredictionService {
     
     // Training volume
     const recentVolume = data.activities
-      .filter(a => (new Date() - new Date(a.date)) / (1000 * 60 * 60 * 24) <= 28)
-      .reduce((sum, a) => sum + a.distanceMeters, 0);
+      .filter(a => (new Date() - new Date(a.start_date || a.date)) / (1000 * 60 * 60 * 24) <= 28)
+      .reduce((sum, a) => sum + (a.distanceMeters || a.distance || 0), 0);
     
     if (recentVolume > targetDistance * 3) {
       factors.push({ factor: 'Good training volume', impact: 'positive', strength: 'medium' });
@@ -422,10 +426,11 @@ class PredictionService {
     }
     
     // Distance-specific preparation
-    const longRuns = data.activities.filter(a => 
-      a.distanceMeters >= targetDistance * 0.6 &&
-      (new Date() - new Date(a.date)) / (1000 * 60 * 60 * 24) <= 42
-    ).length;
+    const longRuns = data.activities.filter(a => {
+      const distance = a.distanceMeters || a.distance || 0;
+      return distance >= targetDistance * 0.6 &&
+             (new Date() - new Date(a.start_date || a.date)) / (1000 * 60 * 60 * 24) <= 42;
+    }).length;
     
     if (longRuns >= 3) {
       factors.push({ factor: 'Distance preparation', impact: 'positive', strength: 'medium' });
@@ -453,7 +458,7 @@ class PredictionService {
     
     // Training consistency (30% of score)
     const recentActivities = data.activities.filter(activity => {
-      const daysSince = (new Date() - new Date(activity.date)) / (1000 * 60 * 60 * 24);
+      const daysSince = (new Date() - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
       return daysSince <= 84;
     });
     score += Math.min(30, recentActivities.length * 1.5);
