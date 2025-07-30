@@ -4,6 +4,7 @@ import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
 import Settings from './components/Settings/Settings';
 import Graphs from './components/Graphs/Graphs';
+import PredictionsPage from './components/Predictions/PredictionsPage';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
 import { useStrava } from './hooks/useStrava';
@@ -46,6 +47,7 @@ function App() {
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}
       {activeTab === 'graphs' && <Graphs />}
+      {activeTab === 'predictions' && <PredictionsPage />}
       {activeTab === 'settings' && <Settings />}
     </Layout>
   );

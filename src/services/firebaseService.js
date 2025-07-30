@@ -847,6 +847,382 @@ class FirebaseService {
       throw error;
     }
   }
+
+  // Prediction-related methods
+  
+  /**
+   * Get comprehensive data for race predictions
+   */
+  async getPredictionData(weeksBack = 16) {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
+
+      // Get all activities and segments from the time period
+      const activities = await this.getActivities();
+      const recentActivities = activities.filter(activity => {
+        const activityDate = new Date(activity.start_date);
+        return activityDate >= cutoffDate && ['Run', 'TrailRun'].includes(activity.type);
+      });
+
+      // Get race performances (longer efforts that could be used for prediction)
+      const raceActivities = recentActivities.filter(activity => {
+        return activity.distance >= 3000 && // At least 3K
+               activity.moving_time >= 600;   // At least 10 minutes
+      });
+
+      // Get personal bests that could serve as race times
+      const personalBests = await this.getAllPersonalBests(weeksBack);
+      
+      // Combine race activities and PBs into race performances
+      const recentRaces = [];
+      
+      // Add race activities
+      raceActivities.forEach(activity => {
+        recentRaces.push({
+          activityId: activity.id,
+          date: activity.start_date,
+          distanceMeters: activity.distance,
+          time: activity.moving_time,
+          pace: activity.moving_time / (activity.distance / 1000),
+          type: 'activity',
+          name: activity.name,
+          averageHeartRate: activity.average_heartrate,
+          elevationGain: activity.total_elevation_gain_calculated || activity.total_elevation_gain
+        });
+      });
+
+      // Add personal best segments as race equivalents
+      personalBests.forEach(pb => {
+        recentRaces.push({
+          activityId: pb.activityId,
+          date: pb.date,
+          distanceMeters: pb.distanceMeters,
+          time: pb.time,
+          pace: pb.pace,
+          type: 'segment',
+          name: `${pb.distance} PB from ${pb.activityName}`,
+          averageHeartRate: pb.averageHeartRate,
+          elevationGain: pb.elevationGain
+        });
+      });
+
+      // Sort by date (most recent first) and remove duplicates
+      const uniqueRaces = this.deduplicateRaces(recentRaces)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      return {
+        activities: recentActivities,
+        recentRaces: uniqueRaces,
+        trainingVolume: this.calculateTrainingVolume(recentActivities),
+        consistency: await this.getTrainingConsistency(weeksBack),
+        dataRange: {
+          startDate: cutoffDate,
+          endDate: new Date(),
+          weeksBack
+        }
+      };
+    } catch (error) {
+      console.error('Error getting prediction data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all personal bests for prediction analysis
+   */
+  async getAllPersonalBests(weeksBack = 16) {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
+
+      const personalBests = [];
+      const distances = ['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'];
+
+      for (const distance of distances) {
+        try {
+          const pbs = await this.getPersonalBests(distance, 'all-time');
+          const recentPBs = pbs.filter(pb => {
+            const pbDate = pb.date.toDate ? pb.date.toDate() : new Date(pb.date);
+            return pbDate >= cutoffDate;
+          });
+          personalBests.push(...recentPBs);
+        } catch (error) {
+          // Continue if no data for this distance
+          console.log(`No PB data for ${distance}`);
+        }
+      }
+
+      return personalBests;
+    } catch (error) {
+      console.error('Error getting all personal bests:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Remove duplicate race performances
+   */
+  deduplicateRaces(races) {
+    const seen = new Set();
+    return races.filter(race => {
+      const key = `${race.activityId}-${race.distanceMeters}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }
+
+  /**
+   * Calculate training volume metrics
+   */
+  calculateTrainingVolume(activities) {
+    const now = new Date();
+    const volumes = {
+      week1: 0,
+      week2: 0,
+      week3: 0,
+      week4: 0,
+      total: 0
+    };
+
+    activities.forEach(activity => {
+      const daysSince = (now - new Date(activity.start_date)) / (1000 * 60 * 60 * 24);
+      volumes.total += activity.distance;
+      
+      if (daysSince <= 7) volumes.week1 += activity.distance;
+      else if (daysSince <= 14) volumes.week2 += activity.distance;
+      else if (daysSince <= 21) volumes.week3 += activity.distance;
+      else if (daysSince <= 28) volumes.week4 += activity.distance;
+    });
+
+    return {
+      ...volumes,
+      weeklyAverage: volumes.total / 4,
+      consistency: this.calculateVolumeConsistency([
+        volumes.week1, volumes.week2, volumes.week3, volumes.week4
+      ])
+    };
+  }
+
+  /**
+   * Calculate volume consistency from weekly volumes
+   */
+  calculateVolumeConsistency(weeklyVolumes) {
+    if (weeklyVolumes.length < 2) return 0;
+    
+    const mean = weeklyVolumes.reduce((sum, vol) => sum + vol, 0) / weeklyVolumes.length;
+    if (mean === 0) return 0;
+    
+    const variance = weeklyVolumes.reduce((sum, vol) => sum + Math.pow(vol - mean, 2), 0) / weeklyVolumes.length;
+    const cv = Math.sqrt(variance) / mean; // Coefficient of variation
+    
+    return Math.max(0, Math.min(1, 1 - cv)); // Convert to 0-1 scale
+  }
+
+  /**
+   * Get training consistency metrics
+   */
+  async getTrainingConsistency(weeksBack = 12) {
+    try {
+      const activities = await this.getActivities();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
+
+      const recentActivities = activities.filter(activity => {
+        const activityDate = new Date(activity.start_date);
+        return activityDate >= cutoffDate && ['Run', 'TrailRun'].includes(activity.type);
+      });
+
+      // Group activities by week
+      const weeklyData = {};
+      recentActivities.forEach(activity => {
+        const week = this.getWeekKey(new Date(activity.start_date));
+        if (!weeklyData[week]) {
+          weeklyData[week] = { runs: 0, distance: 0, time: 0 };
+        }
+        weeklyData[week].runs++;
+        weeklyData[week].distance += activity.distance;
+        weeklyData[week].time += activity.moving_time;
+      });
+
+      const weeks = Object.values(weeklyData);
+      
+      return {
+        averageRunsPerWeek: weeks.reduce((sum, w) => sum + w.runs, 0) / Math.max(1, weeks.length),
+        averageDistancePerWeek: weeks.reduce((sum, w) => sum + w.distance, 0) / Math.max(1, weeks.length),
+        consistencyScore: this.calculateConsistencyScore(weeks),
+        activeWeeks: weeks.length,
+        totalWeeks: weeksBack
+      };
+    } catch (error) {
+      console.error('Error getting training consistency:', error);
+      return {
+        averageRunsPerWeek: 0,
+        averageDistancePerWeek: 0,
+        consistencyScore: 0,
+        activeWeeks: 0,
+        totalWeeks: weeksBack
+      };
+    }
+  }
+
+  /**
+   * Calculate consistency score from weekly training data
+   */
+  calculateConsistencyScore(weeklyData) {
+    if (weeklyData.length < 4) return 0;
+
+    const distances = weeklyData.map(w => w.distance);
+    const runs = weeklyData.map(w => w.runs);
+
+    // Calculate coefficient of variation for both distance and run frequency
+    const distanceCV = this.coefficientOfVariation(distances);
+    const runsCV = this.coefficientOfVariation(runs);
+
+    // Lower CV = higher consistency
+    const distanceConsistency = Math.max(0, 1 - distanceCV);
+    const runsConsistency = Math.max(0, 1 - runsCV);
+
+    // Weight distance consistency more heavily
+    return (distanceConsistency * 0.7 + runsConsistency * 0.3);
+  }
+
+  /**
+   * Calculate coefficient of variation
+   */
+  coefficientOfVariation(values) {
+    if (values.length === 0) return 1;
+    
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    if (mean === 0) return 1;
+    
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    return Math.sqrt(variance) / mean;
+  }
+
+  /**
+   * Get distance-specific experience
+   */
+  async getDistanceExperience(targetDistance) {
+    try {
+      const personalBests = await this.getAllPersonalBests(52); // Look back 1 year
+      
+      // Count experiences at similar distances (50%-150% of target)
+      const similarExperiences = personalBests.filter(pb => {
+        const ratio = targetDistance / pb.distanceMeters;
+        return ratio >= 0.5 && ratio <= 1.5;
+      });
+
+      const exactExperiences = personalBests.filter(pb => 
+        Math.abs(pb.distanceMeters - targetDistance) < targetDistance * 0.1
+      );
+
+      return {
+        total: similarExperiences.length,
+        exact: exactExperiences.length,
+        score: Math.min(1, similarExperiences.length / 5), // Max score at 5+ experiences
+        mostRecent: similarExperiences.length > 0 ? 
+          Math.max(...similarExperiences.map(pb => new Date(pb.date))) : null
+      };
+    } catch (error) {
+      console.error('Error getting distance experience:', error);
+      return { total: 0, exact: 0, score: 0, mostRecent: null };
+    }
+  }
+
+  /**
+   * Get recent form trend analysis
+   */
+  async getRecentFormTrend(weeksBack = 6) {
+    try {
+      const activities = await this.getActivities();
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
+
+      const recentActivities = activities.filter(activity => {
+        const activityDate = new Date(activity.start_date);
+        return activityDate >= cutoffDate && 
+               ['Run', 'TrailRun'].includes(activity.type) &&
+               activity.distance >= 3000; // Focus on meaningful distances
+      });
+
+      if (recentActivities.length < 4) {
+        return { trend: 'insufficient_data', score: 0, confidence: 0 };
+      }
+
+      // Sort by date and calculate pace trends
+      const sortedActivities = recentActivities
+        .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+
+      const paces = sortedActivities.map(activity => 
+        activity.moving_time / (activity.distance / 1000) // seconds per km
+      );
+
+      // Calculate trend using linear regression
+      const trend = this.calculateTrend(paces);
+      
+      return {
+        trend: trend.slope < -1 ? 'improving' : trend.slope > 1 ? 'declining' : 'stable',
+        score: -trend.slope / 10, // Negative slope = improvement
+        confidence: trend.r2,
+        paceChange: trend.slope,
+        sampleSize: paces.length
+      };
+    } catch (error) {
+      console.error('Error getting recent form trend:', error);
+      return { trend: 'unknown', score: 0, confidence: 0 };
+    }
+  }
+
+  /**
+   * Calculate linear trend from data points
+   */
+  calculateTrend(values) {
+    const n = values.length;
+    if (n < 2) return { slope: 0, r2: 0 };
+
+    const x = values.map((_, i) => i);
+    const xMean = x.reduce((sum, val) => sum + val, 0) / n;
+    const yMean = values.reduce((sum, val) => sum + val, 0) / n;
+
+    let numerator = 0;
+    let denominator = 0;
+    let ssTotal = 0;
+
+    for (let i = 0; i < n; i++) {
+      const xDiff = x[i] - xMean;
+      const yDiff = values[i] - yMean;
+      numerator += xDiff * yDiff;
+      denominator += xDiff * xDiff;
+      ssTotal += yDiff * yDiff;
+    }
+
+    const slope = denominator === 0 ? 0 : numerator / denominator;
+    const intercept = yMean - slope * xMean;
+
+    // Calculate R²
+    let ssRes = 0;
+    for (let i = 0; i < n; i++) {
+      const predicted = slope * x[i] + intercept;
+      ssRes += Math.pow(values[i] - predicted, 2);
+    }
+
+    const r2 = ssTotal === 0 ? 0 : 1 - (ssRes / ssTotal);
+
+    return { slope, intercept, r2: Math.max(0, r2) };
+  }
+
+  /**
+   * Get week key for grouping activities
+   */
+  getWeekKey(date) {
+    const year = date.getFullYear();
+    const week = Math.floor((date - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+    return `${year}-W${week}`;
+  }
 }
 
 const firebaseService = new FirebaseService();
