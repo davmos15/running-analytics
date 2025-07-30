@@ -3,6 +3,7 @@ import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, Download,
 import firebaseService from '../../services/firebaseService';
 import syncService from '../../services/syncService';
 import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
+import FirebaseQuotaChecker from './FirebaseQuotaChecker';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
@@ -353,6 +354,18 @@ const Settings = () => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Firebase Status */}
+        <div className="border-t border-blue-500/20 pt-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <Database className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Firebase Status</h3>
+          </div>
+          <p className="text-sm text-slate-300 mb-4">
+            Monitor your Firebase database usage and quota status
+          </p>
+          <FirebaseQuotaChecker />
         </div>
 
         {/* Data Management */}

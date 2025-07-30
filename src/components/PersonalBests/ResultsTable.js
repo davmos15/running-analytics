@@ -66,6 +66,15 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
       case 'activityId':
         return <div className="text-xs text-slate-500 font-mono">{run.activityId}</div>;
       case 'heartRate':
+        // Debug: log the run data to see what HR fields are available
+        if (!run.averageHeartRate && (run.heartRate || run.avgHeartRate)) {
+          console.log('HR field mismatch for run:', {
+            averageHeartRate: run.averageHeartRate,
+            heartRate: run.heartRate,
+            avgHeartRate: run.avgHeartRate,
+            allFields: Object.keys(run)
+          });
+        }
         return (
           <div className="text-sm text-slate-300">
             {run.averageHeartRate ? `${run.averageHeartRate} bpm` : 'N/A'}

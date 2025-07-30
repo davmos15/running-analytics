@@ -1,5 +1,6 @@
 import stravaApi from './stravaApi';
 import firebaseService from './firebaseService';
+import firebaseMonitor from '../utils/firebaseMonitor';
 
 class SyncService {
   constructor() {
@@ -51,6 +52,18 @@ class SyncService {
       );
 
       console.log(`Processing ${runningActivities.length} running activities`);
+      
+      // Estimate Firebase quota usage
+      const quotaEstimate = firebaseMonitor.estimateQuotaUsage(runningActivities.length);
+      if (quotaEstimate.exceedsFreeTier) {
+        console.warn('⚠️ This sync may exceed Firebase free tier limits');
+        if (progressCallback) {
+          progressCallback({
+            stage: 'warning',
+            message: `Warning: This sync may exceed Firebase free tier limits. Consider upgrading to Blaze plan.`
+          });
+        }
+      }
 
       // Process each activity
       let processedCount = 0;

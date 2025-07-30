@@ -33,6 +33,12 @@ class FirebaseService {
       if (streams) {
         const activityMetrics = this.calculateActivityMetrics(streams);
         Object.assign(enhancedData, activityMetrics);
+        console.log(`Enhanced activity ${activityId} with streams:`, {
+          hasHeartRate: !!streams.heartrate,
+          hasCadence: !!streams.cadence,
+          hasAltitude: !!streams.altitude,
+          calculatedMetrics: Object.keys(activityMetrics)
+        });
       }
       
       await setDoc(doc(db, 'activities', activityId.toString()), {
@@ -41,6 +47,10 @@ class FirebaseService {
       });
     } catch (error) {
       console.error('Error saving activity:', error);
+      if (error.code === 'resource-exhausted') {
+        console.error('🚨 Firebase quota exceeded! Consider upgrading your Firebase plan.');
+        throw new Error('Firebase quota exceeded. Please check your Firebase console and consider upgrading your plan.');
+      }
       throw error;
     }
   }
@@ -139,6 +149,10 @@ class FirebaseService {
       });
     } catch (error) {
       console.error('Error saving segment:', error);
+      if (error.code === 'resource-exhausted') {
+        console.error('🚨 Firebase quota exceeded during segment save!');
+        throw new Error('Firebase quota exceeded. Segment processing stopped.');
+      }
       throw error;
     }
   }
