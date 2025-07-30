@@ -1,6 +1,5 @@
 import React from 'react';
-import { Filter } from 'lucide-react';
-import ColumnSelector from './ColumnSelector';
+import { Filter, Columns } from 'lucide-react';
 
 const DistanceSelector = ({ 
   selectedDistance, 
@@ -8,6 +7,8 @@ const DistanceSelector = ({
   distances, 
   isFilterOpen, 
   setIsFilterOpen,
+  isColumnSelectorOpen,
+  setIsColumnSelectorOpen,
   customDistance,
   setCustomDistance,
   visibleColumns,
@@ -47,10 +48,14 @@ const DistanceSelector = ({
               <span className="text-sm font-medium hidden sm:inline">Date Filter</span>
               <span className="text-sm font-medium sm:hidden">Filter</span>
             </button>
-            <ColumnSelector
-              visibleColumns={visibleColumns}
-              setVisibleColumns={setVisibleColumns}
-            />
+            <button 
+              onClick={() => setIsColumnSelectorOpen(!isColumnSelectorOpen)}
+              className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
+            >
+              <Columns className="w-4 h-4" />
+              <span className="text-sm font-medium hidden sm:inline">Columns</span>
+              <span className="text-sm font-medium sm:hidden">Cols</span>
+            </button>
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@
     "url": "https://github.com/davmos15/running-analytics.git"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0",
     "axios": "^1.6.2",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",

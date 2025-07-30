@@ -14,6 +14,7 @@ const PersonalBests = () => {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [allDistances, setAllDistances] = useState(DISTANCES);
 
@@ -92,6 +93,8 @@ const PersonalBests = () => {
         distances={allDistances}
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
+        isColumnSelectorOpen={isColumnSelectorOpen}
+        setIsColumnSelectorOpen={setIsColumnSelectorOpen}
         customDistance={customDistance}
         setCustomDistance={setCustomDistance}
         visibleColumns={visibleColumns}
@@ -107,6 +110,133 @@ const PersonalBests = () => {
           customDateTo={customDateTo}
           setCustomDateTo={setCustomDateTo}
         />
+      )}
+
+      {isColumnSelectorOpen && (
+        <div className="athletic-card-gradient p-4">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Column Order
+              </label>
+              <div className="space-y-2">
+                {visibleColumns.map((columnKey, index) => {
+                  const column = AVAILABLE_COLUMNS.find(col => col.key === columnKey);
+                  const isRank = columnKey === 'rank';
+                  return (
+                    <div
+                      key={columnKey}
+                      className={`flex items-center justify-between p-2 rounded ${
+                        isRank 
+                          ? 'bg-slate-700/50 cursor-not-allowed' 
+                          : 'bg-slate-700/30'
+                      }`}
+                    >
+                      <span className="text-sm text-white flex-1">{column?.label || columnKey}</span>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            if (isRank || index === 0) return;
+                            const newColumns = [...visibleColumns];
+                            [newColumns[index], newColumns[index - 1]] = [newColumns[index - 1], newColumns[index]];
+                            setVisibleColumns(newColumns);
+                          }}
+                          disabled={isRank || index === 0}
+                          className="px-2 py-1 text-xs bg-slate-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (isRank || index === visibleColumns.length - 1) return;
+                            const newColumns = [...visibleColumns];
+                            [newColumns[index], newColumns[index + 1]] = [newColumns[index + 1], newColumns[index]];
+                            setVisibleColumns(newColumns);
+                          }}
+                          disabled={isRank || index === visibleColumns.length - 1}
+                          className="px-2 py-1 text-xs bg-slate-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Visible Columns
+              </label>
+              <div className="space-y-2">
+                {AVAILABLE_COLUMNS.map((column) => {
+                  const isRank = column.key === 'rank';
+                  return (
+                    <label
+                      key={column.key}
+                      className={`flex items-start space-x-3 p-2 rounded ${
+                        isRank 
+                          ? 'bg-slate-700/50 cursor-not-allowed' 
+                          : 'hover:bg-blue-500/10 cursor-pointer'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns.includes(column.key)}
+                        onChange={() => {
+                          if (isRank) return;
+                          
+                          if (visibleColumns.includes(column.key)) {
+                            if (visibleColumns.length <= 2) return;
+                            setVisibleColumns(visibleColumns.filter(col => col !== column.key));
+                          } else {
+                            setVisibleColumns([...visibleColumns, column.key]);
+                          }
+                        }}
+                        disabled={isRank}
+                        className="mt-1 h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-white">
+                            {column.label}
+                          </span>
+                          {isRank && (
+                            <span className="text-xs text-slate-500">(Always visible)</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-300">
+                          {column.description}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              
+              <div className="mt-4 pt-3 border-t border-blue-500/20">
+                <button
+                  onClick={() => {
+                    const defaultColumns = AVAILABLE_COLUMNS
+                      .filter(col => col.default)
+                      .map(col => col.key);
+                    // Ensure rank is first
+                    const rankIndex = defaultColumns.indexOf('rank');
+                    if (rankIndex > 0) {
+                      defaultColumns.splice(rankIndex, 1);
+                      defaultColumns.unshift('rank');
+                    }
+                    setVisibleColumns(defaultColumns);
+                  }}
+                  className="text-sm text-orange-400 hover:text-orange-300"
+                >
+                  Reset to default
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {personalBests.length === 0 ? (
