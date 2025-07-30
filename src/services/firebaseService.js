@@ -340,7 +340,11 @@ class FirebaseService {
           }
 
           // Re-query for the newly created segments
-          const newQuerySnapshot = await getDocs(q);
+          const newQuery = query(
+            collection(db, 'segments'),
+            where('distance', '==', queryDistance)
+          );
+          const newQuerySnapshot = await getDocs(newQuery);
           results = await Promise.all(newQuerySnapshot.docs.map(async (doc, index) => {
             const data = doc.data();
             
@@ -454,7 +458,11 @@ class FirebaseService {
           }
 
           // Re-query for the newly created segments
-          const newQuerySnapshot = await getDocs(q);
+          const newQuery = query(
+            collection(db, 'segments'),
+            where('distance', '==', queryDistance)
+          );
+          const newQuerySnapshot = await getDocs(newQuery);
           return newQuerySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()

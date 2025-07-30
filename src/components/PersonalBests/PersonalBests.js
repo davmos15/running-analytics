@@ -276,7 +276,7 @@ const PersonalBests = () => {
         <>
           {/* Mobile Cards */}
           <div className="md:hidden">
-            <ResultsCards personalBests={personalBests} />
+            <ResultsCards personalBests={personalBests} visibleColumns={visibleColumns} />
           </div>
 
           {/* Desktop Table */}

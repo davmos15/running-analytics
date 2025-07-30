@@ -33,14 +33,9 @@ const FirebaseQuotaChecker = () => {
   };
 
   const testFirebaseConnection = async () => {
-    try {
-      // This is a minimal test - you might want to do a small read operation
-      const testData = { test: true, timestamp: new Date() };
-      // We'll just return success for now - in a real app you'd do a small Firebase operation
-      return { success: true, message: 'Connection test passed' };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    // This is a minimal test - you might want to do a small read operation
+    // We'll just return success for now - in a real app you'd do a small Firebase operation
+    return { success: true, message: 'Connection test passed' };
   };
 
   const getStatusColor = () => {
