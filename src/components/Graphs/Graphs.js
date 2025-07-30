@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Eye, EyeOff } from 'lucide-react';
 import ProgressionGraph from './ProgressionGraph';
 import BarGraph from './BarGraph';
-import DistanceThresholdGraph from './DistanceThresholdGraph';
 import GraphSettings from './GraphSettings';
 import { TIME_FILTERS } from '../../utils/constants';
 
@@ -24,14 +23,6 @@ const Graphs = () => {
 
   // Average graphs
   const [averageGraphs, setAverageGraphs] = useState([]);
-  
-  // Totals/Distance threshold settings
-  const [distanceThresholdSettings, setDistanceThresholdSettings] = useState({
-    chartType: 'bar',
-    color: '#f97316',
-    visibleDistances: null,
-    visible: true
-  });
 
   // Load distances and settings on mount
   useEffect(() => {
@@ -62,10 +53,6 @@ const Graphs = () => {
       ]);
     }
 
-    const savedDistanceSettings = localStorage.getItem('distanceThresholdSettings');
-    if (savedDistanceSettings) {
-      setDistanceThresholdSettings(JSON.parse(savedDistanceSettings));
-    }
   }, []);
 
   // Save settings when changed
@@ -76,10 +63,6 @@ const Graphs = () => {
   useEffect(() => {
     localStorage.setItem('averageGraphs', JSON.stringify(averageGraphs));
   }, [averageGraphs]);
-
-  useEffect(() => {
-    localStorage.setItem('distanceThresholdSettings', JSON.stringify(distanceThresholdSettings));
-  }, [distanceThresholdSettings]);
 
   const addAverageGraph = () => {
     const newGraph = {
@@ -105,8 +88,7 @@ const Graphs = () => {
 
   const sections = [
     { id: 'progression', label: 'Progression', description: 'Track your personal best improvements over time' },
-    { id: 'average', label: 'Average', description: 'View average performance metrics by period' },
-    { id: 'total', label: 'Total', description: 'Analyze total distances and run counts' }
+    { id: 'average', label: 'Average', description: 'View average performance metrics by period' }
   ];
 
   return (
@@ -301,43 +283,6 @@ const Graphs = () => {
           </div>
         )}
 
-        {activeSection === 'total' && (
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-1">Distance Analysis</h3>
-                <p className="text-sm text-slate-300">See how many runs exceed each distance threshold</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setDistanceThresholdSettings({...distanceThresholdSettings, visible: !distanceThresholdSettings.visible})}
-                  className="p-2 athletic-button-secondary rounded-lg"
-                >
-                  {distanceThresholdSettings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-                <select
-                  value={distanceThresholdSettings.chartType}
-                  onChange={(e) => setDistanceThresholdSettings({...distanceThresholdSettings, chartType: e.target.value})}
-                  className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
-                >
-                  <option value="bar">Bar Chart</option>
-                  <option value="column">Column Chart</option>
-                </select>
-              </div>
-            </div>
-            
-            {distanceThresholdSettings.visible && (
-              <DistanceThresholdGraph
-                color={distanceThresholdSettings.color}
-                timePeriod={timeFilter}
-                customDateFrom={customDateFrom}
-                customDateTo={customDateTo}
-                chartType={distanceThresholdSettings.chartType}
-                visibleDistances={distanceThresholdSettings.visibleDistances}
-              />
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
