@@ -4,6 +4,7 @@ import firebaseService from '../../services/firebaseService';
 import syncService from '../../services/syncService';
 import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
 import FirebaseQuotaChecker from './FirebaseQuotaChecker';
+import CacheManager from './CacheManager';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
@@ -366,6 +367,9 @@ const Settings = () => {
             Monitor your Firebase database usage and quota status
           </p>
           <FirebaseQuotaChecker />
+          <div className="mt-6">
+            <CacheManager />
+          </div>
         </div>
 
         {/* Data Management */}

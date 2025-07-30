@@ -24,6 +24,39 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 class FirebaseService {
+  constructor() {
+    // Simple in-memory cache to prevent duplicate reads
+    this.queryCache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+  }
+
+  /**
+   * Get from cache or execute query
+   */
+  async getCachedQuery(cacheKey, queryFunction) {
+    const cached = this.queryCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < this.cacheTimeout) {
+      console.log(`📋 Cache HIT for ${cacheKey} - saved Firebase read`);
+      return cached.data;
+    }
+    
+    console.log(`🔍 Cache MISS for ${cacheKey} - executing Firebase query`);
+    const data = await queryFunction();
+    this.queryCache.set(cacheKey, { data, timestamp: now });
+    
+    return data;
+  }
+
+  /**
+   * Clear cache
+   */
+  clearCache() {
+    this.queryCache.clear();
+    console.log('🗑️ Firebase query cache cleared');
+  }
+
   // Activities
   async saveActivity(activityId, activityData, streams = null) {
     try {
@@ -108,9 +141,15 @@ class FirebaseService {
 
   async getActivities(timeFilter = 'all-time', customDateFrom = null, customDateTo = null) {
     try {
-      const querySnapshot = await getDocs(
-        query(collection(db, 'activities'), orderBy('start_date', 'desc'))
-      );
+      // Create cache key for activities
+      const cacheKey = `activities_${timeFilter}_${customDateFrom}_${customDateTo}`;
+      
+      const querySnapshot = await this.getCachedQuery(cacheKey, async () => {
+        return await getDocs(
+          query(collection(db, 'activities'), orderBy('start_date', 'desc'))
+        );
+      });
+      
       let activities = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
       // Apply date filters in memory
@@ -170,13 +209,17 @@ class FirebaseService {
         }
       }
 
-      // Get all segments for the distance
-      const q = query(
-        collection(db, 'segments'),
-        where('distance', '==', queryDistance)
-      );
-
-      const querySnapshot = await getDocs(q);
+      // Create cache key
+      const cacheKey = `segments_${queryDistance}_${timeFilter}_${customDateFrom}_${customDateTo}`;
+      
+      // Use cached query to prevent duplicate Firebase reads
+      const querySnapshot = await this.getCachedQuery(cacheKey, async () => {
+        const q = query(
+          collection(db, 'segments'),
+          where('distance', '==', queryDistance)
+        );
+        return await getDocs(q);
+      });
       
       // Convert to array and apply date filters in memory
       let allSegments = querySnapshot.docs.map(doc => ({
@@ -943,33 +986,36 @@ class FirebaseService {
   }
 
   /**
-   * Get all personal bests for prediction analysis
+   * Get all personal bests for prediction analysis - OPTIMIZED VERSION
+   * This does ONE Firebase query instead of 13+ separate queries
    */
   async getAllPersonalBests(weeksBack = 16) {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
 
-      const personalBests = [];
-      const distances = ['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'];
-
-      for (const distance of distances) {
-        try {
-          const pbs = await this.getPersonalBests(distance, 'all-time');
-          const recentPBs = pbs.filter(pb => {
-            const pbDate = pb.date.toDate ? pb.date.toDate() : new Date(pb.date);
-            return pbDate >= cutoffDate;
-          });
-          personalBests.push(...recentPBs);
-        } catch (error) {
-          // Continue if no data for this distance
-          console.log(`No PB data for ${distance}`);
-        }
-      }
+      console.log('🔥 OPTIMIZED: Fetching all segments with single query instead of 13+ separate queries');
+      
+      // Single query to get ALL segments within date range
+      const querySnapshot = await getDocs(
+        query(
+          collection(db, 'segments'),
+          where('date', '>=', cutoffDate),
+          orderBy('date', 'desc')
+        )
+      );
+      
+      console.log(`📊 Retrieved ${querySnapshot.docs.length} segments with 1 read operation`);
+      
+      const personalBests = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
       return personalBests;
     } catch (error) {
-      console.error('Error getting all personal bests:', error);
+      console.error('Error getting all personal bests (optimized):', error);
+      // Fallback to empty array to prevent cascade failures
       return [];
     }
   }

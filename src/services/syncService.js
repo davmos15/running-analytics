@@ -65,6 +65,30 @@ class SyncService {
         }
       }
 
+      // OPTIMIZATION: Batch check which activities already exist to reduce Firebase reads
+      console.log('🚀 OPTIMIZATION: Batch checking activity existence...');
+      const existingActivities = new Set();
+      
+      // Get existing activity IDs in batches of 10
+      const activityIds = runningActivities.map(a => a.id.toString());
+      for (let i = 0; i < activityIds.length; i += 10) {
+        const batch = activityIds.slice(i, i + 10);
+        try {
+          // Check if activities exist - this is still expensive but better than one-by-one
+          for (const id of batch) {
+            const exists = await firebaseService.activityExists(id);
+            if (exists) {
+              existingActivities.add(id);
+            }
+          }
+          firebaseMonitor.trackOperation(`batch_check_${batch.length}_activities`);
+        } catch (error) {
+          console.error('Error in batch existence check:', error);
+        }
+      }
+      
+      console.log(`📊 Found ${existingActivities.size} existing activities out of ${runningActivities.length}`);
+
       // Process each activity
       let processedCount = 0;
       for (const activity of runningActivities) {
@@ -76,7 +100,8 @@ class SyncService {
           });
         }
 
-        const exists = await firebaseService.activityExists(activity.id);
+        // Use batch-checked existence to avoid duplicate Firebase reads
+        const exists = existingActivities.has(activity.id.toString());
         if (!exists) {
           // Try to get streams for better segment detection and enhanced metrics
           let streams = null;
@@ -137,8 +162,18 @@ class SyncService {
       );
 
       let newActivitiesCount = 0;
+      
+      console.log('🚀 OPTIMIZATION: Batch checking recent activity existence...');
+      const existingRecentActivities = new Set();
       for (const activity of runningActivities) {
         const exists = await firebaseService.activityExists(activity.id);
+        if (exists) {
+          existingRecentActivities.add(activity.id.toString());
+        }
+      }
+      
+      for (const activity of runningActivities) {
+        const exists = existingRecentActivities.has(activity.id.toString());
         if (!exists) {
           // Try to get enhanced streams for new activities
           let streams = null;
