@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, Users, Calendar, Target, Lightbulb, ArrowRight } from 'lucide-react';
+import { TrendingUp, Calendar, Target, Lightbulb, ArrowRight } from 'lucide-react';
 
 const TrainingInsights = ({ dataQuality, predictions }) => {
   const getOverallConfidence = () => {

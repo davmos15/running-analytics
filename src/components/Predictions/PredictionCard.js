@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Timer, TrendingUp, ChevronDown, ChevronUp, Target } from 'lucide-react';
+import { Timer, ChevronDown, ChevronUp, Target } from 'lucide-react';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import predictionService from '../../services/predictionService';
 

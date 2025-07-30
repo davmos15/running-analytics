@@ -229,7 +229,6 @@ class PredictionService {
 
     // Calculate pace trends
     const paces4w = this.calculateAveragePace(recentActivities, 28);
-    const paces8w = this.calculateAveragePace(recentActivities, 56);
     const paces12w = this.calculateAveragePace(recentActivities, 84);
 
     features.recentPace = paces4w.avg;
@@ -273,7 +272,6 @@ class PredictionService {
   calculateVDOT(timeSeconds, distanceMeters) {
     // Simplified VDOT calculation - in production, use full Jack Daniels tables
     const velocity = distanceMeters / timeSeconds; // m/s
-    const kmPace = 1000 / velocity; // seconds per km
     
     // Approximate VDOT formula (simplified)
     return Math.max(30, Math.min(85, 15.3 * Math.pow(velocity * 3.6, 1.06)));

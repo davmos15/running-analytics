@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle } from 'lucide-react';
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
-import ConfidenceIndicator from './ConfidenceIndicator';
 import TrainingInsights from './TrainingInsights';
 
 const PredictionsPage = () => {
@@ -13,11 +12,7 @@ const PredictionsPage = () => {
   const [weeksBack, setWeeksBack] = useState(16);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  useEffect(() => {
-    loadPredictions();
-  }, [weeksBack]);
-
-  const loadPredictions = async () => {
+  const loadPredictionsCallback = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -29,7 +24,12 @@ const PredictionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [weeksBack]);
+
+  useEffect(() => {
+    loadPredictionsCallback();
+  }, [loadPredictionsCallback]);
+
 
   const formatDataQualityLevel = (level) => {
     const levels = {
@@ -69,7 +69,7 @@ const PredictionsPage = () => {
               </ul>
             </div>
             <button
-              onClick={loadPredictions}
+              onClick={loadPredictionsCallback}
               className="mt-6 px-4 py-2 athletic-button-primary text-white rounded-lg"
             >
               <RefreshCw className="w-4 h-4 inline mr-2" />
@@ -110,7 +110,7 @@ const PredictionsPage = () => {
             </button>
             
             <button
-              onClick={loadPredictions}
+              onClick={loadPredictionsCallback}
               className="flex items-center space-x-2 px-3 py-2 athletic-button-primary text-white rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
