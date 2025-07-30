@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Filter, Settings, Eye, EyeOff } from 'lucide-react';
+import { Plus, Filter, Eye, EyeOff } from 'lucide-react';
 import ProgressionGraph from './ProgressionGraph';
 import BarGraph from './BarGraph';
 import DistanceThresholdGraph from './DistanceThresholdGraph';

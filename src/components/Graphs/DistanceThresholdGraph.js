@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bar, Column } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -32,13 +32,8 @@ const DistanceThresholdGraph = ({
 }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [availableDistances, setAvailableDistances] = useState([]);
 
-  useEffect(() => {
-    loadDistanceData();
-  }, [timePeriod, customDateFrom, customDateTo]);
-
-  const loadDistanceData = async () => {
+  const loadDistanceData = React.useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -58,8 +53,6 @@ const DistanceThresholdGraph = ({
         const custom = JSON.parse(customDistances);
         allDistances = [...allDistances, ...custom.map(d => d.label)];
       }
-      
-      setAvailableDistances(allDistances);
 
       // Count runs that exceed each distance threshold
       const distanceCounts = {};
@@ -94,7 +87,11 @@ const DistanceThresholdGraph = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [timePeriod, customDateFrom, customDateTo]);
+
+  useEffect(() => {
+    loadDistanceData();
+  }, [loadDistanceData]);
 
   const filteredData = visibleDistances 
     ? data.filter(([distance]) => visibleDistances.includes(distance))
