@@ -22,15 +22,32 @@ const PersonalBests = () => {
   useEffect(() => {
     const savedColumns = localStorage.getItem('visibleColumns');
     if (savedColumns) {
-      const parsedColumns = JSON.parse(savedColumns);
-      // Ensure rank is always first
-      if (!parsedColumns.includes('rank')) {
-        setVisibleColumns(['rank', ...parsedColumns]);
-      } else if (parsedColumns[0] !== 'rank') {
-        const withoutRank = parsedColumns.filter(col => col !== 'rank');
-        setVisibleColumns(['rank', ...withoutRank]);
-      } else {
-        setVisibleColumns(parsedColumns);
+      try {
+        const parsedColumns = JSON.parse(savedColumns);
+        // Ensure rank is always first
+        if (parsedColumns && Array.isArray(parsedColumns)) {
+          if (!parsedColumns.includes('rank')) {
+            setVisibleColumns(['rank', ...parsedColumns]);
+          } else if (parsedColumns[0] !== 'rank') {
+            const withoutRank = parsedColumns.filter(col => col !== 'rank');
+            setVisibleColumns(['rank', ...withoutRank]);
+          } else {
+            setVisibleColumns(parsedColumns);
+          }
+        } else {
+          // Invalid saved data, use defaults
+          const defaultColumns = AVAILABLE_COLUMNS
+            .filter(col => col.default)
+            .map(col => col.key);
+          setVisibleColumns(defaultColumns);
+        }
+      } catch (error) {
+        console.error('Error parsing saved columns:', error);
+        // Fall back to default columns
+        const defaultColumns = AVAILABLE_COLUMNS
+          .filter(col => col.default)
+          .map(col => col.key);
+        setVisibleColumns(defaultColumns);
       }
     } else {
       // Use default columns
@@ -188,11 +205,11 @@ const PersonalBests = () => {
                     >
                       <input
                         type="checkbox"
-                        checked={visibleColumns.includes(column.key)}
+                        checked={visibleColumns && Array.isArray(visibleColumns) && visibleColumns.includes(column.key)}
                         onChange={() => {
                           if (isRank) return;
                           
-                          if (visibleColumns.includes(column.key)) {
+                          if (visibleColumns && Array.isArray(visibleColumns) && visibleColumns.includes(column.key)) {
                             if (visibleColumns.length <= 2) return;
                             setVisibleColumns(visibleColumns.filter(col => col !== column.key));
                           } else {

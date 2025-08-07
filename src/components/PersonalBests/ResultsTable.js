@@ -67,7 +67,7 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
         return <div className="text-xs text-slate-500 font-mono">{run.activityId}</div>;
       case 'heartRate':
         // Debug: log the run data to see what HR fields are available
-        if ((!run.averageHeartRate && !run.average_heartrate) && run.runName && run.runName.includes('Morning Run')) {
+        if ((!run.averageHeartRate && !run.average_heartrate) && run.runName && typeof run.runName === 'string' && run.runName.includes('Morning Run')) {
           console.log('Missing HR data for Morning Run:', {
             runName: run.runName,
             date: run.date,

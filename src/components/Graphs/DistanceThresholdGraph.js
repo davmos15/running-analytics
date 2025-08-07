@@ -42,7 +42,7 @@ const DistanceThresholdGraph = ({
       
       // Filter running activities
       const runningActivities = activities.filter(activity => 
-        ['Run', 'TrailRun'].includes(activity.type)
+        activity.type && ['Run', 'TrailRun'].includes(activity.type)
       );
 
       // Get available distances including custom ones
