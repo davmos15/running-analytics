@@ -157,7 +157,7 @@ const Settings = () => {
   };
 
   const handleBackfillStreamData = async () => {
-    if (window.confirm('This will fetch heart rate, cadence, and altitude data for activities that are missing this information. This is quota-efficient as it only processes activities without heart rate data. Continue?')) {
+    if (window.confirm('This will enhance historical activities by fetching heart rate, cadence, and altitude data from Strava. It only processes activities that don\'t already have heart rate data saved in Firebase. Continue?')) {
       setIsBackfillingStreams(true);
       setBackfillProgress(null);
       
@@ -449,8 +449,8 @@ const Settings = () => {
                 Backfill Heart Rate & Stream Data
               </h4>
               <p className="text-sm text-slate-300 mb-3">
-                Fetch heart rate, cadence, and altitude data for historical activities that are missing this information.
-                This only processes activities without heart rate data to minimize Firebase quota usage.
+                Enhance historical activities with heart rate, cadence, and altitude data from Strava.
+                This only processes activities that don't already have heart rate data saved in Firebase to minimize quota usage.
               </p>
               {backfillProgress && (
                 <div className="mb-3 p-3 bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/30">
