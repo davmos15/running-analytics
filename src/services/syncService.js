@@ -244,6 +244,33 @@ class SyncService {
         hasMaxHR: !!a.max_heartrate,
         hasMaxHeartRate: !!a.maxHeartRate
       })));
+      
+      // Check if our specific problematic Morning Runs are included
+      const morningRunIds = ['10386917319', '9771637722'];
+      const foundMorningRuns = activitiesNeedingStreams.filter(a => 
+        morningRunIds.includes(a.id?.toString())
+      );
+      if (foundMorningRuns.length > 0) {
+        console.log('🎯 Found problematic Morning Runs in backfill list:', foundMorningRuns.map(a => ({
+          id: a.id,
+          name: a.name,
+          date: a.start_date
+        })));
+      } else {
+        console.log('⚠️ Problematic Morning Runs NOT in backfill list. Checking why...');
+        const allMorningRuns = allActivities.filter(a => 
+          morningRunIds.includes(a.id?.toString())
+        );
+        console.log('Morning Run activities in database:', allMorningRuns.map(a => ({
+          id: a.id,
+          name: a.name,
+          type: a.type,
+          hasAvgHR: !!a.average_heartrate,
+          hasAvgHeartRate: !!a.averageHeartRate,
+          hasMaxHR: !!a.max_heartrate,
+          hasMaxHeartRate: !!a.maxHeartRate
+        })));
+      }
 
       if (activitiesNeedingStreams.length === 0) {
         if (progressCallback) {
