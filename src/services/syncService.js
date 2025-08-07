@@ -220,13 +220,30 @@ class SyncService {
 
       // Get all activities from Firebase that don't have heart rate data
       const allActivities = await firebaseService.getActivities();
-      const activitiesNeedingStreams = allActivities.filter(activity => 
-        ['Run', 'TrailRun'].includes(activity.type) && 
-        !activity.average_heartrate && 
-        !activity.averageHeartRate
-      );
+      const activitiesNeedingStreams = allActivities.filter(activity => {
+        if (!['Run', 'TrailRun'].includes(activity.type)) return false;
+        
+        // Check for any form of heart rate data (multiple field names used)
+        const hasHeartRateData = !!(
+          activity.average_heartrate || 
+          activity.averageHeartRate || 
+          activity.max_heartrate || 
+          activity.maxHeartRate
+        );
+        
+        return !hasHeartRateData;
+      });
 
       console.log(`Found ${activitiesNeedingStreams.length} activities without heart rate data`);
+      console.log('Sample activities needing streams:', activitiesNeedingStreams.slice(0, 3).map(a => ({
+        id: a.id,
+        name: a.name,
+        date: a.start_date,
+        hasAvgHR: !!a.average_heartrate,
+        hasAvgHeartRate: !!a.averageHeartRate,
+        hasMaxHR: !!a.max_heartrate,
+        hasMaxHeartRate: !!a.maxHeartRate
+      })));
 
       if (activitiesNeedingStreams.length === 0) {
         if (progressCallback) {

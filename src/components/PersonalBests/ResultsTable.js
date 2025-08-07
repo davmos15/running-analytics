@@ -67,29 +67,38 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
         return <div className="text-xs text-slate-500 font-mono">{run.activityId}</div>;
       case 'heartRate':
         // Debug: log the run data to see what HR fields are available
-        if (!run.averageHeartRate && (run.heartRate || run.avgHeartRate)) {
+        if (!run.averageHeartRate && (run.heartRate || run.avgHeartRate || run.average_heartrate)) {
           console.log('HR field mismatch for run:', {
             averageHeartRate: run.averageHeartRate,
+            average_heartrate: run.average_heartrate,
             heartRate: run.heartRate,
             avgHeartRate: run.avgHeartRate,
-            allFields: Object.keys(run)
+            maxHeartRate: run.maxHeartRate,
+            max_heartrate: run.max_heartrate,
+            allFields: Object.keys(run).filter(k => k.toLowerCase().includes('heart'))
           });
         }
+        // Use averageHeartRate (camelCase) or fallback to average_heartrate (snake_case)
+        const heartRate = run.averageHeartRate || run.average_heartrate;
         return (
           <div className="text-sm text-slate-300">
-            {run.averageHeartRate ? `${run.averageHeartRate} bpm` : 'N/A'}
+            {heartRate ? `${heartRate} bpm` : 'N/A'}
           </div>
         );
       case 'maxHeartRate':
+        // Use maxHeartRate (camelCase) or fallback to max_heartrate (snake_case)
+        const maxHeartRate = run.maxHeartRate || run.max_heartrate;
         return (
           <div className="text-sm text-slate-300">
-            {run.maxHeartRate ? `${run.maxHeartRate} bpm` : 'N/A'}
+            {maxHeartRate ? `${maxHeartRate} bpm` : 'N/A'}
           </div>
         );
       case 'cadence':
+        // Use averageCadence (camelCase) or fallback to average_cadence (snake_case)
+        const cadence = run.averageCadence || run.average_cadence;
         return (
           <div className="text-sm text-slate-300">
-            {run.averageCadence ? `${run.averageCadence} spm` : 'N/A'}
+            {cadence ? `${cadence} spm` : 'N/A'}
           </div>
         );
       case 'elevation':
