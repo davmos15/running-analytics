@@ -66,21 +66,7 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
       case 'activityId':
         return <div className="text-xs text-slate-500 font-mono">{run.activityId}</div>;
       case 'heartRate':
-        // Debug: log the run data to see what HR fields are available
-        if ((!run.averageHeartRate && !run.average_heartrate) && run.runName && typeof run.runName === 'string' && run.runName.includes('Morning Run')) {
-          console.log('Missing HR data for Morning Run:', {
-            runName: run.runName,
-            date: run.date,
-            activityId: run.activityId,
-            averageHeartRate: run.averageHeartRate,
-            average_heartrate: run.average_heartrate,
-            heartRate: run.heartRate,
-            avgHeartRate: run.avgHeartRate,
-            maxHeartRate: run.maxHeartRate,
-            max_heartrate: run.max_heartrate,
-            allFields: Object.keys(run).filter(k => k && typeof k === 'string' && k.toLowerCase().includes('heart'))
-          });
-        }
+        // Removed debug logging since heart rate issue is resolved
         // Use averageHeartRate (camelCase) or fallback to average_heartrate (snake_case)
         const heartRate = run.averageHeartRate || run.average_heartrate;
         return (
