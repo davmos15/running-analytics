@@ -17,6 +17,8 @@ const Settings = () => {
   const [isImportingRuns, setIsImportingRuns] = useState(false);
   const [isBackfillingStreams, setIsBackfillingStreams] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState(null);
+  const [isFixingSegments, setIsFixingSegments] = useState(false);
+  const [segmentFixProgress, setSegmentFixProgress] = useState(null);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -179,6 +181,28 @@ const Settings = () => {
       } finally {
         setIsBackfillingStreams(false);
         setBackfillProgress(null);
+      }
+    }
+  };
+
+  const handleFixSegmentHeartRate = async () => {
+    if (window.confirm('This will fix existing segments by copying heart rate data from their parent activities. This is needed if segments were created before heart rate data was available. Continue?')) {
+      setIsFixingSegments(true);
+      setSegmentFixProgress(null);
+      
+      try {
+        const result = await syncService.fixSegmentHeartRateData((progress) => {
+          setSegmentFixProgress(progress);
+        });
+        
+        alert(`Segment fix complete! Updated segments for ${result.updatedSegments} activities.`);
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+      } catch (error) {
+        alert('Error fixing segment heart rate data: ' + error.message);
+      } finally {
+        setIsFixingSegments(false);
+        setSegmentFixProgress(null);
       }
     }
   };
@@ -472,6 +496,37 @@ const Settings = () => {
               >
                 <Download className="w-4 h-4" />
                 <span>{isBackfillingStreams ? 'Backfilling...' : 'Backfill Stream Data'}</span>
+              </button>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-white mb-2">
+                Fix Segment Heart Rate Data
+              </h4>
+              <p className="text-sm text-slate-300 mb-3">
+                Copy heart rate data from activities to their segments. This fixes segments that were created 
+                before heart rate data was available, ensuring Personal Bests show heart rate information.
+              </p>
+              {segmentFixProgress && (
+                <div className="mb-3 p-3 bg-green-500/20 text-green-300 rounded-lg border border-green-500/30">
+                  <div className="text-sm font-medium mb-1">{segmentFixProgress.message}</div>
+                  {segmentFixProgress.progress && (
+                    <div className="w-full bg-green-900/50 rounded-full h-2">
+                      <div 
+                        className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${segmentFixProgress.progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={handleFixSegmentHeartRate}
+                disabled={isFixingSegments}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isFixingSegments ? 'Fixing...' : 'Fix Segment HR Data'}</span>
               </button>
             </div>
 

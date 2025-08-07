@@ -659,7 +659,8 @@ class FirebaseService {
         // Calculate estimated time for this distance (simple linear estimation)
         const estimatedTime = (time * distanceObj.meters) / distance;
         
-        segments.push({
+        // Create segment with basic data
+        const segment = {
           activityId: activity.id,
           activityName: activity.name,
           distance: distanceObj.name,
@@ -675,7 +676,20 @@ class FirebaseService {
           // Add placeholder for segment bounds - will be updated when we have GPS data
           segmentStart: 0,
           segmentEnd: distanceObj.meters
-        });
+        };
+
+        // Inherit heart rate data from parent activity if available
+        if (activity.average_heartrate || activity.averageHeartRate) {
+          segment.average_heartrate = activity.average_heartrate || activity.averageHeartRate;
+        }
+        if (activity.max_heartrate || activity.maxHeartRate) {
+          segment.max_heartrate = activity.max_heartrate || activity.maxHeartRate;
+        }
+        if (activity.average_cadence || activity.averageCadence) {
+          segment.average_cadence = activity.average_cadence || activity.averageCadence;
+        }
+
+        segments.push(segment);
       }
     });
 

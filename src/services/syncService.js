@@ -374,6 +374,77 @@ class SyncService {
     return this.isSyncing;
   }
 
+  async fixSegmentHeartRateData(progressCallback = null) {
+    if (this.isSyncing) {
+      console.log('Sync already in progress');
+      return;
+    }
+
+    try {
+      this.isSyncing = true;
+      console.log('Starting segment heart rate data fix...');
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'analyzing',
+          message: 'Finding segments missing heart rate data...'
+        });
+      }
+
+      // Get all activities that have heart rate data
+      const allActivities = await firebaseService.getActivities();
+      const activitiesWithHR = allActivities.filter(activity => 
+        activity.type && ['Run', 'TrailRun'].includes(activity.type) &&
+        (activity.average_heartrate || activity.averageHeartRate)
+      );
+
+      console.log(`Found ${activitiesWithHR.length} activities with heart rate data`);
+
+      // For each activity with HR data, check if its segments need updating
+      let updatedSegments = 0;
+      for (let i = 0; i < activitiesWithHR.length; i++) {
+        const activity = activitiesWithHR[i];
+        
+        if (progressCallback) {
+          progressCallback({
+            stage: 'processing',
+            message: `Checking segments for activity ${i + 1}/${activitiesWithHR.length}`,
+            progress: (i / activitiesWithHR.length) * 100
+          });
+        }
+
+        // Re-process this activity's segments with heart rate inheritance
+        await firebaseService.processActivityForSegments(activity);
+        updatedSegments++;
+
+        // Rate limiting
+        await this.delay(100);
+      }
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'complete',
+          message: `Segment HR fix complete! Updated ${updatedSegments} activities.`
+        });
+      }
+
+      console.log(`Fixed segments for ${updatedSegments} activities`);
+      return { success: true, updatedSegments };
+
+    } catch (error) {
+      console.error('Segment HR fix failed:', error);
+      if (progressCallback) {
+        progressCallback({
+          stage: 'error',
+          message: `Fix failed: ${error.message}`
+        });
+      }
+      throw error;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
