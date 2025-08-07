@@ -25,6 +25,19 @@ class PredictionService {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
+      console.log('🔍 PREDICTION DEBUG: Raw prediction data:', {
+        recentRacesCount: predictionData?.recentRaces?.length || 0,
+        activitiesCount: predictionData?.activities?.length || 0,
+        sampleRaces: predictionData?.recentRaces?.slice(0, 3).map(race => ({
+          name: race.name,
+          distance: race.distanceMeters,
+          time: race.time,
+          timeFormatted: this.formatTime(race.time),
+          pace: race.pace,
+          date: race.date
+        }))
+      });
+      
       if (!predictionData || predictionData.recentRaces.length === 0) {
         throw new Error('Insufficient data for predictions. Need at least 3 recent races or time trials.');
       }
@@ -105,6 +118,7 @@ class PredictionService {
 
     let totalPrediction = 0;
     let totalWeight = 0;
+    const calculations = [];
 
     recentRaces.forEach((race, index) => {
       const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
@@ -118,12 +132,33 @@ class PredictionService {
       const prediction = race.time * Math.pow(distanceRatio, exponent);
       const weight = recencyWeight * (1 / (index + 1)); // Recent races weighted more
       
+      calculations.push({
+        raceName: race.name,
+        raceTime: race.time,
+        raceTimeFormatted: this.formatTime(race.time),
+        raceDistance: race.distanceMeters,
+        targetDistance,
+        distanceRatio,
+        exponent,
+        prediction,
+        predictionFormatted: this.formatTime(prediction),
+        weight,
+        daysSince: Math.round(daysSince)
+      });
+      
       totalPrediction += prediction * weight;
       totalWeight += weight;
     });
 
     const prediction = totalPrediction / totalWeight;
     const confidence = Math.min(0.9, totalWeight / 2); // Max confidence 0.9
+
+    console.log(`🧮 RIEGEL DEBUG for ${targetDistance}m:`, {
+      calculations,
+      finalPrediction: prediction,
+      finalPredictionFormatted: this.formatTime(prediction),
+      confidence
+    });
 
     return {
       prediction,
@@ -179,8 +214,8 @@ class PredictionService {
       return { prediction: null, confidence: 0 };
     }
 
-    // Base prediction from recent average pace
-    const basePrediction = (targetDistance / 1000) * features.recentPace * 60;
+    // Base prediction from recent average pace (recentPace is already in seconds per km)
+    const basePrediction = (targetDistance / 1000) * features.recentPace;
     
     // Apply feature adjustments
     let adjustmentFactor = 1.0;
@@ -201,6 +236,25 @@ class PredictionService {
     
     const prediction = basePrediction * adjustmentFactor;
     const confidence = Math.min(0.8, features.dataQuality);
+
+    console.log(`🤖 FEATURES DEBUG for ${targetDistance}m:`, {
+      targetDistanceKm: targetDistance / 1000,
+      features: {
+        recentPace: features.recentPace,
+        recentPaceFormatted: `${Math.floor(features.recentPace / 60)}:${Math.floor(features.recentPace % 60).toString().padStart(2, '0')}/km`,
+        volumeConsistency: features.volumeConsistency,
+        distanceExperience: features.distanceExperience,
+        hrEfficiency: features.hrEfficiency,
+        formTrend: features.formTrend,
+        dataQuality: features.dataQuality
+      },
+      basePrediction,
+      basePredictionFormatted: this.formatTime(basePrediction),
+      adjustmentFactor,
+      finalPrediction: prediction,
+      finalPredictionFormatted: this.formatTime(prediction),
+      confidence
+    });
 
     return {
       prediction,
