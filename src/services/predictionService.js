@@ -10,11 +10,10 @@ class PredictionService {
       '42.2K': 42200
     };
     
-    // Algorithm weights
+    // Algorithm weights (VDOT removed - using only Riegel + ML Features)
     this.algorithmWeights = {
-      riegel: 0.40,
-      vdot: 0.35,
-      features: 0.25
+      riegel: 0.60,
+      features: 0.40
     };
   }
 
@@ -25,18 +24,7 @@ class PredictionService {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
-      console.log('🔍 PREDICTION DEBUG: Raw prediction data:', {
-        recentRacesCount: predictionData?.recentRaces?.length || 0,
-        activitiesCount: predictionData?.activities?.length || 0,
-        sampleRaces: predictionData?.recentRaces?.slice(0, 3).map(race => ({
-          name: race.name,
-          distance: race.distanceMeters,
-          time: race.time,
-          timeFormatted: this.formatTime(race.time),
-          pace: race.pace,
-          date: race.date
-        }))
-      });
+      console.log(`🔍 Prediction data: ${predictionData?.recentRaces?.length || 0} races, ${predictionData?.activities?.length || 0} activities`);
       
       if (!predictionData || predictionData.recentRaces.length === 0) {
         throw new Error('Insufficient data for predictions. Need at least 3 recent races or time trials.');
@@ -69,7 +57,6 @@ class PredictionService {
   async predictDistance(targetDistance, data) {
     const algorithms = {
       riegel: this.riegelPrediction(targetDistance, data),
-      vdot: this.vdotPrediction(targetDistance, data),
       features: this.featureBasedPrediction(targetDistance, data)
     };
 
@@ -153,12 +140,7 @@ class PredictionService {
     const prediction = totalPrediction / totalWeight;
     const confidence = Math.min(0.9, totalWeight / 2); // Max confidence 0.9
 
-    console.log(`🧮 RIEGEL DEBUG for ${targetDistance}m:`, {
-      calculations,
-      finalPrediction: prediction,
-      finalPredictionFormatted: this.formatTime(prediction),
-      confidence
-    });
+    console.log(`🧮 Riegel ${targetDistance/1000}K: ${this.formatTime(prediction)} (${calculations.length} races, conf: ${confidence.toFixed(2)})`);
 
     return {
       prediction,
@@ -167,42 +149,7 @@ class PredictionService {
     };
   }
 
-  /**
-   * VDOT-based prediction system
-   */
-  vdotPrediction(targetDistance, data) {
-    const recentRaces = data.recentRaces
-      .filter(race => race.distanceMeters >= 3000) // VDOT works better with longer distances
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 3);
-
-    if (recentRaces.length === 0) {
-      return { prediction: null, confidence: 0 };
-    }
-
-    let totalVDOT = 0;
-    let totalWeight = 0;
-
-    recentRaces.forEach(race => {
-      const vdot = this.calculateVDOT(race.time, race.distanceMeters);
-      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
-      const weight = Math.exp(-daysSince / 45); // Longer decay for VDOT
-      
-      totalVDOT += vdot * weight;
-      totalWeight += weight;
-    });
-
-    const avgVDOT = totalVDOT / totalWeight;
-    const prediction = this.vdotToTime(avgVDOT, targetDistance);
-    const confidence = Math.min(0.85, totalWeight / 1.5);
-
-    return {
-      prediction,
-      confidence,
-      vdot: Math.round(avgVDOT * 10) / 10,
-      baseRaces: recentRaces.length
-    };
-  }
+  // VDOT prediction method removed - using only Enhanced Riegel + ML Features
 
   /**
    * Feature-based ML approach
@@ -237,24 +184,8 @@ class PredictionService {
     const prediction = basePrediction * adjustmentFactor;
     const confidence = Math.min(0.8, features.dataQuality);
 
-    console.log(`🤖 FEATURES DEBUG for ${targetDistance}m:`, {
-      targetDistanceKm: targetDistance / 1000,
-      features: {
-        recentPace: features.recentPace,
-        recentPaceFormatted: `${Math.floor(features.recentPace / 60)}:${Math.floor(features.recentPace % 60).toString().padStart(2, '0')}/km`,
-        volumeConsistency: features.volumeConsistency,
-        distanceExperience: features.distanceExperience,
-        hrEfficiency: features.hrEfficiency,
-        formTrend: features.formTrend,
-        dataQuality: features.dataQuality
-      },
-      basePrediction,
-      basePredictionFormatted: this.formatTime(basePrediction),
-      adjustmentFactor,
-      finalPrediction: prediction,
-      finalPredictionFormatted: this.formatTime(prediction),
-      confidence
-    });
+    const paceFormatted = `${Math.floor(features.recentPace / 60)}:${Math.floor(features.recentPace % 60).toString().padStart(2, '0')}/km`;
+    console.log(`🤖 ML ${targetDistance/1000}K: ${this.formatTime(prediction)} (pace: ${paceFormatted}, adj: ${adjustmentFactor.toFixed(3)}, conf: ${confidence.toFixed(2)})`);
 
     return {
       prediction,
@@ -320,25 +251,7 @@ class PredictionService {
     return baseExponent;
   }
 
-  /**
-   * Calculate VDOT from race performance
-   */
-  calculateVDOT(timeSeconds, distanceMeters) {
-    // Simplified VDOT calculation - in production, use full Jack Daniels tables
-    const velocity = distanceMeters / timeSeconds; // m/s
-    
-    // Approximate VDOT formula (simplified)
-    return Math.max(30, Math.min(85, 15.3 * Math.pow(velocity * 3.6, 1.06)));
-  }
-
-  /**
-   * Convert VDOT to predicted time for distance
-   */
-  vdotToTime(vdot, distanceMeters) {
-    // Simplified conversion - in production, use full VDOT tables
-    const velocity = Math.pow(vdot / 15.3, 1 / 1.06) / 3.6; // m/s
-    return distanceMeters / velocity;
-  }
+  // VDOT calculation methods removed - using only Enhanced Riegel + ML Features
 
   /**
    * Calculate average pace for activities within days

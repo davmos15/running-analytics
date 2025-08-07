@@ -157,19 +157,15 @@ const PredictionsPage = () => {
             <h3 className="text-lg font-semibold text-white mb-3">How Race Predictions Work</h3>
             <div className="space-y-3 text-sm text-slate-300">
               <p>
-                Our prediction system uses a sophisticated ensemble of three proven algorithms:
+                Our prediction system uses a sophisticated ensemble of two proven algorithms:
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
-                  <h4 className="font-medium text-orange-400">Enhanced Riegel Formula (40%)</h4>
+                  <h4 className="font-medium text-orange-400">Enhanced Riegel Formula (60%)</h4>
                   <p>Classic racing formula with dynamic adjustments based on your recent performances and training patterns.</p>
                 </div>
                 <div className="space-y-2">
-                  <h4 className="font-medium text-orange-400">VDOT Fitness System (35%)</h4>
-                  <p>Jack Daniels' proven method for calculating equivalent performances across different distances.</p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-orange-400">ML Feature Analysis (25%)</h4>
+                  <h4 className="font-medium text-orange-400">ML Feature Analysis (40%)</h4>
                   <p>Machine learning approach considering training volume, consistency, form trends, and race experience.</p>
                 </div>
               </div>
