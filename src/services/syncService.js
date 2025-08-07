@@ -48,7 +48,7 @@ class SyncService {
 
       // Filter for running activities
       const runningActivities = allActivities.filter(activity => 
-        ['Run', 'TrailRun'].includes(activity.type)
+        activity.type && ['Run', 'TrailRun'].includes(activity.type)
       );
 
       console.log(`Processing ${runningActivities.length} running activities`);
@@ -158,7 +158,7 @@ class SyncService {
       // Get recent activities from Strava
       const activities = await stravaApi.getActivities(1, 20);
       const runningActivities = activities.filter(activity => 
-        ['Run', 'TrailRun'].includes(activity.type)
+        activity.type && ['Run', 'TrailRun'].includes(activity.type)
       );
 
       let newActivitiesCount = 0;
@@ -221,7 +221,7 @@ class SyncService {
       // Get all activities from Firebase that don't have heart rate data
       const allActivities = await firebaseService.getActivities();
       const activitiesNeedingStreams = allActivities.filter(activity => {
-        if (!['Run', 'TrailRun'].includes(activity.type)) return false;
+        if (!activity.type || !['Run', 'TrailRun'].includes(activity.type)) return false;
         
         // Check for any form of heart rate data (multiple field names used)
         const hasHeartRateData = !!(

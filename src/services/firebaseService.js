@@ -377,7 +377,7 @@ class FirebaseService {
         if (parsed) {
           const activities = await this.getActivities();
           const runningActivities = activities.filter(activity => 
-            ['Run', 'TrailRun'].includes(activity.type) && 
+            activity.type && ['Run', 'TrailRun'].includes(activity.type) && 
             activity.distance >= parsed.meters
           );
 
@@ -509,7 +509,7 @@ class FirebaseService {
         if (parsed) {
           const activities = await this.getActivities();
           const runningActivities = activities.filter(activity => 
-            ['Run', 'TrailRun'].includes(activity.type) && 
+            activity.type && ['Run', 'TrailRun'].includes(activity.type) && 
             activity.distance >= parsed.meters
           );
 
@@ -586,7 +586,7 @@ class FirebaseService {
   async processActivityForSegments(activity, streams = null) {
     try {
       // Only process running activities
-      if (!['Run', 'TrailRun'].includes(activity.type)) {
+      if (!activity.type || !['Run', 'TrailRun'].includes(activity.type)) {
         return;
       }
 
@@ -987,7 +987,7 @@ class FirebaseService {
       const activities = await this.getActivities();
       const recentActivities = activities.filter(activity => {
         const activityDate = new Date(activity.start_date);
-        return activityDate >= cutoffDate && ['Run', 'TrailRun'].includes(activity.type);
+        return activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
       });
 
       // Get race performances (longer efforts that could be used for prediction)
@@ -1161,7 +1161,7 @@ class FirebaseService {
 
       const recentActivities = activities.filter(activity => {
         const activityDate = new Date(activity.start_date);
-        return activityDate >= cutoffDate && ['Run', 'TrailRun'].includes(activity.type);
+        return activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
       });
 
       // Group activities by week
