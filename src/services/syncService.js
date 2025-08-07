@@ -201,6 +201,127 @@ class SyncService {
     }
   }
 
+  async backfillHistoricalStreamData(progressCallback = null) {
+    if (this.isSyncing) {
+      console.log('Sync already in progress');
+      return;
+    }
+
+    try {
+      this.isSyncing = true;
+      console.log('Starting historical stream data backfill...');
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'analyzing',
+          message: 'Analyzing activities that need stream data...'
+        });
+      }
+
+      // Get all activities from Firebase that don't have heart rate data
+      const allActivities = await firebaseService.getActivities();
+      const activitiesNeedingStreams = allActivities.filter(activity => 
+        ['Run', 'TrailRun'].includes(activity.type) && 
+        !activity.average_heartrate && 
+        !activity.averageHeartRate
+      );
+
+      console.log(`Found ${activitiesNeedingStreams.length} activities without heart rate data`);
+
+      if (activitiesNeedingStreams.length === 0) {
+        if (progressCallback) {
+          progressCallback({
+            stage: 'complete',
+            message: 'All activities already have stream data!'
+          });
+        }
+        return { success: true, updatedCount: 0 };
+      }
+
+      // Estimate quota usage
+      const quotaEstimate = firebaseMonitor.estimateQuotaUsage(activitiesNeedingStreams.length * 2); // 2 operations per activity
+      if (quotaEstimate.exceedsFreeTier) {
+        console.warn('⚠️ Stream backfill may exceed Firebase free tier limits');
+        if (progressCallback) {
+          progressCallback({
+            stage: 'warning',
+            message: `Warning: This may use ~${quotaEstimate.estimatedReads} Firebase reads. Continue?`
+          });
+        }
+      }
+
+      // Process activities in batches to avoid overwhelming APIs
+      let processedCount = 0;
+      let updatedCount = 0;
+      const batchSize = 5;
+
+      for (let i = 0; i < activitiesNeedingStreams.length; i += batchSize) {
+        const batch = activitiesNeedingStreams.slice(i, i + batchSize);
+        
+        for (const activity of batch) {
+          if (progressCallback) {
+            progressCallback({
+              stage: 'processing',
+              message: `Fetching stream data for activity ${processedCount + 1}/${activitiesNeedingStreams.length}`,
+              progress: (processedCount / activitiesNeedingStreams.length) * 100
+            });
+          }
+
+          try {
+            // Try to get streams for this activity
+            const streams = await stravaApi.getActivityStreams(activity.id, [
+              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+            ]);
+
+            if (streams && (streams.heartrate || streams.cadence || streams.altitude)) {
+              // Re-save activity with enhanced stream data
+              await firebaseService.saveActivity(activity.id, activity, streams);
+              
+              // Re-process segments with stream data for more accurate metrics
+              await firebaseService.processActivityForSegments(activity, streams);
+              
+              updatedCount++;
+              console.log(`Enhanced activity ${activity.id} with stream data`);
+            }
+          } catch (streamError) {
+            console.log(`Could not fetch streams for activity ${activity.id}:`, streamError.message);
+            // Continue with next activity - some activities might not have stream data available
+          }
+
+          processedCount++;
+          
+          // Rate limiting: small delay between requests
+          await this.delay(200);
+        }
+
+        // Longer delay between batches
+        await this.delay(1000);
+      }
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'complete',
+          message: `Backfill complete! Enhanced ${updatedCount} activities with stream data.`
+        });
+      }
+
+      console.log(`Historical stream backfill completed: ${updatedCount} activities enhanced`);
+      return { success: true, updatedCount };
+
+    } catch (error) {
+      console.error('Stream backfill failed:', error);
+      if (progressCallback) {
+        progressCallback({
+          stage: 'error',
+          message: `Backfill failed: ${error.message}`
+        });
+      }
+      throw error;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
   async getLastSyncTime() {
     return this.lastSyncTime;
   }

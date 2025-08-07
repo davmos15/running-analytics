@@ -15,6 +15,8 @@ const Settings = () => {
   const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
   const [isAddingDistance, setIsAddingDistance] = useState(false);
   const [isImportingRuns, setIsImportingRuns] = useState(false);
+  const [isBackfillingStreams, setIsBackfillingStreams] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState(null);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -150,6 +152,33 @@ const Settings = () => {
         alert('Error importing recent runs: ' + error.message);
       } finally {
         setIsImportingRuns(false);
+      }
+    }
+  };
+
+  const handleBackfillStreamData = async () => {
+    if (window.confirm('This will fetch heart rate, cadence, and altitude data for activities that are missing this information. This is quota-efficient as it only processes activities without heart rate data. Continue?')) {
+      setIsBackfillingStreams(true);
+      setBackfillProgress(null);
+      
+      try {
+        const result = await syncService.backfillHistoricalStreamData((progress) => {
+          setBackfillProgress(progress);
+        });
+        
+        if (result.updatedCount > 0) {
+          alert(`Backfill complete! Enhanced ${result.updatedCount} activities with heart rate and other stream data.`);
+        } else {
+          alert('All activities already have stream data!');
+        }
+        
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 3000);
+      } catch (error) {
+        alert('Error backfilling stream data: ' + error.message);
+      } finally {
+        setIsBackfillingStreams(false);
+        setBackfillProgress(null);
       }
     }
   };
@@ -412,6 +441,37 @@ const Settings = () => {
                 className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
               >
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
+              </button>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-white mb-2">
+                Backfill Heart Rate & Stream Data
+              </h4>
+              <p className="text-sm text-slate-300 mb-3">
+                Fetch heart rate, cadence, and altitude data for historical activities that are missing this information.
+                This only processes activities without heart rate data to minimize Firebase quota usage.
+              </p>
+              {backfillProgress && (
+                <div className="mb-3 p-3 bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/30">
+                  <div className="text-sm font-medium mb-1">{backfillProgress.message}</div>
+                  {backfillProgress.progress && (
+                    <div className="w-full bg-blue-900/50 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${backfillProgress.progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={handleBackfillStreamData}
+                disabled={isBackfillingStreams}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isBackfillingStreams ? 'Backfilling...' : 'Backfill Stream Data'}</span>
               </button>
             </div>
 
