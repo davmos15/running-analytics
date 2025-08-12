@@ -96,7 +96,7 @@ const ProgressionGraph = ({ distance, color = '#3B82F6', timePeriod = 'all', cus
         data: data,
         borderColor: color,
         backgroundColor: color + '20',
-        tension: 0.4,
+        tension: 0,
         pointRadius: 4,
         pointHoverRadius: 6
       }

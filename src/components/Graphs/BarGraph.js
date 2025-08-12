@@ -22,7 +22,7 @@ ChartJS.register(
   Legend
 );
 
-const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo }) => {
+const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo, isTotal = false }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -86,27 +86,48 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
       const chartData = Object.entries(groupedData).map(([periodKey, activities]) => {
         let value;
         
-        switch (metric) {
-          case 'distance':
-            value = activities.reduce((sum, act) => sum + act.distance, 0) / activities.length / 1000; // avg km
-            break;
-          case 'speed':
-            value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // avg km/h
-            break;
-          case 'time':
-            value = activities.reduce((sum, act) => sum + act.moving_time, 0) / activities.length / 60; // avg minutes
-            break;
-          case 'totalDistance':
-            value = activities.reduce((sum, act) => sum + act.distance, 0) / 1000; // total km
-            break;
-          case 'totalTime':
-            value = activities.reduce((sum, act) => sum + act.moving_time, 0) / 60; // total minutes
-            break;
-          case 'totalRuns':
-            value = activities.length; // total number of runs
-            break;
-          default:
-            value = 0;
+        if (isTotal) {
+          // Calculate totals
+          switch (metric) {
+            case 'distance':
+              value = activities.reduce((sum, act) => sum + act.distance, 0) / 1000; // total km
+              break;
+            case 'time':
+              value = activities.reduce((sum, act) => sum + act.moving_time, 0) / 60; // total minutes
+              break;
+            case 'runs':
+              value = activities.length; // total number of runs
+              break;
+            case 'elevation':
+              value = activities.reduce((sum, act) => sum + (act.total_elevation_gain || 0), 0); // total elevation in meters
+              break;
+            default:
+              value = 0;
+          }
+        } else {
+          // Calculate averages
+          switch (metric) {
+            case 'distance':
+              value = activities.reduce((sum, act) => sum + act.distance, 0) / activities.length / 1000; // avg km
+              break;
+            case 'speed':
+              value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // avg km/h
+              break;
+            case 'time':
+              value = activities.reduce((sum, act) => sum + act.moving_time, 0) / activities.length / 60; // avg minutes
+              break;
+            case 'totalDistance':
+              value = activities.reduce((sum, act) => sum + act.distance, 0) / 1000; // total km
+              break;
+            case 'totalTime':
+              value = activities.reduce((sum, act) => sum + act.moving_time, 0) / 60; // total minutes
+              break;
+            case 'totalRuns':
+              value = activities.length; // total number of runs
+              break;
+            default:
+              value = 0;
+          }
         }
         return { label: periodKey, value, date: activities[0]?.start_date };
       });
@@ -154,21 +175,36 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
   };
 
   const getMetricLabel = () => {
-    switch (metric) {
-      case 'distance':
-        return 'Average Distance (km)';
-      case 'speed':
-        return 'Average Speed (km/h)';
-      case 'time':
-        return 'Average Time (minutes)';
-      case 'totalDistance':
-        return 'Total Distance (km)';
-      case 'totalTime':
-        return 'Total Time (minutes)';
-      case 'totalRuns':
-        return 'Total Number of Runs';
-      default:
-        return 'Average';
+    if (isTotal) {
+      switch (metric) {
+        case 'distance':
+          return 'Total Distance (km)';
+        case 'time':
+          return 'Total Time (minutes)';
+        case 'runs':
+          return 'Total Number of Runs';
+        case 'elevation':
+          return 'Total Elevation Gain (m)';
+        default:
+          return 'Total';
+      }
+    } else {
+      switch (metric) {
+        case 'distance':
+          return 'Average Distance (km)';
+        case 'speed':
+          return 'Average Speed (km/h)';
+        case 'time':
+          return 'Average Time (minutes)';
+        case 'totalDistance':
+          return 'Total Distance (km)';
+        case 'totalTime':
+          return 'Total Time (minutes)';
+        case 'totalRuns':
+          return 'Total Number of Runs';
+        default:
+          return 'Average';
+      }
     }
   };
 

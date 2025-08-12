@@ -9,8 +9,6 @@ const DistanceSelector = ({
   setIsFilterOpen,
   isColumnSelectorOpen,
   setIsColumnSelectorOpen,
-  customDistance,
-  setCustomDistance,
   visibleColumns,
   setVisibleColumns
 }) => {
@@ -29,15 +27,6 @@ const DistanceSelector = ({
                 <option key={distance} value={distance}>{distance}</option>
               ))}
             </select>
-            {selectedDistance === 'Custom' && (
-              <input
-                type="text"
-                placeholder="e.g., 7.5K, 3000m"
-                value={customDistance}
-                onChange={(e) => setCustomDistance(e.target.value)}
-                className="px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm w-32 text-white placeholder-slate-400"
-              />
-            )}
           </div>
           <div className="flex items-center gap-2">
             <button 
@@ -46,7 +35,6 @@ const DistanceSelector = ({
             >
               <Filter className="w-4 h-4" />
               <span className="text-sm font-medium hidden sm:inline">Date Filter</span>
-              <span className="text-sm font-medium sm:hidden">Filter</span>
             </button>
             <button 
               onClick={() => setIsColumnSelectorOpen(!isColumnSelectorOpen)}
@@ -54,7 +42,6 @@ const DistanceSelector = ({
             >
               <Columns className="w-4 h-4" />
               <span className="text-sm font-medium hidden sm:inline">Columns</span>
-              <span className="text-sm font-medium sm:hidden">Cols</span>
             </button>
           </div>
         </div>

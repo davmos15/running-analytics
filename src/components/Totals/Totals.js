@@ -91,11 +91,8 @@ const Totals = () => {
   }, [loadTotalStats]);
 
   const formatDistance = (meters) => {
-    const km = meters / 1000;
-    if (km >= 1000) {
-      return `${(km / 1000).toFixed(1)}k km`;
-    }
-    return `${km.toFixed(1)} km`;
+    const km = Math.round(meters / 1000);
+    return `${km.toLocaleString()} km`;
   };
 
   const toggleDistanceVisibility = (distance) => {

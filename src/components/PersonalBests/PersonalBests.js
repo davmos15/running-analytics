@@ -9,7 +9,6 @@ import { DISTANCES, AVAILABLE_COLUMNS, DISTANCE_METERS } from '../../utils/const
 
 const PersonalBests = () => {
   const [selectedDistance, setSelectedDistance] = useState('5K');
-  const [customDistance, setCustomDistance] = useState('');
   const [timeFilter, setTimeFilter] = useState('all-time');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
@@ -68,7 +67,7 @@ const PersonalBests = () => {
     if (savedDistances) {
       const customDistances = JSON.parse(savedDistances);
       // Merge custom distances with default ones
-      const baseDistances = DISTANCES.filter(d => d !== 'Custom');
+      const baseDistances = DISTANCES;
       const customLabels = customDistances.map(d => d.label);
       
       // Sort all distances by their meter values
@@ -78,8 +77,6 @@ const PersonalBests = () => {
         return aMeters - bMeters;
       });
       
-      // Add 'Custom' at the end
-      allDistanceLabels.push('Custom');
       setAllDistances(allDistanceLabels);
     }
   }, []);
@@ -92,7 +89,7 @@ const PersonalBests = () => {
   }, [visibleColumns]);
 
   const { personalBests, isLoading } = usePersonalBests({
-    distance: selectedDistance === 'Custom' ? (customDistance || '') : selectedDistance,
+    distance: selectedDistance,
     timeFilter,
     customDateFrom,
     customDateTo
@@ -112,8 +109,6 @@ const PersonalBests = () => {
         setIsFilterOpen={setIsFilterOpen}
         isColumnSelectorOpen={isColumnSelectorOpen}
         setIsColumnSelectorOpen={setIsColumnSelectorOpen}
-        customDistance={customDistance}
-        setCustomDistance={setCustomDistance}
         visibleColumns={visibleColumns}
         setVisibleColumns={setVisibleColumns}
       />

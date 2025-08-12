@@ -23,6 +23,9 @@ const Graphs = () => {
 
   // Average graphs
   const [averageGraphs, setAverageGraphs] = useState([]);
+  
+  // Total graphs
+  const [totalGraphs, setTotalGraphs] = useState([]);
 
   // Load distances and settings on mount
   useEffect(() => {
@@ -52,6 +55,17 @@ const Graphs = () => {
         { id: '2', type: 'bar', metric: 'speed', period: 'monthly', visible: true, color: '#8B5CF6' }
       ]);
     }
+    
+    const savedTotalGraphs = localStorage.getItem('totalGraphs');
+    if (savedTotalGraphs) {
+      setTotalGraphs(JSON.parse(savedTotalGraphs));
+    } else {
+      // Default total graphs
+      setTotalGraphs([
+        { id: '1', type: 'bar', metric: 'distance', period: 'monthly', visible: true, color: '#F59E0B' },
+        { id: '2', type: 'bar', metric: 'time', period: 'monthly', visible: true, color: '#EC4899' }
+      ]);
+    }
 
   }, []);
 
@@ -63,6 +77,10 @@ const Graphs = () => {
   useEffect(() => {
     localStorage.setItem('averageGraphs', JSON.stringify(averageGraphs));
   }, [averageGraphs]);
+  
+  useEffect(() => {
+    localStorage.setItem('totalGraphs', JSON.stringify(totalGraphs));
+  }, [totalGraphs]);
 
   const addAverageGraph = () => {
     const newGraph = {
@@ -85,10 +103,33 @@ const Graphs = () => {
   const deleteAverageGraph = (id) => {
     setAverageGraphs(averageGraphs.filter(graph => graph.id !== id));
   };
+  
+  const addTotalGraph = () => {
+    const newGraph = {
+      id: Date.now().toString(),
+      type: 'bar',
+      metric: 'distance',
+      period: 'monthly',
+      visible: true,
+      color: '#' + Math.floor(Math.random()*16777215).toString(16)
+    };
+    setTotalGraphs([...totalGraphs, newGraph]);
+  };
+
+  const updateTotalGraph = (id, updates) => {
+    setTotalGraphs(totalGraphs.map(graph => 
+      graph.id === id ? { ...graph, ...updates } : graph
+    ));
+  };
+
+  const deleteTotalGraph = (id) => {
+    setTotalGraphs(totalGraphs.filter(graph => graph.id !== id));
+  };
 
   const sections = [
     { id: 'progression', label: 'Progression', description: 'Track your personal best improvements over time' },
-    { id: 'average', label: 'Average', description: 'View average performance metrics by period' }
+    { id: 'average', label: 'Average', description: 'View average performance metrics by period' },
+    { id: 'total', label: 'Total', description: 'View total metrics over different time periods' }
   ];
 
   return (
@@ -274,6 +315,75 @@ const Graphs = () => {
                 <p className="text-slate-300 mb-4">No average graphs added yet.</p>
                 <button
                   onClick={addAverageGraph}
+                  className="px-4 py-2 athletic-button-primary text-white rounded-lg"
+                >
+                  Add Your First Graph
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === 'total' && (
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1">Total Metrics</h3>
+                <p className="text-sm text-slate-300">View your cumulative totals over different time periods</p>
+              </div>
+              <button
+                onClick={addTotalGraph}
+                className="flex items-center space-x-2 px-3 py-2 athletic-button-primary text-white rounded-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Graph</span>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {totalGraphs.map(graph => (
+                <div key={graph.id} className="relative">
+                  <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
+                    <button
+                      onClick={() => updateTotalGraph(graph.id, {visible: !graph.visible})}
+                      className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
+                    >
+                      {graph.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    <GraphSettings
+                      graph={graph}
+                      allDistances={allDistances}
+                      onUpdate={(updates) => updateTotalGraph(graph.id, updates)}
+                      isTotal={true}
+                    />
+                    <button
+                      onClick={() => deleteTotalGraph(graph.id)}
+                      className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {graph.visible && (
+                    <BarGraph
+                      metric={graph.metric}
+                      period={graph.period}
+                      color={graph.color}
+                      timeFilter={timeFilter}
+                      customDateFrom={customDateFrom}
+                      customDateTo={customDateTo}
+                      isTotal={true}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {totalGraphs.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-slate-300 mb-4">No total graphs added yet.</p>
+                <button
+                  onClick={addTotalGraph}
                   className="px-4 py-2 athletic-button-primary text-white rounded-lg"
                 >
                   Add Your First Graph

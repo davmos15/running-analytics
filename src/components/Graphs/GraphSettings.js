@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 
-const GraphSettings = ({ graph, allDistances, onUpdate }) => {
+const GraphSettings = ({ graph, allDistances, onUpdate, isTotal = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tempColor, setTempColor] = useState(graph.color);
 
@@ -52,12 +52,23 @@ const GraphSettings = ({ graph, allDistances, onUpdate }) => {
                     onChange={(e) => onUpdate({ metric: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
-                    <option value="speed">Average Speed</option>
-                    <option value="distance">Average Distance</option>
-                    <option value="time">Average Time</option>
-                    <option value="totalDistance">Total Distance</option>
-                    <option value="totalTime">Total Time</option>
-                    <option value="totalRuns">Total Number of Runs</option>
+                    {isTotal ? (
+                      <>
+                        <option value="distance">Total Distance</option>
+                        <option value="time">Total Time</option>
+                        <option value="runs">Total Number of Runs</option>
+                        <option value="elevation">Total Elevation Gain</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="speed">Average Speed</option>
+                        <option value="distance">Average Distance</option>
+                        <option value="time">Average Time</option>
+                        <option value="totalDistance">Total Distance</option>
+                        <option value="totalTime">Total Time</option>
+                        <option value="totalRuns">Total Number of Runs</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
