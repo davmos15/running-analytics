@@ -14,7 +14,8 @@ const TrainingPlanPage = () => {
     raceDate: '',
     raceDistance: '5000', // meters
     goalType: 'completion', // 'completion' or 'time'
-    goalTime: '', // in minutes
+    goalTimeHours: '',
+    goalTimeMinutes: '',
     runsPerWeek: 4,
     availableDays: ['Tuesday', 'Thursday', 'Saturday', 'Sunday'],
     longRunDay: 'Sunday'
@@ -53,7 +54,7 @@ const TrainingPlanPage = () => {
         throw new Error('Please select a race date');
       }
       
-      if (planConfig.goalType === 'time' && !planConfig.goalTime) {
+      if (planConfig.goalType === 'time' && (!planConfig.goalTimeHours && !planConfig.goalTimeMinutes)) {
         throw new Error('Please enter a goal time');
       }
       
@@ -65,8 +66,17 @@ const TrainingPlanPage = () => {
         throw new Error('Long run day must be one of your available days');
       }
 
-      // Generate the plan
-      const plan = await trainingPlanService.generateTrainingPlan(planConfig);
+      // Convert time format and generate the plan
+      const goalTimeInMinutes = planConfig.goalType === 'time' ? 
+        (parseInt(planConfig.goalTimeHours || 0) * 60) + parseInt(planConfig.goalTimeMinutes || 0) : 
+        undefined;
+      
+      const configWithTime = {
+        ...planConfig,
+        goalTime: goalTimeInMinutes
+      };
+      
+      const plan = await trainingPlanService.generateTrainingPlan(configWithTime);
       setCurrentPlan(plan);
       setShowPlanForm(false);
     } catch (err) {
@@ -225,15 +235,33 @@ const TrainingPlanPage = () => {
                 {planConfig.goalType === 'time' && (
                   <div className="ml-6 mt-2">
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Goal Time (minutes)
+                      Goal Time
                     </label>
-                    <input
-                      type="number"
-                      value={planConfig.goalTime}
-                      onChange={(e) => setPlanConfig({ ...planConfig, goalTime: e.target.value })}
-                      placeholder="e.g., 25 for 25 minutes"
-                      className="w-full md:w-1/2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white"
-                    />
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={planConfig.goalTimeHours}
+                        onChange={(e) => setPlanConfig({ ...planConfig, goalTimeHours: e.target.value })}
+                        placeholder="0"
+                        className="w-20 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white text-center"
+                      />
+                      <span className="text-slate-300">hours</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={planConfig.goalTimeMinutes}
+                        onChange={(e) => setPlanConfig({ ...planConfig, goalTimeMinutes: e.target.value })}
+                        placeholder="25"
+                        className="w-20 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white text-center"
+                      />
+                      <span className="text-slate-300">minutes</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      e.g., 0 hours 25 minutes for a 25-minute 5K
+                    </p>
                   </div>
                 )}
               </div>
@@ -338,7 +366,7 @@ const TrainingPlanPage = () => {
                 <p className="text-slate-300">
                   {currentPlan.metadata.totalWeeks} weeks • {currentPlan.metadata.runsPerWeek} runs/week • 
                   {currentPlan.metadata.goalType === 'time' ? 
-                    ` Goal: ${currentPlan.metadata.goalTime} minutes` : 
+                    ` Goal: ${Math.floor(currentPlan.metadata.goalTime / 60)}:${String(currentPlan.metadata.goalTime % 60).padStart(2, '0')}` : 
                     ' Goal: Complete the race'}
                 </p>
               </div>

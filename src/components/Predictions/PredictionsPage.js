@@ -138,6 +138,27 @@ const PredictionsPage = () => {
               <span className="text-sm font-medium">How it works</span>
             </button>
             
+            {/* Custom Distance Input */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                step="0.1"
+                placeholder="e.g., 7.5"
+                value={newDistance}
+                onChange={(e) => setNewDistance(e.target.value)}
+                className="w-20 px-2 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400 text-sm"
+              />
+              <span className="text-sm text-slate-400">km</span>
+              <button
+                onClick={handleAddDistance}
+                disabled={isAddingDistance || !newDistance}
+                className="px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center space-x-1 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add</span>
+              </button>
+            </div>
+            
             <button
               onClick={loadPredictionsCallback}
               className="flex items-center space-x-2 px-3 py-2 athletic-button-primary text-white rounded-lg transition-colors"
@@ -175,8 +196,26 @@ const PredictionsPage = () => {
             </div>
           </div>
           
-          <div className="text-sm text-slate-400">
-            Based on {predictions.dataSource} • Updated {new Date(predictions.lastUpdated).toLocaleDateString()}
+          <div className="flex items-center space-x-4 text-sm text-slate-400">
+            <span>Based on {predictions.dataSource} • Updated {new Date(predictions.lastUpdated).toLocaleDateString()}</span>
+            {customDistances.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <span>Custom:</span>
+                <div className="flex space-x-1">
+                  {customDistances.map((distance) => (
+                    <span key={distance.meters} className="px-2 py-1 bg-slate-700 rounded text-xs flex items-center space-x-1">
+                      <span>{distance.label}</span>
+                      <button
+                        onClick={() => handleRemoveDistance(distance)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -204,48 +243,6 @@ const PredictionsPage = () => {
                 Predictions are most accurate for runners with regular training and multiple recent race results.
               </p>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Custom Distance Input */}
-      <div className="athletic-card-gradient p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Plus className="w-5 h-5 text-orange-400" />
-          <h3 className="text-lg font-bold text-white">Custom Distance Prediction</h3>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="number"
-            step="0.1"
-            placeholder="Enter distance in km (e.g., 7.5)"
-            value={newDistance}
-            onChange={(e) => setNewDistance(e.target.value)}
-            className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400"
-          />
-          <button
-            onClick={handleAddDistance}
-            disabled={isAddingDistance || !newDistance}
-            className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isAddingDistance ? 'Adding...' : 'Add Prediction'}</span>
-          </button>
-        </div>
-        
-        {customDistances.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {customDistances.map((distance) => (
-              <div key={distance.meters} className="flex items-center space-x-2 px-3 py-1 bg-slate-700 rounded-lg">
-                <span className="text-sm text-white">{distance.label}</span>
-                <button
-                  onClick={() => handleRemoveDistance(distance)}
-                  className="text-red-400 hover:text-red-300 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
           </div>
         )}
       </div>
