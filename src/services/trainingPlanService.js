@@ -692,17 +692,18 @@ class TrainingPlanService {
   }
 
   /**
-   * Export plan to CSV format
+   * Export plan to CSV format with detailed workout information
    */
   exportToCSV(plan) {
-    const headers = ['Week', 'Start Date', 'Total Km', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const headers = ['Week', 'Start Date', 'Phase', 'Total Km', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const rows = [headers];
 
     plan.weeks.forEach(week => {
       const row = [
-        week.weekNumber,
+        `Week ${week.weekNumber}`,
         new Date(week.startDate).toLocaleDateString(),
-        week.totalKm.toFixed(1)
+        week.phase.charAt(0).toUpperCase() + week.phase.slice(1),
+        `${week.totalKm.toFixed(1)}km`
       ];
 
       const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -710,21 +711,70 @@ class TrainingPlanService {
       dayOrder.forEach(day => {
         const run = week.runs.find(r => r.day === day);
         if (run && run.distance > 0) {
-          const details = run.segments.map(s => 
-            `${s.type}: ${s.distance.toFixed(1)}km @ ${s.pace}/km`
-          ).join('; ');
-          row.push(`${run.type} - ${run.distance.toFixed(1)}km\n${details}`);
+          // Create detailed workout description
+          let workoutDetails = `${run.type} - ${run.distance.toFixed(1)}km\n`;
+          workoutDetails += `Description: ${run.description}\n`;
+          
+          if (run.segments && run.segments.length > 0) {
+            workoutDetails += `Workout Structure:\n`;
+            run.segments.forEach((segment, index) => {
+              workoutDetails += `  ${index + 1}. ${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km\n`;
+            });
+            
+            // Calculate total workout time estimate
+            const totalTime = run.segments.reduce((sum, segment) => {
+              const paceSeconds = this.paceToSeconds(segment.pace);
+              return sum + (segment.distance * paceSeconds);
+            }, 0);
+            
+            const hours = Math.floor(totalTime / 3600);
+            const minutes = Math.floor((totalTime % 3600) / 60);
+            const seconds = Math.floor(totalTime % 60);
+            
+            workoutDetails += `Estimated Time: `;
+            if (hours > 0) workoutDetails += `${hours}h `;
+            if (minutes > 0) workoutDetails += `${minutes}m `;
+            if (seconds > 0 || (hours === 0 && minutes === 0)) workoutDetails += `${seconds}s`;
+          }
+          
+          row.push(workoutDetails.trim());
         } else {
-          row.push('Rest');
+          row.push('Rest Day\nNo training scheduled');
         }
       });
 
       rows.push(row);
     });
 
+    // Add summary information at the end
+    rows.push([]);
+    rows.push(['TRAINING PLAN SUMMARY']);
+    rows.push(['Race Distance:', plan.metadata.raceDistance ? `${plan.metadata.raceDistance / 1000}K` : 'N/A']);
+    rows.push(['Goal Type:', plan.metadata.goalType === 'time' ? `Time Goal: ${Math.floor(plan.metadata.goalTime / 60)}:${String(plan.metadata.goalTime % 60).padStart(2, '0')}` : 'Completion']);
+    rows.push(['Total Weeks:', plan.metadata.totalWeeks]);
+    rows.push(['Runs Per Week:', plan.metadata.runsPerWeek]);
+    rows.push(['Plan Created:', new Date(plan.metadata.createdAt).toLocaleDateString()]);
+    
+    // Calculate total volume
+    const totalVolume = plan.weeks.reduce((sum, week) => sum + week.totalKm, 0);
+    rows.push(['Total Volume:', `${totalVolume.toFixed(1)}km`]);
+    
+    // Phase breakdown
+    const phases = {};
+    plan.weeks.forEach(week => {
+      phases[week.phase] = (phases[week.phase] || 0) + 1;
+    });
+    
+    rows.push([]);
+    rows.push(['PHASE BREAKDOWN']);
+    Object.entries(phases).forEach(([phase, weeks]) => {
+      rows.push([`${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase:`, `${weeks} weeks`]);
+    });
+
     // Convert to CSV string
     const csvContent = rows.map(row => 
       row.map(cell => {
+        if (cell === undefined || cell === null) return '';
         // Escape quotes and wrap in quotes if contains comma or newline
         const escaped = String(cell).replace(/"/g, '""');
         return /[,\n"]/.test(escaped) ? `"${escaped}"` : escaped;
@@ -732,6 +782,17 @@ class TrainingPlanService {
     ).join('\n');
 
     return csvContent;
+  }
+
+  /**
+   * Convert pace string (MM:SS) to seconds
+   */
+  paceToSeconds(paceString) {
+    const parts = paceString.split(':');
+    if (parts.length === 2) {
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    return 0;
   }
 }
 
