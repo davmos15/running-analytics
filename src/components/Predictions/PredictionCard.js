@@ -92,20 +92,6 @@ const PredictionCard = ({ distance, prediction }) => {
 
         {showDetails && (
           <div className="mt-4 space-y-4">
-            {/* Method Information */}
-            <div>
-              <h4 className="text-sm font-medium text-slate-300 mb-2">Prediction Method</h4>
-              <div className="p-3 bg-slate-800/50 rounded-lg">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">{prediction.method || 'ML Feature Analysis'}:</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white">{formatTime(prediction.prediction)}</span>
-                    <div className={`w-2 h-2 rounded-full ${getConfidenceColor(prediction.confidence)} opacity-75`} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Confidence Breakdown */}
             <div>
               <h4 className="text-sm font-medium text-slate-300 mb-2">Confidence Factors</h4>
@@ -117,6 +103,39 @@ const PredictionCard = ({ distance, prediction }) => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-slate-400">Prediction Range:</span>
                   <span className="text-white">±{Math.round(prediction.range.margin / 60)}m {Math.round(prediction.range.margin % 60)}s</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 30-Day Change Analysis */}
+            <div>
+              <h4 className="text-sm font-medium text-slate-300 mb-2">30-Day Prediction Change</h4>
+              <div className="p-3 bg-slate-800/50 rounded-lg">
+                {prediction.thirtyDayChange !== null && prediction.thirtyDayChange !== undefined ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Change from 30 days ago:</span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-sm font-medium ${
+                        prediction.thirtyDayChange < 0 ? 'text-green-400' : 
+                        prediction.thirtyDayChange > 0 ? 'text-red-400' : 'text-slate-300'
+                      }`}>
+                        {prediction.thirtyDayChange < 0 ? '' : '+'}
+                        {Math.floor(Math.abs(prediction.thirtyDayChange) / 60)}:
+                        {String(Math.abs(prediction.thirtyDayChange) % 60).padStart(2, '0')}
+                      </span>
+                      <div className={`w-2 h-2 rounded-full ${
+                        prediction.thirtyDayChange < 0 ? 'bg-green-500' : 
+                        prediction.thirtyDayChange > 0 ? 'bg-red-500' : 'bg-slate-500'
+                      }`} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-400">
+                    Not enough historical data for trend analysis
+                  </div>
+                )}
+                <div className="text-xs text-slate-500 mt-2">
+                  Based on recent race performance trends
                 </div>
               </div>
             </div>
@@ -144,34 +163,6 @@ const PredictionCard = ({ distance, prediction }) => {
                 </div>
               </div>
             )}
-
-            {/* 30-Day Trend Analysis */}
-            <div>
-              <h4 className="text-sm font-medium text-slate-300 mb-2">30-Day Prediction Trend</h4>
-              <div className="p-3 bg-slate-800/50 rounded-lg">
-                <div className="text-sm text-slate-400 mb-1">
-                  Prediction stability over the last month
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1 bg-slate-700 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        prediction.confidence >= 0.7 ? 'bg-green-500' : 
-                        prediction.confidence >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${prediction.confidence * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-slate-400">
-                    {prediction.confidence >= 0.7 ? 'Stable' : 
-                     prediction.confidence >= 0.5 ? 'Improving' : 'Variable'}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500 mt-2">
-                  Based on training consistency and recent performance data
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </div>

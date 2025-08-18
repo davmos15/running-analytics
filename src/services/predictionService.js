@@ -76,7 +76,8 @@ class PredictionService {
       confidence,
       range: this.calculateConfidenceInterval(mlPrediction.prediction, confidence),
       method: 'ML Feature Analysis',
-      factors: this.identifyPredictionFactors(targetDistance, data)
+      factors: this.identifyPredictionFactors(targetDistance, data),
+      thirtyDayChange: await this.calculate30DayChange(targetDistance, Math.round(mlPrediction.prediction))
     };
   }
 
@@ -442,6 +443,72 @@ class PredictionService {
     }
     
     return factors;
+  }
+
+  /**
+   * Calculate 30-day prediction change
+   */
+  async calculate30DayChange(targetDistance, currentPrediction) {
+    try {
+      // Get historical prediction data if available
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      // For now, simulate based on recent training trends
+      // In a full implementation, you'd store historical predictions
+      const data = await firebaseService.getPredictionData(8); // Last 8 weeks for trend
+      
+      if (!data || data.recentRaces.length < 2) {
+        return null; // Not enough data for trend analysis
+      }
+      
+      // Calculate trend based on recent race improvements
+      const recentRaces = data.recentRaces
+        .filter(race => race.distanceMeters >= 1000)
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 4);
+      
+      if (recentRaces.length < 2) {
+        return null;
+      }
+      
+      // Calculate average improvement rate
+      let totalImprovement = 0;
+      let comparisons = 0;
+      
+      for (let i = 0; i < recentRaces.length - 1; i++) {
+        const newer = recentRaces[i];
+        const older = recentRaces[i + 1];
+        
+        // Normalize times to target distance
+        const newerNormalized = newer.time * (targetDistance / newer.distanceMeters);
+        const olderNormalized = older.time * (targetDistance / older.distanceMeters);
+        
+        const daysBetween = (new Date(newer.date) - new Date(older.date)) / (1000 * 60 * 60 * 24);
+        
+        if (daysBetween > 7 && daysBetween < 90) { // Valid comparison window
+          const improvement = olderNormalized - newerNormalized; // Positive = improvement
+          const dailyImprovement = improvement / daysBetween;
+          totalImprovement += dailyImprovement * 30; // 30 day projection
+          comparisons++;
+        }
+      }
+      
+      if (comparisons === 0) {
+        return null;
+      }
+      
+      const averageChange = totalImprovement / comparisons;
+      
+      // Cap the change to reasonable bounds
+      const maxChange = currentPrediction * 0.15; // Max 15% change
+      const boundedChange = Math.max(-maxChange, Math.min(maxChange, averageChange));
+      
+      return Math.round(boundedChange);
+    } catch (error) {
+      console.error('Error calculating 30-day change:', error);
+      return null;
+    }
   }
 
   /**
