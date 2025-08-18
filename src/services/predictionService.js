@@ -332,7 +332,6 @@ class PredictionService {
    */
   calculateMLConfidence(mlPrediction, baselinePrediction, data, targetDistance) {
     let confidence = 0;
-    let factors = 0;
     
     // Factor 1: Data quantity and recency (25%)
     const recentRaces = data.recentRaces.filter(race => {
@@ -341,7 +340,6 @@ class PredictionService {
     }).length;
     const dataFactor = Math.min(1.0, recentRaces / 3) * 0.25;
     confidence += dataFactor;
-    factors++;
     
     // Factor 2: Distance-specific experience (20%)
     const similarDistanceRaces = data.recentRaces.filter(race => {
@@ -350,7 +348,6 @@ class PredictionService {
     }).length;
     const distanceFactor = Math.min(1.0, similarDistanceRaces / 2) * 0.20;
     confidence += distanceFactor;
-    factors++;
     
     // Factor 3: Training consistency (20%)
     const recentActivities = data.activities.filter(activity => {
@@ -359,20 +356,17 @@ class PredictionService {
     }).length;
     const consistencyFactor = Math.min(1.0, recentActivities / 12) * 0.20;
     confidence += consistencyFactor;
-    factors++;
     
     // Factor 4: Prediction stability - agreement with baseline (15%)
     if (baselinePrediction.prediction) {
       const deviation = Math.abs(mlPrediction.prediction - baselinePrediction.prediction) / mlPrediction.prediction;
       const agreementFactor = Math.max(0, 1 - deviation * 2) * 0.15;
       confidence += agreementFactor;
-      factors++;
     }
     
     // Factor 5: Feature quality from ML model (20%)
     const featureQuality = mlPrediction.confidence * 0.20;
     confidence += featureQuality;
-    factors++;
     
     // Add some variance based on distance from typical race distances
     const typicalDistances = [5000, 10000, 21100, 42200];

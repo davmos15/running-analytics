@@ -416,7 +416,6 @@ class TrainingPlanService {
     const baseWeeks = Math.floor(totalWeeks * 0.4);
     const buildWeeks = Math.floor(totalWeeks * 0.35);
     const peakWeeks = Math.floor(totalWeeks * 0.15);
-    const taperWeeks = totalWeeks - baseWeeks - buildWeeks - peakWeeks;
 
     return {
       base: { start: 1, end: baseWeeks },
@@ -570,6 +569,11 @@ class TrainingPlanService {
           workouts.push(this.workoutTypes.RACE_PACE);
           if (runsPerWeek >= 3) workouts.push(this.workoutTypes.EASY);
           if (runsPerWeek >= 4) workouts.push(this.workoutTypes.FARTLEK);
+          break;
+          
+        default:
+          // Default to easy runs for unknown phases
+          workouts.push(this.workoutTypes.EASY);
           break;
       }
     }
@@ -731,4 +735,5 @@ class TrainingPlanService {
   }
 }
 
-export default new TrainingPlanService();
+const trainingPlanService = new TrainingPlanService();
+export default trainingPlanService;

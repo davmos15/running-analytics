@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Target, Download, Play, ChevronRight, Clock, MapPin, Users } from 'lucide-react';
+import { Calendar, Target, Download, Play, ChevronRight, Clock } from 'lucide-react';
 import trainingPlanService from '../../services/trainingPlanService';
 import LoadingSpinner from '../common/LoadingSpinner';
 
