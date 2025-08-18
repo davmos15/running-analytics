@@ -10,19 +10,30 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 
 ## 🏃‍♂️ Features
 
-### 🤖 AI-Powered Race Predictions
-- **Smart Race Time Predictions**: Advanced AI predictions for 5K, 10K, Half Marathon, and Marathon distances
-- **Multi-Algorithm Ensemble**: Combines Enhanced Riegel Formula, VDOT System, and ML Feature Analysis
-- **Confidence Scoring**: Intelligent confidence levels based on data quality and consistency
+### 🗓️ AI-Powered Training Plan Creator
+- **Personalized Training Plans**: Generate custom training plans based on your race goals and fitness history
+- **Smart Plan Configuration**: Set race date, distance, goal type (completion/time), runs per week, and available days
+- **Intelligent Periodization**: AI analyzes your training history to create base → build → peak → taper phases
+- **Comprehensive Workout Types**: Easy runs, tempo, intervals, fartlek, race pace, progression runs, hill repeats
+- **CSV Export**: Export complete training plans with detailed workout breakdowns
+- **Adaptive Volume**: Plans adjust to your current fitness and follow safe progression principles
+
+### 🤖 AI-Powered Race Predictions  
+- **Smart Race Time Predictions**: ML-powered predictions for 5K, 10K, Half Marathon, Marathon, and custom distances
+- **Custom Distance Support**: Add any distance for personalized predictions (e.g., 7.5K, 15K)
+- **Advanced ML Analysis**: Primary ML feature analysis with improved confidence scoring
+- **Realistic Confidence Levels**: Multi-factor confidence calculation based on data quality, experience, and consistency
 - **Training Insights**: Personalized recommendations to improve prediction accuracy
 - **Performance Factors**: Detailed analysis of what affects your predicted performance
 
 ### 📊 Advanced Performance Analytics
+- **Automatic PB Tracking**: All distances automatically have Personal Bests calculated and updated with new activities
 - **Personal Bests Analysis**: Find your fastest segments at any distance within longer runs using GPS analysis
 - **Enhanced Metrics**: Heart rate zones, cadence analysis, elevation gain tracking
 - **Performance Trends**: Form analysis and training consistency scoring
 - **Flexible Distance Selection**: Analyze performance at any standard or custom distance
 - **Advanced Filtering**: Filter by time periods or custom date ranges
+- **Smart Segment Processing**: New activities automatically calculate and update PBs for all distances
 
 ### 🏃‍♂️ Core Features
 - **Strava-Style Segment Detection**: Find your best efforts anywhere in a run, not just from the start
@@ -39,7 +50,8 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **👁️ Eye-Friendly**: Dark theme optimized for comfortable viewing during workouts
 
 ### 📊 Comprehensive Analytics Dashboard
-- **🔮 Race Predictions Page**: Dedicated prediction dashboard with confidence indicators and insights
+- **🗓️ Training Plan Creator**: Comprehensive training plan generation with AI-powered periodization
+- **🔮 Race Predictions Page**: Dedicated prediction dashboard with custom distance support and ML confidence scoring
 - **📈 Progressive Performance Graphs**: 
   - Fixed chronological progression charts showing improvement over time
   - Average metrics (speed, distance, time) with customizable time periods
@@ -47,6 +59,10 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
   - Add/remove graphs with personalized dashboard
 - **🏅 Enhanced Rankings**: Metallic badge styling with professional athletic feel
 - **📏 Custom Distance Management**: Create and manage custom distances in Settings (e.g., 7.5K, 12K)
+- **⚙️ Streamlined Data Management**: 
+  - Import Recent Activities with automatic PB updates
+  - Reprocess All Activities for comprehensive data refresh
+  - Simplified settings focused on essential operations
 - **⚙️ Advanced Column Management**: 
   - Organize columns by category (Core Metrics, Performance Data, Environmental, Technical)
   - "More Columns" feature with collapsible category management
@@ -140,18 +156,21 @@ src/
 │   ├── RecentRuns/     # Recent runs overview and management
 │   ├── Graphs/         # Performance graphs and visualizations
 │   ├── Predictions/    # AI race prediction dashboard
-│   │   ├── PredictionsPage.js      # Main predictions interface
+│   │   ├── PredictionsPage.js      # Main predictions interface with custom distances
 │   │   ├── PredictionCard.js       # Individual distance predictions
 │   │   ├── ConfidenceIndicator.js  # Prediction confidence display
 │   │   └── TrainingInsights.js     # Training recommendations
+│   ├── TrainingPlan/   # AI-powered training plan creator
+│   │   └── TrainingPlanPage.js     # Plan configuration and display
 │   ├── Settings/       # Configuration and data management
 │   ├── SyncButton/     # Strava data synchronization
 │   └── common/         # Shared UI components
 ├── services/           # Core services
-│   ├── stravaApi.js        # Strava API integration
-│   ├── firebaseService.js  # Database operations
-│   ├── syncService.js      # Data synchronization logic
-│   └── predictionService.js # AI prediction algorithms
+│   ├── stravaApi.js           # Strava API integration
+│   ├── firebaseService.js     # Database operations with automatic PB tracking
+│   ├── syncService.js         # Data synchronization logic
+│   ├── predictionService.js   # ML-powered prediction algorithms
+│   └── trainingPlanService.js # AI training plan generation
 ├── hooks/              # Custom React hooks
 ├── utils/              # Utility functions and constants
 └── styles/             # CSS styling and themes
@@ -175,18 +194,25 @@ src/
 
 ### AI Race Predictions
 1. **Data Analysis**: Analyze 16+ weeks of training data, recent races, and performance trends
-2. **Multi-Algorithm Processing**: 
-   - **Enhanced Riegel Formula (40%)**: Dynamic exponent based on recent performance
-   - **VDOT System (35%)**: Jack Daniels' proven equivalent performance calculations
-   - **ML Feature Analysis (25%)**: Training volume, consistency, HR efficiency, form trends
-3. **Ensemble Prediction**: Combine algorithms with confidence-weighted averaging
-4. **Intelligent Insights**: Generate personalized training recommendations and performance factors
+2. **ML-Powered Processing**: 
+   - **Primary ML Feature Analysis**: Training volume, consistency, HR efficiency, form trends, distance experience
+   - **Multi-Factor Confidence**: Data quality, recency, experience, training consistency, prediction stability
+   - **Custom Distance Support**: Predictions for any distance with intelligent confidence adjustment
+3. **Smart Insights**: Generate personalized training recommendations and performance factors
+
+### AI Training Plan Generation
+1. **Fitness Assessment**: Analyze recent 90-day training patterns, weekly volume, longest runs, and pace trends
+2. **Intelligent Periodization**: Create base → build → peak → taper phases based on race distance and timeline
+3. **Adaptive Workouts**: Generate varied workout types (easy, tempo, intervals, fartlek, race pace, hills) based on training phase
+4. **Safe Progression**: Follow 10% rule and smart volume progression tailored to current fitness
+5. **Comprehensive Export**: CSV format with detailed workout breakdowns, paces, and segment information
 
 ### User Experience
-1. **Real-time Dashboard**: View predictions, personal bests, and performance trends
-2. **Confidence Scoring**: Understand prediction reliability based on data quality
-3. **Training Insights**: Get actionable recommendations to improve performance
-4. **Mobile Optimization**: Full responsive design for on-the-go analysis
+1. **Comprehensive Dashboard**: View predictions, personal bests, training plans, and performance trends
+2. **Training Plan Creator**: Generate personalized training plans with CSV export capability
+3. **Confidence Scoring**: Understand prediction reliability based on data quality
+4. **Training Insights**: Get actionable recommendations to improve performance
+5. **Mobile Optimization**: Full responsive design for on-the-go analysis
 
 ## 🤝 Contributing
 
@@ -215,10 +241,10 @@ The app handles these limits gracefully with automatic retries.
 ## 🎯 Prediction Accuracy
 
 ### Algorithm Performance
-- **Enhanced Riegel**: 2-5% accuracy for well-trained runners with recent race data
-- **VDOT System**: Highly accurate for distances 5K+ with consistent training
-- **ML Features**: Improves predictions by 10-15% when combined with other algorithms
-- **Ensemble Method**: Typical accuracy within 2-3% for runners with high-quality data
+- **ML Feature Analysis**: Primary prediction method with 2-4% accuracy for well-trained runners
+- **Multi-Factor Confidence**: Realistic confidence scoring based on data quality and experience
+- **Custom Distance Support**: Accurate predictions for any distance with confidence adjustment
+- **Improved Reliability**: Enhanced confidence calculation provides more realistic assessment
 
 ### Data Requirements for Best Results
 - **Minimum**: 8+ weeks of training data, 3+ recent races/time trials

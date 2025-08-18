@@ -2,25 +2,19 @@ import firebaseService from './firebaseService';
 
 class PredictionService {
   constructor() {
-    // Target distances for predictions (in meters)
-    this.targetDistances = {
+    // Default target distances for predictions (in meters)
+    this.defaultDistances = {
       '5K': 5000,
       '10K': 10000,
       '21.1K': 21100,
       '42.2K': 42200
-    };
-    
-    // Algorithm weights (VDOT removed - using only Riegel + ML Features)
-    this.algorithmWeights = {
-      riegel: 0.60,
-      features: 0.40
     };
   }
 
   /**
    * Generate race predictions for all target distances
    */
-  async generatePredictions(weeksBack = 16) {
+  async generatePredictions(weeksBack = 16, customDistances = []) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
@@ -30,9 +24,18 @@ class PredictionService {
         throw new Error('Insufficient data for predictions. Need at least 3 recent races or time trials.');
       }
 
+      // Combine default and custom distances
+      const allDistances = { ...this.defaultDistances };
+      customDistances.forEach(dist => {
+        allDistances[dist.label] = dist.meters;
+      });
+
       const predictions = {};
       
-      for (const [distanceLabel, distanceMeters] of Object.entries(this.targetDistances)) {
+      // Sort distances by meters for proper ordering
+      const sortedDistances = Object.entries(allDistances).sort((a, b) => a[1] - b[1]);
+      
+      for (const [distanceLabel, distanceMeters] of sortedDistances) {
         predictions[distanceLabel] = await this.predictDistance(
           distanceMeters,
           predictionData
@@ -52,48 +55,35 @@ class PredictionService {
   }
 
   /**
-   * Predict time for a specific distance using ensemble method
+   * Predict time for a specific distance using ML-based approach
    */
   async predictDistance(targetDistance, data) {
-    const algorithms = {
-      riegel: this.riegelPrediction(targetDistance, data),
-      features: this.featureBasedPrediction(targetDistance, data)
-    };
-
-    // Calculate ensemble prediction
-    let weightedSum = 0;
-    let totalWeight = 0;
-    const algorithmResults = {};
-
-    for (const [name, result] of Object.entries(algorithms)) {
-      if (result.prediction && result.confidence > 0.3) {
-        const weight = this.algorithmWeights[name] * result.confidence;
-        weightedSum += result.prediction * weight;
-        totalWeight += weight;
-        algorithmResults[name] = result;
-      }
+    // Use ML feature-based prediction as primary method
+    const mlPrediction = this.featureBasedPrediction(targetDistance, data);
+    
+    // Use simple Riegel as a baseline for comparison (not in final prediction)
+    const baselinePrediction = this.simpleRiegelBaseline(targetDistance, data);
+    
+    if (!mlPrediction.prediction || mlPrediction.confidence < 0.2) {
+      throw new Error('Insufficient data for confident prediction');
     }
 
-    if (totalWeight === 0) {
-      throw new Error('Insufficient confident predictions');
-    }
-
-    const prediction = weightedSum / totalWeight;
-    const confidence = this.calculateEnsembleConfidence(algorithmResults, data);
+    // Calculate refined confidence based on multiple factors
+    const confidence = this.calculateMLConfidence(mlPrediction, baselinePrediction, data, targetDistance);
     
     return {
-      prediction: Math.round(prediction),
+      prediction: Math.round(mlPrediction.prediction),
       confidence,
-      range: this.calculateConfidenceInterval(prediction, confidence),
-      algorithms: algorithmResults,
+      range: this.calculateConfidenceInterval(mlPrediction.prediction, confidence),
+      method: 'ML Feature Analysis',
       factors: this.identifyPredictionFactors(targetDistance, data)
     };
   }
 
   /**
-   * Enhanced Riegel Formula with dynamic exponent
+   * Simple Riegel baseline for comparison (not used in final prediction)
    */
-  riegelPrediction(targetDistance, data) {
+  simpleRiegelBaseline(targetDistance, data) {
     const recentRaces = data.recentRaces
       .filter(race => race.distanceMeters >= 1000) // Minimum 1K
       .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -338,16 +328,68 @@ class PredictionService {
   }
 
   /**
-   * Calculate ensemble confidence
+   * Calculate ML-based confidence with improved variability
    */
-  calculateEnsembleConfidence(algorithmResults, data) {
-    const confidences = Object.values(algorithmResults).map(r => r.confidence);
-    const avgConfidence = confidences.reduce((sum, c) => sum + c, 0) / confidences.length;
+  calculateMLConfidence(mlPrediction, baselinePrediction, data, targetDistance) {
+    let confidence = 0;
+    let factors = 0;
     
-    // Adjust based on data quality
-    const dataQualityFactor = Math.min(1.0, data.recentRaces.length / 5);
+    // Factor 1: Data quantity and recency (25%)
+    const recentRaces = data.recentRaces.filter(race => {
+      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 60;
+    }).length;
+    const dataFactor = Math.min(1.0, recentRaces / 3) * 0.25;
+    confidence += dataFactor;
+    factors++;
     
-    return Math.min(0.95, avgConfidence * dataQualityFactor);
+    // Factor 2: Distance-specific experience (20%)
+    const similarDistanceRaces = data.recentRaces.filter(race => {
+      const ratio = targetDistance / race.distanceMeters;
+      return ratio >= 0.7 && ratio <= 1.3;
+    }).length;
+    const distanceFactor = Math.min(1.0, similarDistanceRaces / 2) * 0.20;
+    confidence += distanceFactor;
+    factors++;
+    
+    // Factor 3: Training consistency (20%)
+    const recentActivities = data.activities.filter(activity => {
+      const daysSince = (new Date() - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 28;
+    }).length;
+    const consistencyFactor = Math.min(1.0, recentActivities / 12) * 0.20;
+    confidence += consistencyFactor;
+    factors++;
+    
+    // Factor 4: Prediction stability - agreement with baseline (15%)
+    if (baselinePrediction.prediction) {
+      const deviation = Math.abs(mlPrediction.prediction - baselinePrediction.prediction) / mlPrediction.prediction;
+      const agreementFactor = Math.max(0, 1 - deviation * 2) * 0.15;
+      confidence += agreementFactor;
+      factors++;
+    }
+    
+    // Factor 5: Feature quality from ML model (20%)
+    const featureQuality = mlPrediction.confidence * 0.20;
+    confidence += featureQuality;
+    factors++;
+    
+    // Add some variance based on distance from typical race distances
+    const typicalDistances = [5000, 10000, 21100, 42200];
+    const closestTypical = typicalDistances.reduce((closest, dist) => {
+      return Math.abs(dist - targetDistance) < Math.abs(closest - targetDistance) ? dist : closest;
+    });
+    const distanceDeviation = Math.abs(targetDistance - closestTypical) / closestTypical;
+    
+    // Reduce confidence for unusual distances
+    if (distanceDeviation > 0.1) {
+      confidence *= (1 - distanceDeviation * 0.2);
+    }
+    
+    // Scale confidence to be between 0.3 and 0.85 for more realistic variation
+    confidence = Math.min(0.85, Math.max(0.3, confidence));
+    
+    return confidence;
   }
 
   /**

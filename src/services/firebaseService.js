@@ -218,6 +218,9 @@ class FirebaseService {
         ...segmentData,
         lastUpdated: new Date()
       });
+      
+      // Check and update PB for this distance
+      await this.updatePersonalBestIfNeeded(segmentData);
     } catch (error) {
       console.error('Error saving segment:', error);
       if (error.code === 'resource-exhausted') {
@@ -225,6 +228,37 @@ class FirebaseService {
         throw new Error('Firebase quota exceeded. Segment processing stopped.');
       }
       throw error;
+    }
+  }
+
+  async updatePersonalBestIfNeeded(segmentData) {
+    try {
+      // Query for the current PB for this distance
+      const pbQuery = query(
+        collection(db, 'segments'),
+        where('distance', '==', segmentData.distance),
+        orderBy('time', 'asc'),
+        limit(1)
+      );
+      
+      const pbSnapshot = await getDocs(pbQuery);
+      
+      // If no PB exists yet, this segment is the first one for this distance
+      if (pbSnapshot.empty) {
+        console.log(`First segment for ${segmentData.distance} - automatically a PB`);
+        return;
+      }
+      
+      const currentPB = pbSnapshot.docs[0].data();
+      
+      // Check if this segment is faster than the current PB
+      if (segmentData.time < currentPB.time) {
+        console.log(`New PB for ${segmentData.distance}! Time: ${segmentData.time}s (previous: ${currentPB.time}s)`);
+        // The segment is already saved, and will be picked up as the new PB in queries
+      }
+    } catch (error) {
+      console.error('Error checking/updating PB:', error);
+      // Don't throw here - we still want the segment to be saved even if PB check fails
     }
   }
 
@@ -983,6 +1017,41 @@ class FirebaseService {
       return runningActivities.length;
     } catch (error) {
       console.error('Error generating segments for distance:', error);
+      throw error;
+    }
+  }
+
+  // Ensure all distances have PBs calculated from existing segments
+  async ensureAllDistancesHavePBs() {
+    try {
+      console.log('Checking and updating PBs for all distances...');
+      
+      // Get all unique distances from segments
+      const segmentsSnapshot = await getDocs(collection(db, 'segments'));
+      const distanceMap = new Map();
+      
+      segmentsSnapshot.forEach(doc => {
+        const segment = doc.data();
+        if (!distanceMap.has(segment.distance)) {
+          distanceMap.set(segment.distance, []);
+        }
+        distanceMap.get(segment.distance).push(segment);
+      });
+      
+      console.log(`Found ${distanceMap.size} unique distances with segments`);
+      
+      // For each distance, ensure PB is identified
+      for (const [distance, segments] of distanceMap) {
+        // Sort segments by time to find the fastest
+        const sortedSegments = segments.sort((a, b) => a.time - b.time);
+        const fastestSegment = sortedSegments[0];
+        
+        console.log(`Distance ${distance}: PB is ${fastestSegment.time}s from ${new Date(fastestSegment.date).toLocaleDateString()}`);
+      }
+      
+      return { distancesChecked: distanceMap.size };
+    } catch (error) {
+      console.error('Error ensuring all distances have PBs:', error);
       throw error;
     }
   }

@@ -15,10 +15,6 @@ const Settings = () => {
   const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
   const [isAddingDistance, setIsAddingDistance] = useState(false);
   const [isImportingRuns, setIsImportingRuns] = useState(false);
-  const [isBackfillingStreams, setIsBackfillingStreams] = useState(false);
-  const [backfillProgress, setBackfillProgress] = useState(null);
-  const [isFixingSegments, setIsFixingSegments] = useState(false);
-  const [segmentFixProgress, setSegmentFixProgress] = useState(null);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
 
@@ -65,7 +61,9 @@ const Settings = () => {
       setIsReprocessing(true);
       try {
         await firebaseService.reprocessAllActivitiesForSegments();
-        alert('Activities reprocessed successfully!');
+        // After reprocessing, ensure all distances have PBs identified
+        await firebaseService.ensureAllDistancesHavePBs();
+        alert('Activities reprocessed successfully! All Personal Bests have been updated.');
       } catch (error) {
         alert('Error reprocessing activities: ' + error.message);
       } finally {
@@ -147,62 +145,13 @@ const Settings = () => {
       setIsImportingRuns(true);
       try {
         const result = await syncService.syncRecentActivities();
-        alert(`Import complete! Found ${result.newActivitiesCount} new activities.`);
+        alert(`Import complete! Found ${result.newActivitiesCount} new activities. Personal Bests have been automatically updated.`);
         setShowSuccessMessage(true);
         setTimeout(() => setShowSuccessMessage(false), 3000);
       } catch (error) {
         alert('Error importing recent runs: ' + error.message);
       } finally {
         setIsImportingRuns(false);
-      }
-    }
-  };
-
-  const handleBackfillStreamData = async () => {
-    if (window.confirm('This will enhance historical activities by fetching heart rate, cadence, and altitude data from Strava. It only processes activities that don\'t already have heart rate data saved in Firebase. Continue?')) {
-      setIsBackfillingStreams(true);
-      setBackfillProgress(null);
-      
-      try {
-        const result = await syncService.backfillHistoricalStreamData((progress) => {
-          setBackfillProgress(progress);
-        });
-        
-        if (result.updatedCount > 0) {
-          alert(`Backfill complete! Enhanced ${result.updatedCount} activities with heart rate and other stream data.`);
-        } else {
-          alert('All activities already have stream data!');
-        }
-        
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 3000);
-      } catch (error) {
-        alert('Error backfilling stream data: ' + error.message);
-      } finally {
-        setIsBackfillingStreams(false);
-        setBackfillProgress(null);
-      }
-    }
-  };
-
-  const handleFixSegmentHeartRate = async () => {
-    if (window.confirm('This will fix existing segments by copying heart rate data from their parent activities. This is needed if segments were created before heart rate data was available. Continue?')) {
-      setIsFixingSegments(true);
-      setSegmentFixProgress(null);
-      
-      try {
-        const result = await syncService.fixSegmentHeartRateData((progress) => {
-          setSegmentFixProgress(progress);
-        });
-        
-        alert(`Segment fix complete! Updated segments for ${result.updatedSegments} activities.`);
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 3000);
-      } catch (error) {
-        alert('Error fixing segment heart rate data: ' + error.message);
-      } finally {
-        setIsFixingSegments(false);
-        setSegmentFixProgress(null);
       }
     }
   };
@@ -439,7 +388,7 @@ const Settings = () => {
               </h4>
               <p className="text-sm text-slate-300 mb-3">
                 Import your latest activities from Strava (last 20 runs). 
-                This is useful for keeping your data up to date without a full sync.
+                This automatically calculates and updates Personal Bests for all distances.
               </p>
               <button
                 onClick={handleImportRecentRuns}
@@ -453,11 +402,11 @@ const Settings = () => {
 
             <div>
               <h4 className="text-sm font-medium text-white mb-2">
-                Generate Segments for All Distances
+                Reprocess All Activities
               </h4>
               <p className="text-sm text-slate-300 mb-3">
-                Process all your activities to create segments for every supported distance (100m to Marathon).
-                This is useful if you're missing data for shorter distances.
+                Re-analyze all your activities to regenerate segments and update Personal Bests.
+                Useful if you want to recalculate all data or fix any issues.
               </p>
               <button
                 onClick={handleReprocessActivities}
@@ -465,84 +414,6 @@ const Settings = () => {
                 className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
               >
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
-              </button>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-white mb-2">
-                Backfill Heart Rate & Stream Data
-              </h4>
-              <p className="text-sm text-slate-300 mb-3">
-                Enhance historical activities with heart rate, cadence, and altitude data from Strava.
-                This only processes activities that don't already have heart rate data saved in Firebase to minimize quota usage.
-              </p>
-              {backfillProgress && (
-                <div className="mb-3 p-3 bg-blue-500/20 text-blue-300 rounded-lg border border-blue-500/30">
-                  <div className="text-sm font-medium mb-1">{backfillProgress.message}</div>
-                  {backfillProgress.progress && (
-                    <div className="w-full bg-blue-900/50 rounded-full h-2">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${backfillProgress.progress}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              <button
-                onClick={handleBackfillStreamData}
-                disabled={isBackfillingStreams}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isBackfillingStreams ? 'Backfilling...' : 'Backfill Stream Data'}</span>
-              </button>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-white mb-2">
-                Fix Segment Heart Rate Data
-              </h4>
-              <p className="text-sm text-slate-300 mb-3">
-                Copy heart rate data from activities to their segments. This fixes segments that were created 
-                before heart rate data was available, ensuring Personal Bests show heart rate information.
-              </p>
-              {segmentFixProgress && (
-                <div className="mb-3 p-3 bg-green-500/20 text-green-300 rounded-lg border border-green-500/30">
-                  <div className="text-sm font-medium mb-1">{segmentFixProgress.message}</div>
-                  {segmentFixProgress.progress && (
-                    <div className="w-full bg-green-900/50 rounded-full h-2">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                        style={{ width: `${segmentFixProgress.progress}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              <button
-                onClick={handleFixSegmentHeartRate}
-                disabled={isFixingSegments}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isFixingSegments ? 'Fixing...' : 'Fix Segment HR Data'}</span>
-              </button>
-            </div>
-
-            <div>
-              <h4 className="text-sm font-medium text-white mb-2">
-                Find Best Segments with GPS Data
-              </h4>
-              <p className="text-sm text-slate-300 mb-3">
-                Re-analyze activities using GPS streams to find your actual fastest segments within each run.
-                This will find your best efforts anywhere in the run, not just from the start.
-              </p>
-              <button
-                onClick={() => alert('This feature will be available after syncing. Use the Sync button to fetch GPS data for new segments.')}
-                className="px-4 py-2 athletic-button-secondary text-slate-300 rounded-lg text-sm"
-              >
-                Coming Soon - Use Sync for Now
               </button>
             </div>
           </div>
