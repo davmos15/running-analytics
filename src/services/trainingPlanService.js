@@ -486,18 +486,21 @@ class TrainingPlanService {
     const distanceKm = raceDistance / 1000;
     const currentVolume = userData.currentWeeklyVolume;
     
-    // Target peak volumes by race distance
+    // Target peak volumes by race distance - increased for marathon
     const targets = {
       5: 35,
       10: 45,
-      21.1: 65,
-      42.2: 85
+      21.1: 75,
+      42.2: 120 // Increased from 85 to 120 for marathon
     };
 
-    let target = targets[distanceKm] || distanceKm * 2;
+    let target = targets[distanceKm] || distanceKm * 2.5;
+    
+    // For marathon, allow higher volume increases
+    const maxMultiplier = distanceKm >= 42 ? 4 : 2.5;
     
     // Don't increase too dramatically from current volume
-    return Math.min(target, currentVolume * 2.5);
+    return Math.min(target, currentVolume * maxMultiplier);
   }
 
   /**
@@ -509,27 +512,27 @@ class TrainingPlanService {
 
     switch (phase) {
       case 'base':
-        multiplier = 0.3;
+        multiplier = 0.35; // Increased from 0.3
         break;
       case 'build':
-        multiplier = 0.35;
+        multiplier = 0.4; // Increased from 0.35
         break;
       case 'peak':
-        multiplier = 0.4;
+        multiplier = 0.45; // Increased from 0.4
         break;
       case 'taper':
-        multiplier = 0.25;
+        multiplier = 0.3; // Increased from 0.25
         break;
       default:
-        multiplier = 0.3;
+        multiplier = 0.35;
     }
 
     const longRunDistance = weeklyVolume * multiplier;
     
-    // Progressive increase from current longest
-    const progression = baseLength * (1 + (weekNumber / 20) * 0.5);
+    // Progressive increase from current longest - more aggressive progression
+    const progression = baseLength * (1 + (weekNumber / 15) * 0.8); // Changed from /20 * 0.5
     
-    return Math.min(longRunDistance, progression, 35); // Cap at 35km
+    return Math.min(longRunDistance, progression, 42); // Increased cap from 35km to 42km
   }
 
   /**
@@ -719,28 +722,20 @@ class TrainingPlanService {
         if (run && run.distance > 0) {
           // Create detailed workout description
           let workoutDetails = `${run.type} - ${run.distance.toFixed(1)}km\n`;
-          workoutDetails += `Description: ${run.description}\n`;
+          workoutDetails += `${run.description}\n`;
           
           if (run.segments && run.segments.length > 0) {
-            workoutDetails += `Workout Structure:\n`;
-            run.segments.forEach((segment, index) => {
-              workoutDetails += `  ${index + 1}. ${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km\n`;
+            run.segments.forEach(segment => {
+              workoutDetails += `• ${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km\n`;
             });
             
-            // Calculate total workout time estimate
-            const totalTime = run.segments.reduce((sum, segment) => {
-              const paceSeconds = this.paceToSeconds(segment.pace);
-              return sum + (segment.distance * paceSeconds);
-            }, 0);
-            
-            const hours = Math.floor(totalTime / 3600);
-            const minutes = Math.floor((totalTime % 3600) / 60);
-            const seconds = Math.floor(totalTime % 60);
-            
-            workoutDetails += `Estimated Time: `;
-            if (hours > 0) workoutDetails += `${hours}h `;
-            if (minutes > 0) workoutDetails += `${minutes}m `;
-            if (seconds > 0 || (hours === 0 && minutes === 0)) workoutDetails += `${seconds}s`;
+            // Calculate and add estimated time
+            const totalTime = this.calculateRunTime(run);
+            workoutDetails += `Estimated Time: ${this.formatDuration(totalTime)}`;
+          } else {
+            // For runs without segments, estimate time
+            const totalTime = this.calculateRunTime(run);
+            workoutDetails += `Estimated Time: ${this.formatDuration(totalTime)}`;
           }
           
           row.push(workoutDetails.trim());
@@ -799,6 +794,37 @@ class TrainingPlanService {
       return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     }
     return 0;
+  }
+
+  /**
+   * Calculate estimated time for a run based on its segments
+   */
+  calculateRunTime(run) {
+    if (!run.segments || run.segments.length === 0) {
+      // Fallback: use distance and average easy pace
+      return run.distance * 350; // 5:50/km default
+    }
+    
+    return run.segments.reduce((sum, segment) => {
+      const paceSeconds = this.paceToSeconds(segment.pace);
+      return sum + (segment.distance * paceSeconds);
+    }, 0);
+  }
+
+  /**
+   * Format time in seconds to readable format (Xh Ym Zs)
+   */
+  formatDuration(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    
+    let result = '';
+    if (hours > 0) result += `${hours}h `;
+    if (minutes > 0) result += `${minutes}m `;
+    if (seconds > 0 || (hours === 0 && minutes === 0)) result += `${seconds}s`;
+    
+    return result.trim();
   }
 
   /**
@@ -980,31 +1006,22 @@ class TrainingPlanService {
       // Add each run as a sub-row
       week.runs.forEach(run => {
         if (run.distance > 0) {
-          let workoutDetails = `${run.day}: ${run.type} - ${run.distance.toFixed(1)}km`;
+          let workoutDetails = `${run.day}: ${run.type} - ${run.distance.toFixed(1)}km\n`;
+          workoutDetails += `${run.description}\n`;
           
           if (run.segments && run.segments.length > 0) {
-            const segmentDetails = run.segments.map(segment => 
-              `${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km`
-            ).join(', ');
-            workoutDetails += `\nWorkout: ${segmentDetails}`;
+            run.segments.forEach(segment => {
+              workoutDetails += `• ${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km\n`;
+            });
           }
           
-          // Calculate estimated time
-          const totalTime = run.segments ? run.segments.reduce((sum, segment) => {
-            const paceSeconds = this.paceToSeconds(segment.pace);
-            return sum + (segment.distance * paceSeconds);
-          }, 0) : 0;
-          
-          if (totalTime > 0) {
-            const hours = Math.floor(totalTime / 3600);
-            const minutes = Math.floor((totalTime % 3600) / 60);
-            let timeStr = 'Time: ';
-            if (hours > 0) timeStr += `${hours}h `;
-            if (minutes > 0) timeStr += `${minutes}m`;
-            workoutDetails += `\n${timeStr}`;
-          }
+          // Calculate and add estimated time
+          const totalTime = this.calculateRunTime(run);
+          workoutDetails += `Estimated Time: ${this.formatDuration(totalTime)}`;
           
           tableData.push(['', '', '', workoutDetails]);
+        } else if (run.type === 'Rest Day') {
+          tableData.push(['', '', '', `${run.day}: Rest Day`]);
         }
       });
       

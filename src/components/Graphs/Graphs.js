@@ -401,6 +401,7 @@ const Graphs = () => {
               customDateFrom={customDateFrom}
               customDateTo={customDateTo}
               isTotal={graph.type === 'total'}
+              speedUnit={graph.settings.speedUnit || 'kph'}
             />
           )}
         </div>

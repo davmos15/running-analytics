@@ -22,7 +22,7 @@ ChartJS.register(
   Legend
 );
 
-const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo, isTotal = false }) => {
+const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo, isTotal = false, speedUnit = 'kph' }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -111,7 +111,13 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
               value = activities.reduce((sum, act) => sum + act.distance, 0) / activities.length / 1000; // avg km
               break;
             case 'speed':
-              value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // avg km/h
+              if (speedUnit === 'pace') {
+                // Convert to min/km pace
+                const avgSpeedKmh = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length;
+                value = avgSpeedKmh > 0 ? 60 / avgSpeedKmh : 0; // min/km
+              } else {
+                value = activities.reduce((sum, act) => sum + act.average_speed * 3.6, 0) / activities.length; // avg km/h
+              }
               break;
             case 'time':
               value = activities.reduce((sum, act) => sum + act.moving_time, 0) / activities.length / 60; // avg minutes
@@ -193,7 +199,7 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
         case 'distance':
           return 'Average Distance (km)';
         case 'speed':
-          return 'Average Speed (km/h)';
+          return speedUnit === 'pace' ? 'Average Pace (min/km)' : 'Average Speed (km/h)';
         case 'time':
           return 'Average Time (minutes)';
         case 'totalDistance':

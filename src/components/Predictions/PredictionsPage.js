@@ -8,7 +8,8 @@ const PredictionsPage = () => {
   const [predictions, setPredictions] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [raceDate, setRaceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [raceDate, setRaceDate] = useState('');
+  const [tempRaceDate, setTempRaceDate] = useState(new Date().toISOString().split('T')[0]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [customDistances, setCustomDistances] = useState([]);
   const [newDistance, setNewDistance] = useState('');
@@ -18,7 +19,8 @@ const PredictionsPage = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await predictionService.generatePredictionsForRaceDate(raceDate, customDistances);
+      const dateToUse = raceDate || new Date().toISOString().split('T')[0];
+      const result = await predictionService.generatePredictionsForRaceDate(dateToUse, customDistances);
       setPredictions(result);
     } catch (error) {
       console.error('Error loading predictions:', error);
@@ -27,6 +29,31 @@ const PredictionsPage = () => {
       setIsLoading(false);
     }
   }, [raceDate, customDistances]);
+
+  const handleDateChange = (newDate) => {
+    setTempRaceDate(newDate);
+  };
+
+  const handleDateBlur = () => {
+    if (tempRaceDate !== raceDate) {
+      setRaceDate(tempRaceDate);
+    }
+  };
+
+  const handleDateKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      setRaceDate(tempRaceDate);
+      e.target.blur();
+    }
+  };
+
+  // Initialize race date on first load
+  useEffect(() => {
+    if (!raceDate) {
+      setRaceDate(tempRaceDate);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadPredictionsCallback();
@@ -176,8 +203,10 @@ const PredictionsPage = () => {
               <label className="text-sm font-medium text-slate-300">Race Date:</label>
               <input
                 type="date"
-                value={raceDate}
-                onChange={(e) => setRaceDate(e.target.value)}
+                value={tempRaceDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                onBlur={handleDateBlur}
+                onKeyPress={handleDateKeyPress}
                 min={new Date().toISOString().split('T')[0]}
                 className="px-3 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
               />

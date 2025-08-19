@@ -85,6 +85,21 @@ const GraphSettings = ({ graph, allDistances, onUpdate, isTotal = false }) => {
                     <option value="yearly">Yearly</option>
                   </select>
                 </div>
+                {graph.metric === 'speed' && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-1">
+                      Speed Unit
+                    </label>
+                    <select
+                      value={graph.speedUnit || 'kph'}
+                      onChange={(e) => onUpdate({ speedUnit: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    >
+                      <option value="kph">km/h</option>
+                      <option value="pace">min/km</option>
+                    </select>
+                  </div>
+                )}
               </>
             )}
 

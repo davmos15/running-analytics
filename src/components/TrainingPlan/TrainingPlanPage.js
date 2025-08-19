@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Target, Download, Play, ChevronRight, Clock, Trash2, FileText } from 'lucide-react';
+import { Calendar, Target, Download, Play, ChevronRight, Clock, Trash2, FileText, TrendingUp } from 'lucide-react';
 import trainingPlanService from '../../services/trainingPlanService';
+import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const TrainingPlanPage = () => {
@@ -9,11 +10,14 @@ const TrainingPlanPage = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [goalSuggestion, setGoalSuggestion] = useState(null);
+  const [suggestionConfidence, setSuggestionConfidence] = useState(0);
   
   // Form state
   const [planConfig, setPlanConfig] = useState({
     raceDate: '',
     raceDistance: '5000', // meters
+    customDistance: '', // for custom distance input
     goalType: 'completion', // 'completion' or 'time'
     goalTimeHours: '',
     goalTimeMinutes: '',
@@ -58,6 +62,70 @@ const TrainingPlanPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load goal suggestions when race distance changes
+  useEffect(() => {
+    const loadGoalSuggestion = async () => {
+      if (!planConfig.raceDistance || planConfig.raceDistance === 'custom') return;
+      
+      try {
+        const raceDistanceKm = planConfig.raceDistance / 1000;
+        const distanceKey = raceDistanceKm === 5 ? '5K' :
+                          raceDistanceKm === 10 ? '10K' :
+                          raceDistanceKm === 21.1 ? '21.1K' :
+                          raceDistanceKm === 42.2 ? '42.2K' : null;
+        
+        if (distanceKey) {
+          const prediction = await predictionService.generatePredictionsForRaceDate(
+            planConfig.raceDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
+            []
+          );
+          
+          if (prediction.predictions[distanceKey]) {
+            const goalTime = prediction.predictions[distanceKey].prediction;
+            const confidence = prediction.predictions[distanceKey].confidence;
+            setGoalSuggestion(goalTime);
+            setSuggestionConfidence(confidence);
+          }
+        }
+      } catch (err) {
+        console.log('Could not load goal suggestion:', err.message);
+        setGoalSuggestion(null);
+        setSuggestionConfidence(0);
+      }
+    };
+    
+    loadGoalSuggestion();
+  }, [planConfig.raceDistance, planConfig.raceDate]);
+
+  const useGoalSuggestion = () => {
+    if (!goalSuggestion) return;
+    const hours = Math.floor(goalSuggestion / 3600);
+    const minutes = Math.floor((goalSuggestion % 3600) / 60);
+    setPlanConfig({
+      ...planConfig,
+      goalType: 'time',
+      goalTimeHours: hours.toString(),
+      goalTimeMinutes: minutes.toString()
+    });
+  };
+
+  const formatSuggestionTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getConfidenceColor = (confidence) => {
+    if (confidence >= 0.8) return 'text-green-400';
+    if (confidence >= 0.6) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
   const handleDayToggle = (day) => {
     const days = [...planConfig.availableDays];
     const index = days.indexOf(day);
@@ -95,6 +163,14 @@ const TrainingPlanPage = () => {
 
       // Convert time format and generate the plan
       const configWithTime = { ...planConfig };
+      
+      // Handle custom distance
+      if (planConfig.raceDistance === 'custom') {
+        if (!planConfig.customDistance || planConfig.customDistance <= 0) {
+          throw new Error('Please enter a valid custom distance');
+        }
+        configWithTime.raceDistance = parseFloat(planConfig.customDistance) * 1000;
+      }
       
       if (planConfig.goalType === 'time') {
         configWithTime.goalTime = (parseInt(planConfig.goalTimeHours || 0) * 60) + parseInt(planConfig.goalTimeMinutes || 0);
@@ -150,7 +226,10 @@ const TrainingPlanPage = () => {
   };
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', { 
+    if (!date) return 'N/A';
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return 'Invalid Date';
+    return dateObj.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric',
       year: 'numeric'
@@ -165,6 +244,41 @@ const TrainingPlanPage = () => {
       case 'taper': return 'bg-green-500/20 text-green-400';
       default: return 'bg-gray-500/20 text-gray-400';
     }
+  };
+
+  const paceToSeconds = (paceString) => {
+    const parts = paceString.split(':');
+    if (parts.length === 2) {
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+    return 0;
+  };
+
+  const calculateRunTime = (run) => {
+    if (!run.segments || run.segments.length === 0) {
+      // Fallback: use distance and average easy pace
+      return formatDuration(run.distance * 350); // 5:50/km default
+    }
+    
+    const totalSeconds = run.segments.reduce((sum, segment) => {
+      const paceSeconds = paceToSeconds(segment.pace);
+      return sum + (segment.distance * paceSeconds);
+    }, 0);
+    
+    return formatDuration(totalSeconds);
+  };
+
+  const formatDuration = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    
+    let result = '';
+    if (hours > 0) result += `${hours}h `;
+    if (minutes > 0) result += `${minutes}m `;
+    if (seconds > 0 || (hours === 0 && minutes === 0)) result += `${seconds}s`;
+    
+    return result.trim();
   };
 
   if (isLoading) {
@@ -252,11 +366,12 @@ const TrainingPlanPage = () => {
                   {planConfig.raceDistance === 'custom' && (
                     <input
                       type="number"
+                      value={planConfig.customDistance}
                       placeholder="Distance in kilometers"
                       className="mt-2 w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white"
                       onChange={(e) => setPlanConfig({ 
                         ...planConfig, 
-                        raceDistance: parseFloat(e.target.value) * 1000 
+                        customDistance: e.target.value 
                       })}
                     />
                   )}
@@ -321,6 +436,61 @@ const TrainingPlanPage = () => {
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
                       e.g., 0 hours 25 minutes for a 25-minute 5K
+                    </p>
+                    {goalSuggestion && (
+                      <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <TrendingUp className="w-4 h-4 text-blue-400" />
+                            <span className="text-sm font-medium text-blue-400">AI Suggestion:</span>
+                            <span className="text-white font-medium">{formatSuggestionTime(goalSuggestion)}</span>
+                            <span className={`text-xs px-2 py-1 rounded ${getConfidenceColor(suggestionConfidence)} bg-slate-700`}>
+                              {Math.round(suggestionConfidence * 100)}% confidence
+                            </span>
+                          </div>
+                          <button
+                            onClick={useGoalSuggestion}
+                            className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+                          >
+                            Use This Goal
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Based on your recent training and race performance
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {goalSuggestion && planConfig.goalType === 'completion' && (
+                  <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <span className="text-sm font-medium text-blue-400">Suggested Goal Time:</span>
+                        <span className="text-white font-medium">{formatSuggestionTime(goalSuggestion)}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${getConfidenceColor(suggestionConfidence)} bg-slate-700`}>
+                          {Math.round(suggestionConfidence * 100)}% confidence
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const hours = Math.floor(goalSuggestion / 3600);
+                          const minutes = Math.floor((goalSuggestion % 3600) / 60);
+                          setPlanConfig({
+                            ...planConfig,
+                            goalType: 'time',
+                            goalTimeHours: hours.toString(),
+                            goalTimeMinutes: minutes.toString()
+                          });
+                        }}
+                        className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+                      >
+                        Set as Goal
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Based on your recent training and race performance
                     </p>
                   </div>
                 )}
@@ -522,9 +692,10 @@ const TrainingPlanPage = () => {
                           {week.totalKm.toFixed(1)} km
                         </td>
                         <td className="py-3 px-2 text-slate-300 text-sm">
-                          {week.runs.filter(r => r.type !== 'Easy Run' && r.type !== 'Rest Day')
-                            .map(r => r.type)
-                            .join(', ') || 'Easy week'}
+                          {(() => {
+                            const keyWorkouts = week.runs.filter(r => r.type !== 'Easy Run' && r.type !== 'Rest Day').map(r => r.type);
+                            return keyWorkouts.length > 0 ? keyWorkouts.join(', ') : 'Easy week';
+                          })()}
                         </td>
                       </tr>
                       
@@ -557,6 +728,9 @@ const TrainingPlanPage = () => {
                                           ))}
                                         </div>
                                       )}
+                                      <div className="text-xs text-slate-400 mt-2">
+                                        Estimated Time: {calculateRunTime(run)}
+                                      </div>
                                     </>
                                   )}
                                 </div>
