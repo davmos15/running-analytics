@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Timer, ChevronDown, ChevronUp, Target } from 'lucide-react';
+import { Timer, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfidenceIndicator from './ConfidenceIndicator';
 import predictionService from '../../services/predictionService';
 
@@ -167,16 +167,6 @@ const PredictionCard = ({ distance, prediction }) => {
         )}
       </div>
 
-      {/* Action Footer */}
-      <div className="p-4">
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>Based on recent performance data</span>
-          <div className="flex items-center space-x-1">
-            <Target className="w-3 h-3" />
-            <span>Goal time prediction</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

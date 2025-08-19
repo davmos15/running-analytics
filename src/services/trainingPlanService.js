@@ -802,8 +802,11 @@ class TrainingPlanService {
    */
   async saveTrainingPlan(plan) {
     try {
-      const userId = localStorage.getItem('stravaUserId');
-      if (!userId) throw new Error('User not authenticated');
+      const athleteData = localStorage.getItem('strava_athlete');
+      if (!athleteData) throw new Error('User not authenticated');
+      
+      const athlete = JSON.parse(athleteData);
+      const userId = athlete.id.toString();
       
       const planId = `plan_${Date.now()}`;
       await firebaseService.saveTrainingPlan(userId, planId, plan);
@@ -819,8 +822,11 @@ class TrainingPlanService {
    */
   async loadTrainingPlan() {
     try {
-      const userId = localStorage.getItem('stravaUserId');
-      if (!userId) throw new Error('User not authenticated');
+      const athleteData = localStorage.getItem('strava_athlete');
+      if (!athleteData) return null;
+      
+      const athlete = JSON.parse(athleteData);
+      const userId = athlete.id.toString();
       
       const plan = await firebaseService.getTrainingPlan(userId);
       return plan;
@@ -835,8 +841,11 @@ class TrainingPlanService {
    */
   async deleteTrainingPlan() {
     try {
-      const userId = localStorage.getItem('stravaUserId');
-      if (!userId) throw new Error('User not authenticated');
+      const athleteData = localStorage.getItem('strava_athlete');
+      if (!athleteData) throw new Error('User not authenticated');
+      
+      const athlete = JSON.parse(athleteData);
+      const userId = athlete.id.toString();
       
       await firebaseService.deleteTrainingPlan(userId);
     } catch (error) {

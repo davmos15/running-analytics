@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Filter, Eye, EyeOff, Settings as SettingsIcon, GripVertical, X, Columns, Square } from 'lucide-react';
+import { Plus, Filter, Eye, EyeOff, Settings as SettingsIcon, GripVertical, X, Columns, Square, Maximize } from 'lucide-react';
 import BarGraph from './BarGraph';
 import DistanceThresholdGraph from './DistanceThresholdGraph';
 import GraphSettings from './GraphSettings';
@@ -55,7 +55,8 @@ const Graphs = () => {
             color: '#f97316',
             visibleDistances: null,
             visible: true,
-            showSettings: false
+            showSettings: false,
+            isFullWidth: false
           },
           order: 0
         },
@@ -67,7 +68,8 @@ const Graphs = () => {
             metric: 'distance',
             period: 'monthly',
             visible: true,
-            color: '#10B981'
+            color: '#10B981',
+            isFullWidth: false
           },
           order: 1
         },
@@ -79,7 +81,8 @@ const Graphs = () => {
             metric: 'speed',
             period: 'monthly',
             visible: true,
-            color: '#8B5CF6'
+            color: '#8B5CF6',
+            isFullWidth: false
           },
           order: 2
         },
@@ -91,7 +94,8 @@ const Graphs = () => {
             metric: 'distance',
             period: 'monthly',
             visible: true,
-            color: '#F59E0B'
+            color: '#F59E0B',
+            isFullWidth: false
           },
           order: 3
         },
@@ -103,7 +107,8 @@ const Graphs = () => {
             metric: 'time',
             period: 'monthly',
             visible: true,
-            color: '#EC4899'
+            color: '#EC4899',
+            isFullWidth: false
           },
           order: 4
         }
@@ -179,13 +184,15 @@ const Graphs = () => {
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
         visibleDistances: null,
         visible: true,
-        showSettings: false
+        showSettings: false,
+        isFullWidth: false
       } : {
         type: 'bar',
         metric: type === 'average' ? 'distance' : 'distance',
         period: 'monthly',
         visible: true,
-        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        isFullWidth: false
       },
       order: graphs.length
     };
@@ -266,6 +273,140 @@ const Graphs = () => {
   const resetDistanceFilter = (graphId) => {
     updateGraph(graphId, { visibleDistances: null });
   };
+
+  // Render individual graph
+  const renderGraph = (graph) => (
+    <div
+      key={graph.id}
+      className={`relative group ${graph.settings.isFullWidth ? 'w-full' : ''}`}
+      draggable
+      onDragStart={(e) => handleDragStart(e, graph)}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, graph)}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-move z-10">
+        <GripVertical className="w-5 h-5 text-slate-400" />
+      </div>
+      <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
+        <button
+          onClick={() => updateGraph(graph.id, { isFullWidth: !graph.settings.isFullWidth })}
+          className={`p-1 hover:text-slate-200 athletic-card rounded shadow ${
+            graph.settings.isFullWidth ? 'text-orange-400' : 'text-slate-400'
+          }`}
+          title={graph.settings.isFullWidth ? 'Make normal width' : 'Make full width'}
+        >
+          <Maximize className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => updateGraph(graph.id, { visible: !graph.settings.visible })}
+          className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
+        >
+          {graph.settings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+        </button>
+        {graph.type === 'distance-threshold' ? (
+          <>
+            <button
+              onClick={() => updateGraph(graph.id, { showSettings: !graph.settings.showSettings })}
+              className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
+            >
+              <SettingsIcon className="w-4 h-4" />
+            </button>
+            <select
+              value={graph.settings.chartType}
+              onChange={(e) => updateGraph(graph.id, { chartType: e.target.value })}
+              className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="bar">Bar Chart</option>
+              <option value="column">Column Chart</option>
+            </select>
+          </>
+        ) : (
+          <GraphSettings
+            graph={graph.settings}
+            allDistances={allDistances}
+            onUpdate={(updates) => updateGraph(graph.id, updates)}
+            isTotal={graph.type === 'total'}
+          />
+        )}
+        <button
+          onClick={() => deleteGraph(graph.id)}
+          className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Distance Filter Settings for distance-threshold graphs */}
+      {graph.type === 'distance-threshold' && graph.settings.showSettings && (
+        <div className="mb-4 p-4 athletic-card rounded-lg mt-12">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium text-white">Distance Visibility</h4>
+            <button
+              onClick={() => resetDistanceFilter(graph.id)}
+              className="text-sm text-orange-400 hover:text-orange-300"
+            >
+              Show All
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {allDistances.map(distance => {
+              const visibleDistances = graph.settings.visibleDistances || allDistances;
+              return (
+                <label
+                  key={distance}
+                  className="flex items-center space-x-2 p-2 rounded hover:bg-blue-500/10 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleDistances.includes(distance)}
+                    onChange={() => toggleDistanceVisibility(graph.id, distance)}
+                    className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                  />
+                  <span className="text-sm text-white">{distance}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="mt-3 text-xs text-slate-400">
+            {(graph.settings.visibleDistances || allDistances).length} of {allDistances.length} distances visible
+          </div>
+        </div>
+      )}
+
+      {graph.settings.visible && (
+        <div className={graph.type === 'distance-threshold' && graph.settings.showSettings ? 'mt-2' : ''}>
+          {graph.type === 'distance-threshold' ? (
+            <div>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-white mb-1">Distance Analysis</h3>
+                <p className="text-sm text-slate-300">See how many runs exceed each distance threshold</p>
+              </div>
+              <DistanceThresholdGraph
+                color={graph.settings.color}
+                timePeriod={timeFilter}
+                customDateFrom={customDateFrom}
+                customDateTo={customDateTo}
+                chartType={graph.settings.chartType}
+                visibleDistances={graph.settings.visibleDistances}
+              />
+            </div>
+          ) : (
+            <BarGraph
+              metric={graph.settings.metric}
+              period={graph.settings.period}
+              color={graph.settings.color}
+              timeFilter={timeFilter}
+              customDateFrom={customDateFrom}
+              customDateTo={customDateTo}
+              isTotal={graph.type === 'total'}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="mt-6 space-y-6 mx-4">
@@ -411,131 +552,25 @@ const Graphs = () => {
           </div>
         </div>
 
-        {/* Graphs Grid */}
-        <div className={`grid gap-6 ${layoutMode === 'two-column' && !window.matchMedia('(max-width: 768px)').matches ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-          {sortedGraphs.map(graph => (
-            <div
-              key={graph.id}
-              className="relative group"
-              draggable
-              onDragStart={(e) => handleDragStart(e, graph)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, graph)}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-move z-10">
-                <GripVertical className="w-5 h-5 text-slate-400" />
-              </div>
-              <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
-                <button
-                  onClick={() => updateGraph(graph.id, { visible: !graph.settings.visible })}
-                  className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
-                >
-                  {graph.settings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-                {graph.type === 'distance-threshold' ? (
-                  <>
-                    <button
-                      onClick={() => updateGraph(graph.id, { showSettings: !graph.settings.showSettings })}
-                      className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
-                    >
-                      <SettingsIcon className="w-4 h-4" />
-                    </button>
-                    <select
-                      value={graph.settings.chartType}
-                      onChange={(e) => updateGraph(graph.id, { chartType: e.target.value })}
-                      className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <option value="bar">Bar Chart</option>
-                      <option value="column">Column Chart</option>
-                    </select>
-                  </>
-                ) : (
-                  <GraphSettings
-                    graph={graph.settings}
-                    allDistances={allDistances}
-                    onUpdate={(updates) => updateGraph(graph.id, updates)}
-                    isTotal={graph.type === 'total'}
-                  />
-                )}
-                <button
-                  onClick={() => deleteGraph(graph.id)}
-                  className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+        {/* Graphs - Mixed Layout */}
+        <div className="space-y-6">
+          {sortedGraphs.map(graph => {
+            if (graph.settings.isFullWidth) {
+              // Render full-width graphs independently
+              return renderGraph(graph);
+            }
+            return null;
+          })}
 
-              {/* Distance Filter Settings for distance-threshold graphs */}
-              {graph.type === 'distance-threshold' && graph.settings.showSettings && (
-                <div className="mb-4 p-4 athletic-card rounded-lg mt-12">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium text-white">Distance Visibility</h4>
-                    <button
-                      onClick={() => resetDistanceFilter(graph.id)}
-                      className="text-sm text-orange-400 hover:text-orange-300"
-                    >
-                      Show All
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                    {allDistances.map(distance => {
-                      const visibleDistances = graph.settings.visibleDistances || allDistances;
-                      return (
-                        <label
-                          key={distance}
-                          className="flex items-center space-x-2 p-2 rounded hover:bg-blue-500/10 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleDistances.includes(distance)}
-                            onChange={() => toggleDistanceVisibility(graph.id, distance)}
-                            className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
-                          />
-                          <span className="text-sm text-white">{distance}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 text-xs text-slate-400">
-                    {(graph.settings.visibleDistances || allDistances).length} of {allDistances.length} distances visible
-                  </div>
-                </div>
-              )}
-
-              {graph.settings.visible && (
-                <div className={graph.type === 'distance-threshold' && graph.settings.showSettings ? 'mt-2' : ''}>
-                  {graph.type === 'distance-threshold' ? (
-                    <div>
-                      <div className="mb-4">
-                        <h3 className="text-lg font-semibold text-white mb-1">Distance Analysis</h3>
-                        <p className="text-sm text-slate-300">See how many runs exceed each distance threshold</p>
-                      </div>
-                      <DistanceThresholdGraph
-                        color={graph.settings.color}
-                        timePeriod={timeFilter}
-                        customDateFrom={customDateFrom}
-                        customDateTo={customDateTo}
-                        chartType={graph.settings.chartType}
-                        visibleDistances={graph.settings.visibleDistances}
-                      />
-                    </div>
-                  ) : (
-                    <BarGraph
-                      metric={graph.settings.metric}
-                      period={graph.settings.period}
-                      color={graph.settings.color}
-                      timeFilter={timeFilter}
-                      customDateFrom={customDateFrom}
-                      customDateTo={customDateTo}
-                      isTotal={graph.type === 'total'}
-                    />
-                  )}
-                </div>
-              )}
+          {/* Grid for regular width graphs */}
+          {sortedGraphs.filter(graph => !graph.settings.isFullWidth).length > 0 && (
+            <div className={`grid gap-6 ${layoutMode === 'two-column' && !window.matchMedia('(max-width: 768px)').matches ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+              {sortedGraphs
+                .filter(graph => !graph.settings.isFullWidth)
+                .map(graph => renderGraph(graph))
+              }
             </div>
-          ))}
+          )}
         </div>
 
         {graphs.length === 0 && (
