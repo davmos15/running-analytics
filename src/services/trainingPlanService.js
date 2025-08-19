@@ -110,13 +110,17 @@ class TrainingPlanService {
       metadata: {
         raceDistance,
         goalType,
-        goalTime,
         totalWeeks: weeks,
         runsPerWeek,
         createdAt: new Date()
       },
       weeks: []
     };
+    
+    // Only add goalTime if it's defined
+    if (goalTime !== undefined && goalTime !== null) {
+      plan.metadata.goalTime = goalTime;
+    }
 
     // Calculate target paces based on goal
     const paces = this.calculateTrainingPaces(raceDistance, goalType, goalTime, userData);
@@ -798,6 +802,32 @@ class TrainingPlanService {
   }
 
   /**
+   * Remove undefined values from objects recursively
+   */
+  sanitizeForFirebase(obj) {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizeForFirebase(item)).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object') {
+      const sanitized = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const cleanValue = this.sanitizeForFirebase(value);
+        if (cleanValue !== undefined) {
+          sanitized[key] = cleanValue;
+        }
+      }
+      return sanitized;
+    }
+    
+    return obj;
+  }
+
+  /**
    * Save training plan to Firebase
    */
   async saveTrainingPlan(plan) {
@@ -808,8 +838,11 @@ class TrainingPlanService {
       const athlete = JSON.parse(athleteData);
       const userId = athlete.id.toString();
       
+      // Sanitize the plan to remove undefined values
+      const sanitizedPlan = this.sanitizeForFirebase(plan);
+      
       const planId = `plan_${Date.now()}`;
-      await firebaseService.saveTrainingPlan(userId, planId, plan);
+      await firebaseService.saveTrainingPlan(userId, planId, sanitizedPlan);
       return planId;
     } catch (error) {
       console.error('Error saving training plan:', error);

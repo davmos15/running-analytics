@@ -94,14 +94,12 @@ const TrainingPlanPage = () => {
       }
 
       // Convert time format and generate the plan
-      const goalTimeInMinutes = planConfig.goalType === 'time' ? 
-        (parseInt(planConfig.goalTimeHours || 0) * 60) + parseInt(planConfig.goalTimeMinutes || 0) : 
-        undefined;
+      const configWithTime = { ...planConfig };
       
-      const configWithTime = {
-        ...planConfig,
-        goalTime: goalTimeInMinutes
-      };
+      if (planConfig.goalType === 'time') {
+        configWithTime.goalTime = (parseInt(planConfig.goalTimeHours || 0) * 60) + parseInt(planConfig.goalTimeMinutes || 0);
+      }
+      // Don't add goalTime property if it's not a time goal
       
       const plan = await trainingPlanService.generateTrainingPlan(configWithTime);
       
