@@ -1,6 +1,6 @@
 import firebaseService from './firebaseService';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 class TrainingPlanService {
   constructor() {
@@ -1013,7 +1013,7 @@ class TrainingPlanService {
     });
     
     // Add table to PDF
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Week', 'Start Date', 'Phase', 'Details']],
       body: tableData,
       startY: 65,
@@ -1040,7 +1040,7 @@ class TrainingPlanService {
     });
     
     // Add summary page if needed
-    const lastPageY = doc.lastAutoTable.finalY;
+    const lastPageY = doc.lastAutoTable?.finalY || 250;
     if (lastPageY > 250) {
       doc.addPage();
     }
