@@ -15,15 +15,21 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **Smart Plan Configuration**: Set race date, distance, goal type (completion/time), runs per week, and available days
 - **Intelligent Periodization**: AI analyzes your training history to create base → build → peak → taper phases
 - **Comprehensive Workout Types**: Easy runs, tempo, intervals, fartlek, race pace, progression runs, hill repeats
-- **CSV Export**: Export complete training plans with detailed workout breakdowns
-- **Adaptive Volume**: Plans adjust to your current fitness and follow safe progression principles
+- **Firebase Persistence**: Plans are automatically saved and persist until manually deleted
+- **Adaptive Plan Updates**: Plans intelligently adjust based on current progress and time until race
+- **Enhanced Export Options**: 
+  - **Detailed CSV Export**: Complete workout breakdowns with time splits and estimated durations
+  - **Professional PDF Export**: Comprehensive training plans with weekly schedules and phase analysis
+- **Progress-Based Adjustments**: Plans adapt to training consistency and current fitness levels
 
 ### 🤖 AI-Powered Race Predictions  
+- **Race Date-Based Predictions**: Set your target race date for time-aware predictions that factor in training time available
 - **Smart Race Time Predictions**: ML-powered predictions for 5K, 10K, Half Marathon, Marathon, and custom distances
 - **Custom Distance Support**: Add any distance for personalized predictions (e.g., 7.5K, 15K)
 - **Advanced ML Analysis**: Primary ML feature analysis with improved confidence scoring
-- **Realistic Confidence Levels**: Multi-factor confidence calculation based on data quality, experience, and consistency
-- **Training Insights**: Personalized recommendations to improve prediction accuracy
+- **Dynamic Confidence Levels**: Confidence adjusts based on race date proximity and training time available
+- **Training Time Factors**: Predictions improve with more training time and decrease confidence for distant races
+- **Enhanced Firebase Integration**: Improved trend analysis using historical prediction data
 - **Performance Factors**: Detailed analysis of what affects your predicted performance
 
 ### 📊 Advanced Performance Analytics
@@ -50,13 +56,14 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **👁️ Eye-Friendly**: Dark theme optimized for comfortable viewing during workouts
 
 ### 📊 Comprehensive Analytics Dashboard
-- **🗓️ Training Plan Creator**: Comprehensive training plan generation with AI-powered periodization
-- **🔮 Race Predictions Page**: Dedicated prediction dashboard with custom distance support and ML confidence scoring
-- **📈 Progressive Performance Graphs**: 
-  - Fixed chronological progression charts showing improvement over time
-  - Average metrics (speed, distance, time) with customizable time periods
-  - Distance threshold analysis with run count tracking
-  - Add/remove graphs with personalized dashboard
+- **🗓️ Training Plan Creator**: Comprehensive training plan generation with AI-powered periodization and Firebase persistence
+- **🔮 Race Predictions Page**: Race date-based prediction dashboard with dynamic confidence scoring
+- **📈 Unified Graphs Page**: 
+  - **Total Statistics Cards**: Distance, time, and runs totals at the top of graphs page
+  - **Drag & Drop Interface**: Reorder graphs with intuitive drag-and-drop functionality
+  - **Flexible Layout**: Toggle between single and two-column layouts (mobile stays single column)
+  - **Dynamic Graph Management**: Add/remove Distance Analysis, Average, and Total metric graphs
+  - **No Sub-Pages**: Streamlined single-page experience with all graph types
 - **🏅 Enhanced Rankings**: Metallic badge styling with professional athletic feel
 - **📏 Custom Distance Management**: Create and manage custom distances in Settings (e.g., 7.5K, 12K)
 - **⚙️ Streamlined Data Management**: 
@@ -154,23 +161,26 @@ src/
 │   ├── Layout/         # Layout components (Navigation, Header)
 │   ├── PersonalBests/  # Personal bests analysis and segment detection
 │   ├── RecentRuns/     # Recent runs overview and management
-│   ├── Graphs/         # Performance graphs and visualizations
-│   ├── Predictions/    # AI race prediction dashboard
-│   │   ├── PredictionsPage.js      # Main predictions interface with custom distances
+│   ├── Graphs/         # Unified graphs dashboard with totals and drag-drop
+│   │   ├── Graphs.js               # Main unified graphs page with totals cards
+│   │   ├── BarGraph.js             # Average and total metric visualizations
+│   │   ├── DistanceThresholdGraph.js # Distance analysis graphs
+│   │   └── GraphSettings.js        # Graph configuration components
+│   ├── Predictions/    # Race date-based AI prediction dashboard
+│   │   ├── PredictionsPage.js      # Race date predictions with dynamic confidence
 │   │   ├── PredictionCard.js       # Individual distance predictions
-│   │   ├── ConfidenceIndicator.js  # Prediction confidence display
-│   │   └── TrainingInsights.js     # Training recommendations
-│   ├── TrainingPlan/   # AI-powered training plan creator
-│   │   └── TrainingPlanPage.js     # Plan configuration and display
+│   │   └── ConfidenceIndicator.js  # Prediction confidence display
+│   ├── TrainingPlan/   # AI-powered training plan creator with persistence
+│   │   └── TrainingPlanPage.js     # Plan configuration, display, and export
 │   ├── Settings/       # Configuration and data management
 │   ├── SyncButton/     # Strava data synchronization
 │   └── common/         # Shared UI components
 ├── services/           # Core services
 │   ├── stravaApi.js           # Strava API integration
-│   ├── firebaseService.js     # Database operations with automatic PB tracking
+│   ├── firebaseService.js     # Database operations with training plan persistence
 │   ├── syncService.js         # Data synchronization logic
-│   ├── predictionService.js   # ML-powered prediction algorithms
-│   └── trainingPlanService.js # AI training plan generation
+│   ├── predictionService.js   # Race date-based ML prediction algorithms
+│   └── trainingPlanService.js # AI training plan generation with PDF/CSV export
 ├── hooks/              # Custom React hooks
 ├── utils/              # Utility functions and constants
 └── styles/             # CSS styling and themes
@@ -193,26 +203,32 @@ src/
 5. **Firebase Storage**: Store processed data with enhanced metrics for fast access
 
 ### AI Race Predictions
-1. **Data Analysis**: Analyze 16+ weeks of training data, recent races, and performance trends
+1. **Race Date Analysis**: Factor in target race date to determine optimal training timeline
 2. **ML-Powered Processing**: 
    - **Primary ML Feature Analysis**: Training volume, consistency, HR efficiency, form trends, distance experience
-   - **Multi-Factor Confidence**: Data quality, recency, experience, training consistency, prediction stability
+   - **Dynamic Confidence**: Adjusts based on race proximity, training time available, and data quality
+   - **Training Time Factors**: Predictions improve with available training time and adjust for race timeline
    - **Custom Distance Support**: Predictions for any distance with intelligent confidence adjustment
-3. **Smart Insights**: Generate personalized training recommendations and performance factors
+3. **Enhanced Firebase Integration**: Improved trend analysis using historical prediction data
 
 ### AI Training Plan Generation
 1. **Fitness Assessment**: Analyze recent 90-day training patterns, weekly volume, longest runs, and pace trends
 2. **Intelligent Periodization**: Create base → build → peak → taper phases based on race distance and timeline
 3. **Adaptive Workouts**: Generate varied workout types (easy, tempo, intervals, fartlek, race pace, hills) based on training phase
 4. **Safe Progression**: Follow 10% rule and smart volume progression tailored to current fitness
-5. **Comprehensive Export**: CSV format with detailed workout breakdowns, paces, and segment information
+5. **Firebase Persistence**: Plans automatically save and intelligently update based on progress
+6. **Progress-Based Updates**: Plans adapt to current fitness and time until race
+7. **Enhanced Export Options**:
+   - **Detailed CSV**: Complete workout breakdowns with time splits and estimated durations
+   - **Professional PDF**: Comprehensive training plans with weekly schedules and phase analysis
 
 ### User Experience
-1. **Comprehensive Dashboard**: View predictions, personal bests, training plans, and performance trends
-2. **Training Plan Creator**: Generate personalized training plans with CSV export capability
-3. **Confidence Scoring**: Understand prediction reliability based on data quality
-4. **Training Insights**: Get actionable recommendations to improve performance
-5. **Mobile Optimization**: Full responsive design for on-the-go analysis
+1. **Unified Dashboard**: Streamlined graphs page with totals cards and drag-and-drop interface
+2. **Race Date-Based Predictions**: Set target race dates for time-aware predictions
+3. **Persistent Training Plans**: Plans save automatically and adapt to your progress
+4. **Enhanced Export Options**: Professional PDF and detailed CSV exports for training plans
+5. **Confidence Scoring**: Dynamic prediction reliability based on race timeline and data quality
+6. **Mobile Optimization**: Full responsive design with single-column mobile layouts
 
 ## 🤝 Contributing
 

@@ -4,7 +4,6 @@ import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
 import Settings from './components/Settings/Settings';
 import Graphs from './components/Graphs/Graphs';
-import Totals from './components/Totals/Totals';
 import PredictionsPage from './components/Predictions/PredictionsPage';
 import TrainingPlanPage from './components/TrainingPlan/TrainingPlanPage';
 import LoadingSpinner from './components/common/LoadingSpinner';
@@ -49,7 +48,6 @@ function App() {
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}
       {activeTab === 'graphs' && <Graphs />}
-      {activeTab === 'totals' && <Totals />}
       {activeTab === 'predictions' && <PredictionsPage />}
       {activeTab === 'training-plan' && <TrainingPlanPage />}
       {activeTab === 'settings' && <Settings />}

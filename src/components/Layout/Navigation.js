@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Timer, Settings, BarChart3, TrendingUp, Calculator, Calendar } from 'lucide-react';
+import { Star, Timer, Settings, BarChart3, TrendingUp, Calendar } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   return (
@@ -40,17 +40,6 @@ const Navigation = ({ activeTab, setActiveTab }) => {
           Graphs
         </button>
         <button 
-          onClick={() => setActiveTab('totals')}
-          className={`flex-1 flex items-center justify-center px-6 py-3 rounded-md font-medium transition-all ${
-            activeTab === 'totals' 
-              ? 'athletic-button-primary text-white shadow-lg' 
-              : 'text-slate-300 hover:text-white athletic-button-secondary'
-          }`}
-        >
-          <Calculator className="w-5 h-5 mr-2" />
-          Totals
-        </button>
-        <button 
           onClick={() => setActiveTab('predictions')}
           className={`flex-1 flex items-center justify-center px-6 py-3 rounded-md font-medium transition-all ${
             activeTab === 'predictions' 
@@ -87,7 +76,7 @@ const Navigation = ({ activeTab, setActiveTab }) => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 athletic-card-gradient border-t border-blue-500/20 z-50">
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-6">
           <button 
             onClick={() => setActiveTab('personal-bests')}
             className={`flex flex-col items-center py-2 px-1 ${
@@ -114,15 +103,6 @@ const Navigation = ({ activeTab, setActiveTab }) => {
           >
             <BarChart3 className="w-4 h-4 mb-1" />
             <span className="text-xs font-medium">Graphs</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('totals')}
-            className={`flex flex-col items-center py-2 px-1 ${
-              activeTab === 'totals' ? 'text-orange-400' : 'text-slate-400'
-            }`}
-          >
-            <Calculator className="w-4 h-4 mb-1" />
-            <span className="text-xs font-medium">Totals</span>
           </button>
           <button 
             onClick={() => setActiveTab('predictions')}

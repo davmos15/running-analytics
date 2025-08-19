@@ -119,6 +119,18 @@ const TrainingPlanPage = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="mt-6 space-y-6 mx-4">
+        <div className="athletic-card-gradient p-6">
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6 space-y-6 mx-4">
       {!showPlanForm && !currentPlan && (
@@ -370,13 +382,27 @@ const TrainingPlanPage = () => {
                     ' Goal: Complete the race'}
                 </p>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={handleExportCSV}
                   className="px-4 py-2 athletic-button-secondary text-slate-300 rounded-lg flex items-center space-x-2"
                 >
                   <Download className="w-4 h-4" />
                   <span>Export CSV</span>
+                </button>
+                <button
+                  onClick={handleExportPDF}
+                  className="px-4 py-2 athletic-button-secondary text-slate-300 rounded-lg flex items-center space-x-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Export PDF</span>
+                </button>
+                <button
+                  onClick={handleDeletePlan}
+                  className="px-4 py-2 athletic-button-secondary text-red-400 hover:text-red-300 rounded-lg flex items-center space-x-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete</span>
                 </button>
                 <button
                   onClick={() => {

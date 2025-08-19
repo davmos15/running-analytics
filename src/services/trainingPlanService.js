@@ -1,4 +1,6 @@
 import firebaseService from './firebaseService';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 class TrainingPlanService {
   constructor() {
@@ -793,6 +795,236 @@ class TrainingPlanService {
       return parseInt(parts[0]) * 60 + parseInt(parts[1]);
     }
     return 0;
+  }
+
+  /**
+   * Save training plan to Firebase
+   */
+  async saveTrainingPlan(plan) {
+    try {
+      const userId = localStorage.getItem('stravaUserId');
+      if (!userId) throw new Error('User not authenticated');
+      
+      const planId = `plan_${Date.now()}`;
+      await firebaseService.saveTrainingPlan(userId, planId, plan);
+      return planId;
+    } catch (error) {
+      console.error('Error saving training plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load saved training plan from Firebase
+   */
+  async loadTrainingPlan() {
+    try {
+      const userId = localStorage.getItem('stravaUserId');
+      if (!userId) throw new Error('User not authenticated');
+      
+      const plan = await firebaseService.getTrainingPlan(userId);
+      return plan;
+    } catch (error) {
+      console.error('Error loading training plan:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete training plan from Firebase
+   */
+  async deleteTrainingPlan() {
+    try {
+      const userId = localStorage.getItem('stravaUserId');
+      if (!userId) throw new Error('User not authenticated');
+      
+      await firebaseService.deleteTrainingPlan(userId);
+    } catch (error) {
+      console.error('Error deleting training plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update training plan logic based on current progress
+   */
+  async updatePlanBasedOnProgress(plan, raceDate) {
+    try {
+      const today = new Date();
+      const race = new Date(raceDate);
+      const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
+      const weeksUntilRace = Math.ceil(daysUntilRace / 7);
+      
+      // Get recent training data
+      const userData = await this.analyzeUserCapabilities();
+      
+      // Determine current training phase based on weeks until race
+      let currentPhase;
+      if (weeksUntilRace > 12) {
+        currentPhase = 'base';
+      } else if (weeksUntilRace > 6) {
+        currentPhase = 'build';
+      } else if (weeksUntilRace > 2) {
+        currentPhase = 'peak';
+      } else {
+        currentPhase = 'taper';
+      }
+      
+      // Update remaining weeks in the plan
+      const currentWeek = plan.metadata.totalWeeks - weeksUntilRace + 1;
+      
+      // Adjust future weeks based on current progress
+      for (let i = currentWeek; i < plan.weeks.length; i++) {
+        const week = plan.weeks[i];
+        
+        // Update phase
+        week.phase = currentPhase;
+        
+        // Adjust volume based on current fitness
+        const volumeAdjustment = userData.consistencyScore > 0.7 ? 1.1 : 0.9;
+        week.totalKm *= volumeAdjustment;
+        
+        // Update workouts based on phase
+        week.runs.forEach(run => {
+          if (run.type !== this.workoutTypes.REST) {
+            run.distance *= volumeAdjustment;
+            run.segments.forEach(segment => {
+              segment.distance *= volumeAdjustment;
+            });
+          }
+        });
+      }
+      
+      return plan;
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      return plan;
+    }
+  }
+
+  /**
+   * Export training plan to PDF
+   */
+  exportToPDF(plan) {
+    const doc = new jsPDF();
+    
+    // Title and metadata
+    doc.setFontSize(20);
+    doc.text('Training Plan', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    const raceDistance = plan.metadata.raceDistance ? `${(plan.metadata.raceDistance / 1000).toFixed(1)}K` : 'N/A';
+    const goalText = plan.metadata.goalType === 'time' 
+      ? `Time Goal: ${Math.floor(plan.metadata.goalTime / 60)}:${String(plan.metadata.goalTime % 60).padStart(2, '0')}`
+      : 'Completion';
+    
+    doc.text(`Race Distance: ${raceDistance}`, 20, 35);
+    doc.text(`Goal: ${goalText}`, 20, 42);
+    doc.text(`Duration: ${plan.metadata.totalWeeks} weeks`, 20, 49);
+    doc.text(`Created: ${new Date(plan.metadata.createdAt).toLocaleDateString()}`, 20, 56);
+    
+    // Create detailed week-by-week table data
+    const tableData = [];
+    
+    plan.weeks.forEach(week => {
+      const weekRow = [
+        `Week ${week.weekNumber}`,
+        new Date(week.startDate).toLocaleDateString(),
+        week.phase.charAt(0).toUpperCase() + week.phase.slice(1),
+        `${week.totalKm.toFixed(1)}km`
+      ];
+      tableData.push(weekRow);
+      
+      // Add each run as a sub-row
+      week.runs.forEach(run => {
+        if (run.distance > 0) {
+          let workoutDetails = `${run.day}: ${run.type} - ${run.distance.toFixed(1)}km`;
+          
+          if (run.segments && run.segments.length > 0) {
+            const segmentDetails = run.segments.map(segment => 
+              `${segment.type}: ${segment.distance.toFixed(1)}km @ ${segment.pace}/km`
+            ).join(', ');
+            workoutDetails += `\nWorkout: ${segmentDetails}`;
+          }
+          
+          // Calculate estimated time
+          const totalTime = run.segments ? run.segments.reduce((sum, segment) => {
+            const paceSeconds = this.paceToSeconds(segment.pace);
+            return sum + (segment.distance * paceSeconds);
+          }, 0) : 0;
+          
+          if (totalTime > 0) {
+            const hours = Math.floor(totalTime / 3600);
+            const minutes = Math.floor((totalTime % 3600) / 60);
+            let timeStr = 'Time: ';
+            if (hours > 0) timeStr += `${hours}h `;
+            if (minutes > 0) timeStr += `${minutes}m`;
+            workoutDetails += `\n${timeStr}`;
+          }
+          
+          tableData.push(['', '', '', workoutDetails]);
+        }
+      });
+      
+      // Add spacing row
+      tableData.push(['', '', '', '']);
+    });
+    
+    // Add table to PDF
+    doc.autoTable({
+      head: [['Week', 'Start Date', 'Phase', 'Details']],
+      body: tableData,
+      startY: 65,
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 'auto' }
+      },
+      didDrawPage: function (data) {
+        // Add page numbers
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(10);
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, 
+            doc.internal.pageSize.height - 10, { align: 'center' });
+        }
+      }
+    });
+    
+    // Add summary page if needed
+    const lastPageY = doc.lastAutoTable.finalY;
+    if (lastPageY > 250) {
+      doc.addPage();
+    }
+    
+    // Add training summary
+    const summaryY = lastPageY > 250 ? 20 : lastPageY + 15;
+    doc.setFontSize(14);
+    doc.text('Training Summary', 20, summaryY);
+    
+    doc.setFontSize(10);
+    const totalVolume = plan.weeks.reduce((sum, week) => sum + week.totalKm, 0);
+    doc.text(`Total Volume: ${totalVolume.toFixed(1)}km`, 20, summaryY + 10);
+    
+    // Phase breakdown
+    const phases = {};
+    plan.weeks.forEach(week => {
+      phases[week.phase] = (phases[week.phase] || 0) + 1;
+    });
+    
+    let phaseY = summaryY + 20;
+    doc.text('Phase Breakdown:', 20, phaseY);
+    Object.entries(phases).forEach(([phase, weeks], index) => {
+      doc.text(`${phase.charAt(0).toUpperCase() + phase.slice(1)}: ${weeks} weeks`, 30, phaseY + 7 * (index + 1));
+    });
+    
+    return doc;
   }
 }
 

@@ -9,7 +9,8 @@ import {
   query, 
   where, 
   orderBy,
-  limit
+  limit,
+  deleteDoc
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -1470,6 +1471,60 @@ class FirebaseService {
     const year = date.getFullYear();
     const week = Math.floor((date - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
     return `${year}-W${week}`;
+  }
+
+  /**
+   * Save training plan to Firebase
+   */
+  async saveTrainingPlan(userId, planId, plan) {
+    try {
+      const planRef = doc(db, 'users', userId, 'trainingPlans', planId);
+      await setDoc(planRef, {
+        ...plan,
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Training plan saved to Firebase');
+    } catch (error) {
+      console.error('Error saving training plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the latest training plan from Firebase
+   */
+  async getTrainingPlan(userId) {
+    try {
+      const plansRef = collection(db, 'users', userId, 'trainingPlans');
+      const q = query(plansRef, orderBy('updatedAt', 'desc'), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        return { id: doc.id, ...doc.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting training plan:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete training plan from Firebase
+   */
+  async deleteTrainingPlan(userId) {
+    try {
+      const plan = await this.getTrainingPlan(userId);
+      if (plan && plan.id) {
+        const planRef = doc(db, 'users', userId, 'trainingPlans', plan.id);
+        await deleteDoc(planRef);
+        console.log('✅ Training plan deleted from Firebase');
+      }
+    } catch (error) {
+      console.error('Error deleting training plan:', error);
+      throw error;
+    }
   }
 }
 

@@ -12,9 +12,22 @@ class PredictionService {
   }
 
   /**
+   * Generate race predictions for a specific race date
+   */
+  async generatePredictionsForRaceDate(raceDate, customDistances = []) {
+    const today = new Date();
+    const race = new Date(raceDate);
+    const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
+    const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
+    
+    const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace);
+    return predictions;
+  }
+
+  /**
    * Generate race predictions for all target distances
    */
-  async generatePredictions(weeksBack = 16, customDistances = []) {
+  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
@@ -38,7 +51,8 @@ class PredictionService {
       for (const [distanceLabel, distanceMeters] of sortedDistances) {
         predictions[distanceLabel] = await this.predictDistance(
           distanceMeters,
-          predictionData
+          predictionData,
+          daysUntilRace
         );
       }
 
@@ -57,7 +71,7 @@ class PredictionService {
   /**
    * Predict time for a specific distance using ML-based approach
    */
-  async predictDistance(targetDistance, data) {
+  async predictDistance(targetDistance, data, daysUntilRace = null) {
     // Use ML feature-based prediction as primary method
     const mlPrediction = this.featureBasedPrediction(targetDistance, data);
     
@@ -68,16 +82,36 @@ class PredictionService {
       throw new Error('Insufficient data for confident prediction');
     }
 
+    // Adjust prediction based on days until race if provided
+    let adjustedPrediction = mlPrediction.prediction;
+    if (daysUntilRace !== null && daysUntilRace > 0) {
+      // Assume potential improvement based on training time available
+      const weeksUntilRace = daysUntilRace / 7;
+      const improvementFactor = Math.min(0.02, weeksUntilRace * 0.002); // Max 2% improvement
+      adjustedPrediction = mlPrediction.prediction * (1 - improvementFactor);
+    }
+    
     // Calculate refined confidence based on multiple factors
-    const confidence = this.calculateMLConfidence(mlPrediction, baselinePrediction, data, targetDistance);
+    let confidence = this.calculateMLConfidence(mlPrediction, baselinePrediction, data, targetDistance);
+    
+    // Adjust confidence based on time until race
+    if (daysUntilRace !== null) {
+      if (daysUntilRace < 14) {
+        confidence *= 0.95; // Very close to race, high confidence
+      } else if (daysUntilRace > 180) {
+        confidence *= 0.7; // Far from race, lower confidence
+      } else {
+        confidence *= (1 - (daysUntilRace - 14) / 500); // Gradual decrease
+      }
+    }
     
     return {
-      prediction: Math.round(mlPrediction.prediction),
+      prediction: Math.round(adjustedPrediction),
       confidence,
-      range: this.calculateConfidenceInterval(mlPrediction.prediction, confidence),
+      range: this.calculateConfidenceInterval(adjustedPrediction, confidence),
       method: 'ML Feature Analysis',
       factors: this.identifyPredictionFactors(targetDistance, data),
-      thirtyDayChange: await this.calculate30DayChange(targetDistance, Math.round(mlPrediction.prediction))
+      thirtyDayChange: await this.calculate30DayChange(targetDistance, Math.round(adjustedPrediction))
     };
   }
 

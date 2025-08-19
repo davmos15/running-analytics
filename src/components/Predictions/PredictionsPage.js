@@ -3,13 +3,12 @@ import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, Plus, X } from 'l
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
-import TrainingInsights from './TrainingInsights';
 
 const PredictionsPage = () => {
   const [predictions, setPredictions] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [weeksBack, setWeeksBack] = useState(16);
+  const [raceDate, setRaceDate] = useState(new Date().toISOString().split('T')[0]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [customDistances, setCustomDistances] = useState([]);
   const [newDistance, setNewDistance] = useState('');
@@ -19,7 +18,7 @@ const PredictionsPage = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const result = await predictionService.generatePredictions(weeksBack, customDistances);
+      const result = await predictionService.generatePredictionsForRaceDate(raceDate, customDistances);
       setPredictions(result);
     } catch (error) {
       console.error('Error loading predictions:', error);
@@ -27,7 +26,7 @@ const PredictionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [weeksBack, customDistances]);
+  }, [raceDate, customDistances]);
 
   useEffect(() => {
     loadPredictionsCallback();
@@ -125,11 +124,11 @@ const PredictionsPage = () => {
               </h2>
             </div>
             <p className="text-slate-300">
-              AI-powered race time predictions based on your training data and performance history
+              AI-powered race time predictions for your target race date
             </p>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setShowExplanation(!showExplanation)}
               className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
@@ -139,7 +138,7 @@ const PredictionsPage = () => {
             </button>
             
             {/* Custom Distance Input */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <input
                 type="number"
                 step="0.1"
@@ -174,18 +173,14 @@ const PredictionsPage = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-slate-400" />
-              <label className="text-sm font-medium text-slate-300">Training Period:</label>
-              <select
-                value={weeksBack}
-                onChange={(e) => setWeeksBack(parseInt(e.target.value))}
+              <label className="text-sm font-medium text-slate-300">Race Date:</label>
+              <input
+                type="date"
+                value={raceDate}
+                onChange={(e) => setRaceDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
                 className="px-3 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-              >
-                <option value={8}>8 weeks</option>
-                <option value={12}>12 weeks</option>
-                <option value={16}>16 weeks</option>
-                <option value={20}>20 weeks</option>
-                <option value={24}>24 weeks</option>
-              </select>
+              />
             </div>
             
             <div className="flex items-center space-x-2">
@@ -197,7 +192,7 @@ const PredictionsPage = () => {
           </div>
           
           <div className="flex items-center space-x-4 text-sm text-slate-400">
-            <span>Based on {predictions.dataSource} • Updated {new Date(predictions.lastUpdated).toLocaleDateString()}</span>
+            <span>Updated {new Date(predictions.lastUpdated).toLocaleDateString()}</span>
             {customDistances.length > 0 && (
               <div className="flex items-center space-x-2">
                 <span>Custom:</span>
@@ -258,11 +253,6 @@ const PredictionsPage = () => {
         ))}
       </div>
 
-      {/* Training Insights */}
-      <TrainingInsights 
-        dataQuality={predictions.dataQuality}
-        predictions={predictions.predictions}
-      />
     </div>
   );
 };
