@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, Target, Download, Play, ChevronRight, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Target, Download, Play, ChevronRight, Clock, Trash2, FileText } from 'lucide-react';
 import trainingPlanService from '../../services/trainingPlanService';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -7,6 +7,7 @@ const TrainingPlanPage = () => {
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Form state
@@ -30,6 +31,32 @@ const TrainingPlanPage = () => {
   ];
 
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  // Load saved plan on mount
+  useEffect(() => {
+    const loadSavedPlan = async () => {
+      try {
+        setIsLoading(true);
+        const savedPlan = await trainingPlanService.loadTrainingPlan();
+        if (savedPlan) {
+          // Update plan based on current progress
+          const raceDate = savedPlan.metadata.raceDate || planConfig.raceDate;
+          if (raceDate) {
+            const updatedPlan = await trainingPlanService.updatePlanBasedOnProgress(savedPlan, raceDate);
+            setCurrentPlan(updatedPlan);
+          } else {
+            setCurrentPlan(savedPlan);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading saved plan:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSavedPlan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDayToggle = (day) => {
     const days = [...planConfig.availableDays];
@@ -77,6 +104,10 @@ const TrainingPlanPage = () => {
       };
       
       const plan = await trainingPlanService.generateTrainingPlan(configWithTime);
+      
+      // Save plan to Firebase
+      await trainingPlanService.saveTrainingPlan(plan);
+      
       setCurrentPlan(plan);
       setShowPlanForm(false);
     } catch (err) {
@@ -84,6 +115,25 @@ const TrainingPlanPage = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleDeletePlan = async () => {
+    if (window.confirm('Are you sure you want to delete your training plan?')) {
+      try {
+        await trainingPlanService.deleteTrainingPlan();
+        setCurrentPlan(null);
+      } catch (err) {
+        console.error('Error deleting plan:', err);
+        setError('Failed to delete plan');
+      }
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!currentPlan) return;
+    
+    const doc = trainingPlanService.exportToPDF(currentPlan);
+    doc.save(`training-plan-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const handleExportCSV = () => {
