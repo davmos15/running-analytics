@@ -12,9 +12,9 @@ const Homepage = lazy(() => import('./components/Homepage/HomepageLite'));
 const PersonalBests = lazy(() => import('./components/PersonalBests/PersonalBests'));
 const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
-const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPage'));
+const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPageLite')); // Temporarily use lite version for performance
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
-const Settings = lazy(() => import('./components/Settings/Settings'));
+const Settings = lazy(() => import('./components/Settings/SettingsSimple')); // Temporarily use simple version that works
 
 // Loading component for lazy loaded routes
 const RouteLoading = () => (
