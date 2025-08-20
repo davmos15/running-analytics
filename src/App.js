@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Layout from './components/Layout/Layout';
-import Homepage from './components/Homepage/Homepage';
+import HomepageLite from './components/Homepage/HomepageLite';
 import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
 import Settings from './components/Settings/Settings';
@@ -46,7 +46,7 @@ function App() {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {activeTab === 'homepage' && <Homepage />}
+      {activeTab === 'homepage' && <HomepageLite />}
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}
       {activeTab === 'graphs' && <Graphs />}

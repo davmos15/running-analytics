@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Timer, TrendingUp, Award, Activity } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
 import BarGraph from '../Graphs/BarGraph';
@@ -22,38 +22,47 @@ const Homepage = () => {
     pbDistances: ['5K', '10K', '21.1K', '42.2K']
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      // Load total stats
-      const activities = await firebaseService.getActivities();
-      const runActivities = activities.filter(activity => 
-        activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
-      );
+      // Load data in parallel instead of sequential
+      const [activitiesResponse, ...pbResponses] = await Promise.allSettled([
+        // Load total stats (limit to basic info only, not full activities)
+        firebaseService.getActivities(),
+        // Load PBs in parallel
+        ...homepageSettings.pbDistances.map(distance => 
+          firebaseService.getPersonalBests(distance, 'all-time').catch(error => {
+            console.error(`Error loading PB for ${distance}:`, error);
+            return [];
+          })
+        )
+      ]);
       
-      const stats = {
-        totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
-        totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
-        totalRuns: runActivities.length
-      };
-      setTotalStats(stats);
+      // Process total stats
+      if (activitiesResponse.status === 'fulfilled') {
+        const activities = activitiesResponse.value;
+        const runActivities = activities.filter(activity => 
+          activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
+        );
+        
+        const stats = {
+          totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
+          totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
+          totalRuns: runActivities.length
+        };
+        setTotalStats(stats);
+      }
       
-      // Load key PBs
-      const pbPromises = homepageSettings.pbDistances.map(async (distance) => {
-        try {
-          const pbs = await firebaseService.getPersonalBests(distance, 'all-time');
-          return { distance, pb: pbs.length > 0 ? pbs[0] : null };
-        } catch (error) {
-          console.error(`Error loading PB for ${distance}:`, error);
-          return { distance, pb: null };
-        }
-      });
-      
-      const pbResults = await Promise.all(pbPromises);
+      // Process PBs
       const pbMap = {};
-      pbResults.forEach(({ distance, pb }) => {
-        pbMap[distance] = pb;
+      pbResponses.forEach((response, index) => {
+        const distance = homepageSettings.pbDistances[index];
+        if (response.status === 'fulfilled' && response.value && response.value.length > 0) {
+          pbMap[distance] = response.value[0];
+        } else {
+          pbMap[distance] = null;
+        }
       });
       setKeyPBs(pbMap);
       
@@ -62,18 +71,24 @@ const Homepage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [homepageSettings.pbDistances]);
 
   useEffect(() => {
-    // Load homepage settings
+    // Load homepage settings first
     const savedSettings = localStorage.getItem('homepageSettings');
     if (savedSettings) {
-      setHomepageSettings(JSON.parse(savedSettings));
+      const settings = JSON.parse(savedSettings);
+      setHomepageSettings(settings);
     }
-    
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Separate effect for loading data only when settings are loaded
+  useEffect(() => {
+    // Only load data if we have settings loaded (avoid loading with default settings)
+    if (homepageSettings.pbDistances && homepageSettings.pbDistances.length > 0) {
+      loadData();
+    }
+  }, [homepageSettings.pbDistances, loadData]);
 
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
