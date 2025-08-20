@@ -15,6 +15,14 @@ import './styles/globals.css';
 function App() {
   const [activeTab, setActiveTab] = useState('homepage');
   const { isAuthenticated, isLoading, error, login } = useStrava();
+
+  // Debug function to track state changes
+  const debugSetActiveTab = (newTab) => {
+    console.log('App.js: setActiveTab called with:', newTab);
+    console.log('App.js: Current activeTab:', activeTab);
+    setActiveTab(newTab);
+    console.log('App.js: setActiveTab completed');
+  };
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -45,7 +53,7 @@ function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+    <Layout activeTab={activeTab} setActiveTab={debugSetActiveTab}>
       {activeTab === 'homepage' && <HomepageLite />}
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}

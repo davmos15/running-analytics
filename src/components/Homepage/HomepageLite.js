@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Timer, TrendingUp, Award, Activity } from 'lucide-react';
+import NavigationTest from '../Layout/NavigationTest';
 
 const HomepageLite = () => {
   const [homepageSettings, setHomepageSettings] = useState({
@@ -20,6 +21,9 @@ const HomepageLite = () => {
 
   return (
     <div className="mt-6 space-y-6 mx-4">
+      {/* Navigation Test */}
+      <NavigationTest />
+      
       {/* Welcome Header */}
       <div className="athletic-card-gradient p-6 text-center">
         <div className="flex items-center justify-center space-x-3 mb-4">
