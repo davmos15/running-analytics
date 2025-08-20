@@ -9,6 +9,7 @@ import PredictionsPage from './components/Predictions/PredictionsPage';
 import TrainingPlanPage from './components/TrainingPlan/TrainingPlanPage';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
@@ -20,8 +21,12 @@ function App() {
   const debugSetActiveTab = (newTab) => {
     console.log('App.js: setActiveTab called with:', newTab);
     console.log('App.js: Current activeTab:', activeTab);
-    setActiveTab(newTab);
-    console.log('App.js: setActiveTab completed');
+    try {
+      setActiveTab(newTab);
+      console.log('App.js: setActiveTab completed successfully');
+    } catch (err) {
+      console.error('App.js: Error setting active tab:', err);
+    }
   };
   if (isLoading) {
     return <LoadingSpinner />;
@@ -53,15 +58,41 @@ function App() {
   }
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={debugSetActiveTab}>
-      {activeTab === 'homepage' && <HomepageLite />}
-      {activeTab === 'personal-bests' && <PersonalBests />}
-      {activeTab === 'recent-runs' && <RecentRuns />}
-      {activeTab === 'graphs' && <Graphs />}
-      {activeTab === 'predictions' && <PredictionsPage />}
-      {activeTab === 'training-plan' && <TrainingPlanPage />}
-      {activeTab === 'settings' && <Settings />}
-    </Layout>
+    <ErrorBoundary>
+      <Layout activeTab={activeTab} setActiveTab={debugSetActiveTab}>
+        {activeTab === 'homepage' && <HomepageLite />}
+        {activeTab === 'personal-bests' && (
+          <ErrorBoundary>
+            <PersonalBests />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'recent-runs' && (
+          <ErrorBoundary>
+            <RecentRuns />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'graphs' && (
+          <ErrorBoundary>
+            <Graphs />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'predictions' && (
+          <ErrorBoundary>
+            <PredictionsPage />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'training-plan' && (
+          <ErrorBoundary>
+            <TrainingPlanPage />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'settings' && (
+          <ErrorBoundary>
+            <Settings />
+          </ErrorBoundary>
+        )}
+      </Layout>
+    </ErrorBoundary>
   );
 }
 

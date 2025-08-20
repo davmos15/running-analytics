@@ -4,15 +4,28 @@ import { Home, Star, Timer, Settings, BarChart3, TrendingUp, Calendar } from 'lu
 const Navigation = ({ activeTab, setActiveTab }) => {
   // Debug function to test if clicks are working
   const handleTabClick = (tabName) => {
-    console.log('Navigation clicked:', tabName);
-    console.log('Current activeTab:', activeTab);
-    console.log('setActiveTab function:', typeof setActiveTab);
+    // Force visible debug output
+    const debugMsg = `NAV DEBUG: Clicked ${tabName}, Current: ${activeTab}`;
+    console.log(debugMsg);
+    
+    // Also show in UI for production debugging
+    const debugDiv = document.createElement('div');
+    debugDiv.textContent = debugMsg;
+    debugDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:red;color:white;padding:10px;z-index:9999';
+    document.body.appendChild(debugDiv);
+    setTimeout(() => debugDiv.remove(), 2000);
     
     if (setActiveTab && typeof setActiveTab === 'function') {
-      setActiveTab(tabName);
-      console.log('setActiveTab called successfully');
+      try {
+        setActiveTab(tabName);
+        console.log('setActiveTab called successfully');
+      } catch (err) {
+        console.error('Error in setActiveTab:', err);
+        alert(`Navigation Error: ${err.message}`);
+      }
     } else {
       console.error('setActiveTab is not a function:', setActiveTab);
+      alert('Navigation Error: setActiveTab is not a function');
     }
   };
 
