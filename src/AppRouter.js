@@ -1,14 +1,13 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LayoutRouter from './components/Layout/LayoutRouter';
-import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
 // Lazy load all route components for code splitting
-const Homepage = lazy(() => import('./components/Homepage/HomepageLite'));
+const Homepage = lazy(() => import('./components/Homepage/HomepageUltraLite')); // Ultra-lite for maximum performance
 const PersonalBests = lazy(() => import('./components/PersonalBests/PersonalBests'));
 const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
@@ -16,19 +15,31 @@ const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsP
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
 const Settings = lazy(() => import('./components/Settings/SettingsSimple')); // Temporarily use simple version that works
 
-// Loading component for lazy loaded routes
+// Ultra-fast loading component for lazy loaded routes
 const RouteLoading = () => (
-  <div className="flex items-center justify-center min-h-[400px]">
-    <LoadingSpinner />
+  <div className="mt-6 mx-4">
+    <div className="athletic-card-gradient p-6">
+      <div className="flex items-center justify-center py-8">
+        <div className="w-8 h-8 border-2 border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+        <span className="ml-3 text-white">Loading...</span>
+      </div>
+    </div>
   </div>
 );
 
 function AppRouter() {
   const { isAuthenticated, isLoading, error, login } = useStrava();
 
-  // Show loading spinner while checking authentication
+  // Show fast loading screen while checking authentication
   if (isLoading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="athletic-card-gradient p-8 text-center">
+          <div className="w-12 h-12 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Connecting to Strava...</p>
+        </div>
+      </div>
+    );
   }
 
   // Show error message if there's an error

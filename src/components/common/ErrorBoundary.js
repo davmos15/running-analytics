@@ -14,6 +14,16 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // Log error details to console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // Also log to help debug null property errors
+    if (error.message && error.message.includes('Cannot read properties of null')) {
+      console.error('NULL PROPERTY ERROR DETECTED:', {
+        message: error.message,
+        stack: error.stack,
+        component: errorInfo.componentStack
+      });
+    }
+    
     this.setState({
       error: error,
       errorInfo: errorInfo
