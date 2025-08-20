@@ -6,14 +6,14 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
-// Lazy load all route components for code splitting
-const Homepage = lazy(() => import('./components/Homepage/HomepageUltraLite')); // Ultra-lite for maximum performance
+// Lazy load all route components for code splitting with optimized caching
+const Homepage = lazy(() => import('./components/Homepage/HomepageOptimized')); // Optimized with cache-first loading
 const PersonalBests = lazy(() => import('./components/PersonalBests/PersonalBests'));
 const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
-const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPageLite')); // Temporarily use lite version for performance
+const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPageOptimized')); // Optimized with intelligent caching
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
-const Settings = lazy(() => import('./components/Settings/SettingsSimple')); // Temporarily use simple version that works
+const Settings = lazy(() => import('./components/Settings/SettingsOptimized')); // Optimized with full functionality
 
 // Ultra-fast loading component for lazy loaded routes
 const RouteLoading = () => (
