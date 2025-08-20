@@ -3,7 +3,7 @@ import Layout from './components/Layout/Layout';
 import HomepageLite from './components/Homepage/HomepageLite';
 import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
-import Settings from './components/Settings/Settings';
+import SettingsSimple from './components/Settings/SettingsSimple';
 import Graphs from './components/Graphs/Graphs';
 import PredictionsPage from './components/Predictions/PredictionsPage';
 import TrainingPlanPage from './components/TrainingPlan/TrainingPlanPage';
@@ -88,7 +88,7 @@ function App() {
         )}
         {activeTab === 'settings' && (
           <ErrorBoundary>
-            <Settings />
+            <SettingsSimple />
           </ErrorBoundary>
         )}
       </Layout>
