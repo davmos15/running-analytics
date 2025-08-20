@@ -57,13 +57,12 @@ const Settings = () => {
   };
 
   const handleReprocessActivities = async () => {
-    if (window.confirm('This will reprocess all your activities to create segments for all distances. This may take a few minutes. Continue?')) {
+    if (window.confirm('This will reprocess your recent activities to find the correct fastest segments (PBs). This fixes the issue where PBs were only detected from the start of runs. Continue?')) {
       setIsReprocessing(true);
       try {
-        await firebaseService.reprocessAllActivitiesForSegments();
-        // After reprocessing, ensure all distances have PBs identified
-        await firebaseService.ensureAllDistancesHavePBs();
-        alert('Activities reprocessed successfully! All Personal Bests have been updated.');
+        // Use the new fixed reprocessing method
+        const result = await firebaseService.reprocessActivitiesForPBs(50); // Process last 50 activities
+        alert(`Activities reprocessed successfully! Processed ${result.processedCount} activities and updated ${result.segmentsUpdated} segments. Your Personal Bests should now be accurate!`);
       } catch (error) {
         alert('Error reprocessing activities: ' + error.message);
       } finally {

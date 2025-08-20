@@ -896,31 +896,47 @@ class FirebaseService {
     let bestTime = Infinity;
     let bestSegment = null;
     
-    for (let i = 0; i < distanceStream.length; i++) {
-      // Find the end point for this segment
+    // Try every possible starting point
+    for (let i = 0; i < distanceStream.length - 1; i++) {
       const startDistance = distanceStream[i];
-      const targetEndDistance = startDistance + targetDistance;
       
-      // Binary search or linear search for the end point
-      let j = i + 1;
-      while (j < distanceStream.length && distanceStream[j] < targetEndDistance) {
-        j++;
-      }
-      
-      // If we found a valid segment
-      if (j < distanceStream.length) {
-        // Interpolate if needed for exact distance
-        const segmentTime = timeStream[j] - timeStream[i];
+      // Find the first point that meets or exceeds our target distance
+      for (let j = i + 1; j < distanceStream.length; j++) {
+        const currentDistance = distanceStream[j] - startDistance;
         
-        if (segmentTime < bestTime) {
-          bestTime = segmentTime;
-          bestSegment = {
-            time: segmentTime,
-            startDistance: startDistance,
-            endDistance: distanceStream[j],
-            startIndex: i,
-            endIndex: j
-          };
+        // If we've reached or exceeded the target distance
+        if (currentDistance >= targetDistance) {
+          // Calculate exact time using linear interpolation if needed
+          let segmentTime;
+          
+          if (currentDistance === targetDistance) {
+            // Exact match
+            segmentTime = timeStream[j] - timeStream[i];
+          } else if (j > i + 1) {
+            // Interpolate between j-1 and j for exact distance
+            const prevDistance = distanceStream[j-1] - startDistance;
+            const distanceRatio = (targetDistance - prevDistance) / (currentDistance - prevDistance);
+            const timeDiff = timeStream[j] - timeStream[j-1];
+            segmentTime = (timeStream[j-1] - timeStream[i]) + (timeDiff * distanceRatio);
+          } else {
+            segmentTime = timeStream[j] - timeStream[i];
+          }
+          
+          // Check if this is the best segment so far
+          if (segmentTime < bestTime && segmentTime > 0) {
+            bestTime = segmentTime;
+            bestSegment = {
+              time: segmentTime,
+              startDistance: startDistance,
+              endDistance: startDistance + targetDistance,
+              actualEndDistance: distanceStream[j],
+              startIndex: i,
+              endIndex: j
+            };
+          }
+          
+          // Move to next starting point (no need to check further endpoints for this start)
+          break;
         }
       }
     }
@@ -1090,6 +1106,75 @@ class FirebaseService {
       return { distancesChecked: distanceMap.size };
     } catch (error) {
       console.error('Error ensuring all distances have PBs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get activity streams from Strava API
+   */
+  async getActivityStreams(activityId) {
+    try {
+      const stravaApi = await import('./stravaApi');
+      const streams = await stravaApi.default.getActivityStreams(activityId, [
+        'time', 'distance', 'heartrate', 'cadence', 'altitude'
+      ]);
+      return streams;
+    } catch (error) {
+      console.error(`Error fetching streams for activity ${activityId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Reprocess activities to find correct PBs with the fixed algorithm
+   * This will re-extract segments from activities that have GPS streams
+   */
+  async reprocessActivitiesForPBs(activityLimit = 100) {
+    try {
+      console.log('Starting reprocessing of activities for correct PB detection...');
+      
+      // Get recent activities
+      const activities = await this.getActivities();
+      const runActivities = activities
+        .filter(activity => activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type))
+        .slice(0, activityLimit);
+      
+      console.log(`Found ${runActivities.length} run activities to reprocess`);
+      
+      let processedCount = 0;
+      let segmentsUpdated = 0;
+      
+      for (const activity of runActivities) {
+        try {
+          // Check if we have streams for this activity
+          const streams = await this.getActivityStreams(activity.id);
+          
+          if (streams && streams.distance && streams.time) {
+            console.log(`Reprocessing activity: ${activity.name} (${activity.id})`);
+            
+            // Find best segments using the corrected algorithm
+            const segments = await this.findBestSegmentsFromStreams(activity, streams);
+            
+            // Save each segment (this will also update PBs if needed)
+            for (const segment of segments) {
+              await this.saveSegment(segment);
+              segmentsUpdated++;
+            }
+            
+            processedCount++;
+          } else {
+            console.log(`No GPS streams for activity: ${activity.name}, using basic extraction`);
+          }
+        } catch (error) {
+          console.error(`Error reprocessing activity ${activity.id}:`, error);
+        }
+      }
+      
+      console.log(`✅ Reprocessing complete! Processed ${processedCount} activities, updated ${segmentsUpdated} segments`);
+      return { processedCount, segmentsUpdated };
+    } catch (error) {
+      console.error('Error reprocessing activities:', error);
       throw error;
     }
   }
