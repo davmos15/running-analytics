@@ -3,17 +3,14 @@ import { Settings as SettingsIcon, Calendar, Database, Globe, Download } from 'l
 import firebaseService from '../../services/firebaseService';
 import syncService from '../../services/syncService';
 import cacheService from '../../services/cacheService';
-import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
+import { AVAILABLE_COLUMNS } from '../../utils/constants';
 
 const SettingsOptimized = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [customDistances, setCustomDistances] = useState([]);
-  const [newDistance, setNewDistance] = useState('');
   const [unitSystem, setUnitSystem] = useState('metric');
   const [isImportingRuns, setIsImportingRuns] = useState(false);
-  const [columnSettings, setColumnSettings] = useState({});
   const [homepageSettings, setHomepageSettings] = useState({
     showGraphs: true,
     showTotals: true,
@@ -34,37 +31,12 @@ const SettingsOptimized = () => {
         setDateFormat(savedDateFormat);
       }
       
-      // Custom distances
-      const savedDistances = localStorage.getItem('customDistances');
-      if (savedDistances) {
-        const parsedDistances = JSON.parse(savedDistances);
-        if (Array.isArray(parsedDistances)) {
-          setCustomDistances(parsedDistances);
-        }
-      }
-      
       // Unit system
       const savedUnitSystem = localStorage.getItem('unitSystem');
       if (savedUnitSystem) {
         setUnitSystem(savedUnitSystem);
       }
 
-      // Column settings with safety check
-      const savedColumnSettings = localStorage.getItem('columnSettings');
-      if (savedColumnSettings) {
-        const parsedSettings = JSON.parse(savedColumnSettings);
-        if (parsedSettings && typeof parsedSettings === 'object') {
-          setColumnSettings(parsedSettings);
-        }
-      } else {
-        // Initialize with default enabled state
-        const initialSettings = {};
-        availableColumns.forEach(col => {
-          initialSettings[col.key] = col.enabled || false;
-        });
-        setColumnSettings(initialSettings);
-      }
-      
       // Homepage settings
       const savedHomepageSettings = localStorage.getItem('homepageSettings');
       if (savedHomepageSettings) {
