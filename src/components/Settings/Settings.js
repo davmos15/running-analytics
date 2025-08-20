@@ -17,6 +17,13 @@ const Settings = () => {
   const [isImportingRuns, setIsImportingRuns] = useState(false);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [homepageSettings, setHomepageSettings] = useState({
+    showGraphs: true,
+    showTotals: true,
+    showPBs: true,
+    selectedGraphs: ['avg-speed', 'total-distance'],
+    pbDistances: ['5K', '10K', '21.1K', '42.2K']
+  });
 
   // Load settings from localStorage
   useEffect(() => {
@@ -46,6 +53,12 @@ const Settings = () => {
         initialSettings[col.key] = col.enabled;
       });
       setColumnSettings(initialSettings);
+    }
+    
+    // Load homepage settings
+    const savedHomepageSettings = localStorage.getItem('homepageSettings');
+    if (savedHomepageSettings) {
+      setHomepageSettings(JSON.parse(savedHomepageSettings));
     }
   }, []);
 
@@ -306,6 +319,134 @@ const Settings = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Homepage Customization */}
+        <div className="border-t border-blue-500/20 pt-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <Settings className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Homepage Customization</h3>
+          </div>
+          <p className="text-sm text-slate-300 mb-4">
+            Customize what appears on your homepage dashboard
+          </p>
+          
+          <div className="space-y-4">
+            {/* Show/Hide Sections */}
+            <div>
+              <h4 className="text-sm font-medium text-white mb-2">Display Sections</h4>
+              <div className="space-y-2">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={homepageSettings.showTotals}
+                    onChange={(e) => {
+                      const newSettings = { ...homepageSettings, showTotals: e.target.checked };
+                      setHomepageSettings(newSettings);
+                      localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
+                    }}
+                    className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                  />
+                  <span className="text-sm text-white">Total Statistics Cards</span>
+                </label>
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={homepageSettings.showPBs}
+                    onChange={(e) => {
+                      const newSettings = { ...homepageSettings, showPBs: e.target.checked };
+                      setHomepageSettings(newSettings);
+                      localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
+                    }}
+                    className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                  />
+                  <span className="text-sm text-white">Personal Best Cards</span>
+                </label>
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={homepageSettings.showGraphs}
+                    onChange={(e) => {
+                      const newSettings = { ...homepageSettings, showGraphs: e.target.checked };
+                      setHomepageSettings(newSettings);
+                      localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
+                    }}
+                    className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                  />
+                  <span className="text-sm text-white">Performance Graphs</span>
+                </label>
+              </div>
+            </div>
+            
+            {/* Graph Selection */}
+            {homepageSettings.showGraphs && (
+              <div>
+                <h4 className="text-sm font-medium text-white mb-2">Selected Graphs</h4>
+                <div className="space-y-2">
+                  {[
+                    { id: 'avg-speed', label: 'Average Speed' },
+                    { id: 'total-distance', label: 'Monthly Distance' },
+                    { id: 'distance-threshold', label: 'Distance Analysis' }
+                  ].map(graph => (
+                    <label key={graph.id} className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={homepageSettings.selectedGraphs.includes(graph.id)}
+                        onChange={(e) => {
+                          let newGraphs;
+                          if (e.target.checked) {
+                            newGraphs = [...homepageSettings.selectedGraphs, graph.id];
+                          } else {
+                            newGraphs = homepageSettings.selectedGraphs.filter(g => g !== graph.id);
+                          }
+                          const newSettings = { ...homepageSettings, selectedGraphs: newGraphs };
+                          setHomepageSettings(newSettings);
+                          localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
+                        }}
+                        className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                      />
+                      <span className="text-sm text-white">{graph.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* PB Distance Selection */}
+            {homepageSettings.showPBs && (
+              <div>
+                <h4 className="text-sm font-medium text-white mb-2">Personal Best Distances</h4>
+                <div className="space-y-2">
+                  {[
+                    { id: '5K', label: '5K' },
+                    { id: '10K', label: '10K' },
+                    { id: '21.1K', label: 'Half Marathon' },
+                    { id: '42.2K', label: 'Marathon' }
+                  ].map(distance => (
+                    <label key={distance.id} className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={homepageSettings.pbDistances.includes(distance.id)}
+                        onChange={(e) => {
+                          let newDistances;
+                          if (e.target.checked) {
+                            newDistances = [...homepageSettings.pbDistances, distance.id];
+                          } else {
+                            newDistances = homepageSettings.pbDistances.filter(d => d !== distance.id);
+                          }
+                          const newSettings = { ...homepageSettings, pbDistances: newDistances };
+                          setHomepageSettings(newSettings);
+                          localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
+                        }}
+                        className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
+                      />
+                      <span className="text-sm text-white">{distance.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

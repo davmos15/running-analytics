@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Layout from './components/Layout/Layout';
+import Homepage from './components/Homepage/Homepage';
 import PersonalBests from './components/PersonalBests/PersonalBests';
 import RecentRuns from './components/RecentRuns/RecentRuns';
 import Settings from './components/Settings/Settings';
@@ -12,7 +13,7 @@ import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('personal-bests');
+  const [activeTab, setActiveTab] = useState('homepage');
   const { isAuthenticated, isLoading, error, login } = useStrava();
   if (isLoading) {
     return <LoadingSpinner />;
@@ -45,6 +46,7 @@ function App() {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {activeTab === 'homepage' && <Homepage />}
       {activeTab === 'personal-bests' && <PersonalBests />}
       {activeTab === 'recent-runs' && <RecentRuns />}
       {activeTab === 'graphs' && <Graphs />}

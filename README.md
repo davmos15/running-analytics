@@ -41,8 +41,18 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **Advanced Filtering**: Filter by time periods or custom date ranges
 - **Smart Segment Processing**: New activities automatically calculate and update PBs for all distances
 
+### 🏠 Customizable Homepage Dashboard
+- **Personalized Landing Page**: Customizable homepage displayed after Strava connection
+- **Total Statistics Cards**: Quick overview of total distance, time, and runs at a glance
+- **Personal Best Cards**: Featured PB cards for key distances (5K, 10K, Half Marathon, Marathon)
+- **Performance Graph Overview**: Selected graphs displayed on homepage for quick insights
+- **Full Customization**: Toggle sections on/off and choose which graphs and PB distances to display
+- **Settings Integration**: Complete homepage customization available in Settings page
+- **Persistent Preferences**: All customization choices saved and restored across sessions
+
 ### 🏃‍♂️ Core Features
 - **Strava-Style Segment Detection**: Find your best efforts anywhere in a run, not just from the start
+- **Fixed PB Algorithm**: Complete rewrite of segment detection to find fastest segments anywhere within runs
 - **Comprehensive Data Collection**: HR, cadence, elevation, pace, and GPS stream analysis
 - **Mobile Responsive**: Clean Material Design interface optimized for all devices
 - **Strava Integration**: Seamlessly sync your running data with Full Sync or Recent Sync options
@@ -54,8 +64,10 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **🎯 Athletic Typography**: Rajdhani font for headings with Inter for body text
 - **🔥 Orange/Red Accents**: Vibrant athletic-inspired button and accent colors
 - **👁️ Eye-Friendly**: Dark theme optimized for comfortable viewing during workouts
+- **🏠 Clean Navigation**: Removed sticky header for cleaner interface focused on content
 
 ### 📊 Comprehensive Analytics Dashboard
+- **🏠 Homepage Dashboard**: Customizable landing page with total stats, PB cards, and selected performance graphs
 - **🗓️ Training Plan Creator**: Comprehensive training plan generation with AI-powered periodization and Firebase persistence
 - **🔮 Race Predictions Page**: Race date-based prediction dashboard with dynamic confidence scoring
 - **📈 Unified Graphs Page**: 
@@ -74,6 +86,11 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
   - Organize columns by category (Core Metrics, Performance Data, Environmental, Technical)
   - "More Columns" feature with collapsible category management
   - Drag-and-drop column reordering with persistent preferences
+- **🏠 Homepage Customization**: 
+  - Toggle display of total stats, PB cards, and performance graphs
+  - Select which graphs to show on homepage (Average Speed, Monthly Distance, Distance Analysis)
+  - Choose which PB distances to display (5K, 10K, Half Marathon, Marathon)
+  - All preferences persist across sessions via localStorage
 - **🌍 Unit System**: Toggle between metric (km) and imperial (miles) units
 - **🔗 Direct Strava Integration**: Quick access to view activities directly in Strava
 - **📅 Enhanced Date Formatting**: Multiple date format options in Settings
@@ -158,7 +175,9 @@ REACT_APP_FIREBASE_APP_ID=your_app_id
 ```
 src/
 ├── components/          # React components
-│   ├── Layout/         # Layout components (Navigation, Header)
+│   ├── Layout/         # Layout components (Navigation, no Header - removed sticky header)
+│   ├── Homepage/       # Customizable homepage dashboard
+│   │   └── Homepage.js         # Main homepage with customizable sections
 │   ├── PersonalBests/  # Personal bests analysis and segment detection
 │   ├── RecentRuns/     # Recent runs overview and management
 │   ├── Graphs/         # Unified graphs dashboard with totals and drag-drop
@@ -172,12 +191,12 @@ src/
 │   │   └── ConfidenceIndicator.js  # Prediction confidence display
 │   ├── TrainingPlan/   # AI-powered training plan creator with persistence
 │   │   └── TrainingPlanPage.js     # Plan configuration, display, and export
-│   ├── Settings/       # Configuration and data management
+│   ├── Settings/       # Configuration and data management with homepage customization
 │   ├── SyncButton/     # Strava data synchronization
 │   └── common/         # Shared UI components
 ├── services/           # Core services
 │   ├── stravaApi.js           # Strava API integration
-│   ├── firebaseService.js     # Database operations with training plan persistence
+│   ├── firebaseService.js     # Database operations with fixed PB algorithm
 │   ├── syncService.js         # Data synchronization logic
 │   ├── predictionService.js   # Race date-based ML prediction algorithms
 │   └── trainingPlanService.js # AI training plan generation with PDF/CSV export
@@ -223,12 +242,14 @@ src/
    - **Professional PDF**: Comprehensive training plans with weekly schedules and phase analysis
 
 ### User Experience
-1. **Unified Dashboard**: Streamlined graphs page with totals cards and drag-and-drop interface
-2. **Race Date-Based Predictions**: Set target race dates for time-aware predictions
-3. **Persistent Training Plans**: Plans save automatically and adapt to your progress
-4. **Enhanced Export Options**: Professional PDF and detailed CSV exports for training plans
-5. **Confidence Scoring**: Dynamic prediction reliability based on race timeline and data quality
-6. **Mobile Optimization**: Full responsive design with single-column mobile layouts
+1. **Customizable Homepage**: Personalized landing page with toggleable stats, PBs, and graphs sections
+2. **Unified Dashboard**: Streamlined graphs page with totals cards and drag-and-drop interface
+3. **Race Date-Based Predictions**: Set target race dates for time-aware predictions
+4. **Persistent Training Plans**: Plans save automatically and adapt to your progress
+5. **Enhanced Export Options**: Professional PDF and detailed CSV exports for training plans
+6. **Confidence Scoring**: Dynamic prediction reliability based on race timeline and data quality
+7. **Mobile Optimization**: Full responsive design with single-column mobile layouts
+8. **Clean Navigation**: Removed sticky header for better content focus and cleaner interface
 
 ## 🤝 Contributing
 
