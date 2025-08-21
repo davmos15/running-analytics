@@ -1,78 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { TrendingUp, Calendar, RefreshCw, Info } from 'lucide-react';
-import predictionService from '../../services/predictionService';
-import cacheService from '../../services/cacheService';
+import { usePredictions } from '../../hooks/usePredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
 
-const PredictionsPageOptimized = () => {
-  const [predictions, setPredictions] = useState(null);
-  const [isLoadingFresh, setIsLoadingFresh] = useState(false);
-  const [error, setError] = useState(null);
-  const [raceDate, setRaceDate] = useState('');
+const PredictionsPageSimple = () => {
   const [tempRaceDate, setTempRaceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [lastUpdated, setLastUpdated] = useState(null);
-
-  // Load cached predictions immediately
-  const loadCachedData = useCallback(() => {
-    const cachedPredictions = cacheService.getCachedPredictions();
-    if (cachedPredictions) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Loading cached predictions');
-      }
-      setPredictions(cachedPredictions.data);
-      setRaceDate(cachedPredictions.raceDate || tempRaceDate);
-      setLastUpdated(cachedPredictions.lastUpdated);
-      return true;
-    }
-    return false;
-  }, [tempRaceDate]);
-
-  // Load fresh predictions
-  const loadFreshPredictions = useCallback(async (dateToUse, forceRefresh = false) => {
-    try {
-      setIsLoadingFresh(true);
-      setError(null);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Generating fresh predictions...');
-      }
-      const result = await predictionService.generatePredictionsForRaceDate(dateToUse);
-      
-      setPredictions(result);
-      const now = new Date().toISOString();
-      setLastUpdated(now);
-      
-      // Cache the results
-      const cacheData = {
-        data: result,
-        raceDate: dateToUse,
-        lastUpdated: now
-      };
-      cacheService.cachePredictions(cacheData);
-      
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error loading predictions:', error);
-      }
-      setError(error.message);
-    } finally {
-      setIsLoadingFresh(false);
-    }
-  }, []);
-
-  // Initial load - cache first, then fresh
-  useEffect(() => {
-    const dateToUse = raceDate || tempRaceDate;
-    
-    // Try to load cached data first
-    const hasCachedData = loadCachedData();
-    
-    // If no cached data or race date changed, load fresh
-    if (!hasCachedData || raceDate !== tempRaceDate) {
-      loadFreshPredictions(dateToUse);
-    }
-  }, [loadCachedData, loadFreshPredictions, raceDate, tempRaceDate]);
+  const [raceDate, setRaceDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  const { predictions, isLoading, error, regenerate } = usePredictions(raceDate);
 
   const handleDateChange = (newDate) => {
     setTempRaceDate(newDate);
@@ -92,12 +28,10 @@ const PredictionsPageOptimized = () => {
   };
 
   const handleRefresh = () => {
-    const dateToUse = raceDate || tempRaceDate;
-    loadFreshPredictions(dateToUse, true);
+    regenerate();
   };
 
-  // Show loading only if no cached data
-  if (!predictions && isLoadingFresh && !error) {
+  if (isLoading && !predictions) {
     return (
       <div className="mt-6 space-y-6 mx-4">
         <div className="athletic-card-gradient p-6">
@@ -120,24 +54,24 @@ const PredictionsPageOptimized = () => {
               <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
                 Race Predictions
               </h1>
-              {lastUpdated && (
+              {predictions?.generatedAt && (
                 <p className="text-sm text-slate-400">
-                  Updated: {new Date(lastUpdated).toLocaleTimeString()}
+                  Generated: {new Date(predictions.generatedAt).toLocaleString()}
                 </p>
               )}
             </div>
           </div>
           <button
             onClick={handleRefresh}
-            disabled={isLoadingFresh}
+            disabled={isLoading}
             className="px-4 py-2 athletic-button-secondary text-white rounded-lg flex items-center space-x-2 disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoadingFresh ? 'animate-spin' : ''}`} />
-            <span>{isLoadingFresh ? 'Updating...' : 'Refresh'}</span>
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Updating...' : 'Refresh'}</span>
           </button>
         </div>
         <p className="text-slate-300">
-          AI-powered race time predictions with intelligent caching
+          AI-powered race time predictions stored in Firebase
         </p>
       </div>
 
@@ -210,8 +144,8 @@ const PredictionsPageOptimized = () => {
         </div>
       )}
 
-      {/* Loading overlay for fresh data */}
-      {isLoadingFresh && predictions && (
+      {/* Loading overlay for refresh */}
+      {isLoading && predictions && (
         <div className="fixed top-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
           <div className="flex items-center space-x-2">
             <RefreshCw className="w-4 h-4 animate-spin" />
@@ -223,4 +157,4 @@ const PredictionsPageOptimized = () => {
   );
 };
 
-export default PredictionsPageOptimized;
+export default PredictionsPageSimple;

@@ -1611,6 +1611,109 @@ class FirebaseService {
       throw error;
     }
   }
+
+  /**
+   * Generate and store homepage summary data
+   */
+  async generateHomepageSummary() {
+    try {
+      // Get all activities
+      const activities = await this.getActivities();
+      const runActivities = activities.filter(activity => 
+        activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
+      );
+
+      // Calculate totals
+      const totalStats = {
+        totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
+        totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
+        totalRuns: runActivities.length,
+        lastUpdated: new Date().toISOString()
+      };
+
+      // Get key PBs for homepage (5K, 10K, Half, Marathon)
+      const keyDistances = ['5K', '10K', '21.1K', '42.2K'];
+      const keyPBs = {};
+      
+      for (const distance of keyDistances) {
+        try {
+          const pbs = await this.getPersonalBests(distance, 'all-time');
+          keyPBs[distance] = pbs.length > 0 ? pbs[0] : null;
+        } catch (error) {
+          console.error(`Error loading PB for ${distance}:`, error);
+          keyPBs[distance] = null;
+        }
+      }
+
+      // Store in Firebase
+      const summaryData = {
+        totalStats,
+        keyPBs,
+        generatedAt: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'summary', 'homepage'), summaryData);
+      console.log('✅ Homepage summary generated and stored');
+      return summaryData;
+    } catch (error) {
+      console.error('Error generating homepage summary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get homepage summary data
+   */
+  async getHomepageSummary() {
+    try {
+      const summaryDoc = await getDoc(doc(db, 'summary', 'homepage'));
+      if (summaryDoc.exists()) {
+        return summaryDoc.data();
+      }
+      
+      // If no summary exists, generate it
+      console.log('No homepage summary found, generating...');
+      return await this.generateHomepageSummary();
+    } catch (error) {
+      console.error('Error getting homepage summary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Store predictions data
+   */
+  async storePredictions(predictionsData) {
+    try {
+      const predictionDoc = {
+        ...predictionsData,
+        storedAt: new Date().toISOString()
+      };
+      
+      await setDoc(doc(db, 'summary', 'predictions'), predictionDoc);
+      console.log('✅ Predictions stored');
+      return predictionDoc;
+    } catch (error) {
+      console.error('Error storing predictions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get stored predictions data
+   */
+  async getStoredPredictions() {
+    try {
+      const predictionDoc = await getDoc(doc(db, 'summary', 'predictions'));
+      if (predictionDoc.exists()) {
+        return predictionDoc.data();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting stored predictions:', error);
+      throw error;
+    }
+  }
 }
 
 const firebaseService = new FirebaseService();
