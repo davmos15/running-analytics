@@ -1645,14 +1645,15 @@ class FirebaseService {
         }
       }
 
-      // Store in Firebase
+      // Store in Firebase using existing activities collection
       const summaryData = {
         totalStats,
         keyPBs,
-        generatedAt: new Date().toISOString()
+        generatedAt: new Date().toISOString(),
+        type: 'homepage_summary' // Special marker
       };
 
-      await setDoc(doc(db, 'summary', 'homepage'), summaryData);
+      await setDoc(doc(db, 'activities', 'homepage_summary'), summaryData);
       console.log('✅ Homepage summary generated and stored');
       return summaryData;
     } catch (error) {
@@ -1666,7 +1667,7 @@ class FirebaseService {
    */
   async getHomepageSummary() {
     try {
-      const summaryDoc = await getDoc(doc(db, 'summary', 'homepage'));
+      const summaryDoc = await getDoc(doc(db, 'activities', 'homepage_summary'));
       if (summaryDoc.exists()) {
         return summaryDoc.data();
       }
@@ -1687,10 +1688,11 @@ class FirebaseService {
     try {
       const predictionDoc = {
         ...predictionsData,
-        storedAt: new Date().toISOString()
+        storedAt: new Date().toISOString(),
+        type: 'predictions_data' // Special marker
       };
       
-      await setDoc(doc(db, 'summary', 'predictions'), predictionDoc);
+      await setDoc(doc(db, 'segments', 'predictions_summary'), predictionDoc);
       console.log('✅ Predictions stored');
       return predictionDoc;
     } catch (error) {
@@ -1704,7 +1706,7 @@ class FirebaseService {
    */
   async getStoredPredictions() {
     try {
-      const predictionDoc = await getDoc(doc(db, 'summary', 'predictions'));
+      const predictionDoc = await getDoc(doc(db, 'segments', 'predictions_summary'));
       if (predictionDoc.exists()) {
         return predictionDoc.data();
       }

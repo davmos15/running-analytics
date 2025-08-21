@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import firebaseService from '../services/firebaseService';
 import predictionService from '../services/predictionService';
 
 export const usePredictions = (raceDate) => {
@@ -13,27 +12,9 @@ export const usePredictions = (raceDate) => {
     try {
       setIsLoading(true);
       
-      // First try to get stored predictions
-      const storedPredictions = await firebaseService.getStoredPredictions();
-      if (storedPredictions && storedPredictions.raceDate === raceDate) {
-        setPredictions(storedPredictions);
-        setError(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Generate new predictions if none stored or date doesn't match
+      // Generate predictions directly (same as working predictions page)
       const newPredictions = await predictionService.generatePredictionsForRaceDate(raceDate);
-      const predictionData = {
-        ...newPredictions,
-        raceDate: raceDate,
-        generatedAt: new Date().toISOString()
-      };
-      
-      // Store for future use
-      await firebaseService.storePredictions(predictionData);
-      
-      setPredictions(predictionData);
+      setPredictions(newPredictions);
       setError(null);
     } catch (err) {
       setError('Failed to load predictions');
@@ -44,31 +25,9 @@ export const usePredictions = (raceDate) => {
   }, [raceDate]);
 
   const regeneratePredictions = useCallback(async () => {
-    if (!raceDate) return;
-    
-    try {
-      setIsLoading(true);
-      
-      // Generate fresh predictions
-      const newPredictions = await predictionService.generatePredictionsForRaceDate(raceDate);
-      const predictionData = {
-        ...newPredictions,
-        raceDate: raceDate,
-        generatedAt: new Date().toISOString()
-      };
-      
-      // Store the new predictions
-      await firebaseService.storePredictions(predictionData);
-      
-      setPredictions(predictionData);
-      setError(null);
-    } catch (err) {
-      setError('Failed to regenerate predictions');
-      console.error('Error regenerating predictions:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [raceDate]);
+    // Just call fetchPredictions to regenerate
+    await fetchPredictions();
+  }, [fetchPredictions]);
 
   useEffect(() => {
     fetchPredictions();

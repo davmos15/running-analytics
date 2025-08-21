@@ -5,9 +5,9 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import { formatTime } from '../../utils/timeUtils';
 
 const HomepageSimple = () => {
-  const { summaryData, isLoading, error, regenerate } = useHomepageSummary();
+  const { totalStats, keyPBs, isLoading, error, refetch } = useHomepageSummary();
 
-  if (isLoading && !summaryData) {
+  if (isLoading && !totalStats) {
     return (
       <div className="mt-6 space-y-6 mx-4">
         <div className="athletic-card-gradient p-6">
@@ -19,7 +19,7 @@ const HomepageSimple = () => {
     );
   }
 
-  if (error && !summaryData) {
+  if (error && !totalStats) {
     return (
       <div className="mt-6 space-y-6 mx-4">
         <div className="athletic-card p-6">
@@ -30,8 +30,6 @@ const HomepageSimple = () => {
       </div>
     );
   }
-
-  const { totalStats, keyPBs } = summaryData || {};
 
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -74,7 +72,7 @@ const HomepageSimple = () => {
             </div>
           </div>
           <button
-            onClick={regenerate}
+            onClick={refetch}
             disabled={isLoading}
             className="px-4 py-2 athletic-button-secondary text-white rounded-lg flex items-center space-x-2 disabled:opacity-50"
           >
