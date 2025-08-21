@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Calendar, RefreshCw, Info } from 'lucide-react';
+import { TrendingUp, Calendar, Info } from 'lucide-react';
 import { usePredictions } from '../../hooks/usePredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
@@ -8,7 +8,7 @@ const PredictionsPageSimple = () => {
   const [tempRaceDate, setTempRaceDate] = useState(new Date().toISOString().split('T')[0]);
   const [raceDate, setRaceDate] = useState(new Date().toISOString().split('T')[0]);
   
-  const { predictions, isLoading, error, regenerate } = usePredictions(raceDate);
+  const { predictions, isLoading, error } = usePredictions(raceDate);
 
   const handleDateChange = (newDate) => {
     setTempRaceDate(newDate);
@@ -27,9 +27,6 @@ const PredictionsPageSimple = () => {
     }
   };
 
-  const handleRefresh = () => {
-    regenerate();
-  };
 
   if (isLoading && !predictions) {
     return (
@@ -45,33 +42,23 @@ const PredictionsPageSimple = () => {
 
   return (
     <div className="mt-6 space-y-6 mx-4">
-      {/* Header with Refresh */}
+      {/* Header */}
       <div className="athletic-card-gradient p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
+        <div className="text-center mb-4">
+          <div className="flex items-center justify-center space-x-3 mb-2">
             <TrendingUp className="w-8 h-8 text-orange-400" />
-            <div>
-              <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                Race Predictions
-              </h1>
-              {predictions?.generatedAt && (
-                <p className="text-sm text-slate-400">
-                  Generated: {new Date(predictions.generatedAt).toLocaleString()}
-                </p>
-              )}
-            </div>
+            <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              Race Predictions
+            </h1>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="px-4 py-2 athletic-button-secondary text-white rounded-lg flex items-center space-x-2 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>{isLoading ? 'Updating...' : 'Refresh'}</span>
-          </button>
+          {predictions?.generatedAt && (
+            <p className="text-sm text-slate-400">
+              Generated: {new Date(predictions.generatedAt).toLocaleString()}
+            </p>
+          )}
         </div>
-        <p className="text-slate-300">
-          AI-powered race time predictions stored in Firebase
+        <p className="text-slate-300 text-center">
+          AI-powered race time predictions based on your performance data
         </p>
       </div>
 
@@ -147,15 +134,6 @@ const PredictionsPageSimple = () => {
         </div>
       )}
 
-      {/* Loading overlay for refresh */}
-      {isLoading && predictions && (
-        <div className="fixed top-4 right-4 bg-orange-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Updating predictions...</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

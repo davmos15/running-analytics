@@ -291,7 +291,7 @@ const Graphs = () => {
       <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
         <button
           onClick={() => updateGraph(graph.id, { isFullWidth: !graph.settings.isFullWidth })}
-          className={`p-1 hover:text-slate-200 athletic-card rounded shadow ${
+          className={`p-1 hover:text-slate-200 athletic-card rounded shadow hidden sm:block ${
             graph.settings.isFullWidth ? 'text-orange-400' : 'text-slate-400'
           }`}
           title={graph.settings.isFullWidth ? 'Make normal width' : 'Make full width'}

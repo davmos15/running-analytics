@@ -18,8 +18,8 @@ const NavigationRouter = () => {
   // Navigation items configuration
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
-    { path: '/personal-bests', label: 'Personal Bests', icon: Star },
-    { path: '/recent-runs', label: 'Recent Runs', icon: Timer },
+    { path: '/personal-bests', label: 'PBs', icon: Star },
+    { path: '/recent-runs', label: 'Recent', icon: Timer },
     { path: '/graphs', label: 'Graphs', icon: BarChart3 },
     { path: '/predictions', label: 'Predictions', icon: TrendingUp },
     { path: '/training-plan', label: 'Plan', icon: Calendar },

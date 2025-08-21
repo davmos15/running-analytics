@@ -17,10 +17,10 @@ export const useHomepageSummary = () => {
         activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
       );
 
-      // Calculate totals
+      // Calculate totals (same as graphs page)
       const stats = {
         totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
-        totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
+        totalTime: runActivities.reduce((sum, activity) => sum + (activity.elapsed_time || activity.moving_time || 0), 0),
         totalRuns: runActivities.length,
         lastUpdated: new Date().toISOString()
       };
