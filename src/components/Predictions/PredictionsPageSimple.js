@@ -115,28 +115,31 @@ const PredictionsPageSimple = () => {
       {/* Predictions Display */}
       {predictions && (
         <div className="space-y-6">
-          {/* Confidence Overview */}
-          {predictions.overallConfidence && (
+          {/* Data Quality Overview */}
+          {predictions.dataQuality && (
             <div className="athletic-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-3">Prediction Confidence</h3>
+              <h3 className="text-lg font-semibold text-white mb-3">Data Quality</h3>
               <div className="flex items-center space-x-4">
                 <div className="flex-1 bg-slate-700 rounded-full h-3">
                   <div 
                     className="bg-gradient-to-r from-orange-500 to-green-500 h-3 rounded-full"
-                    style={{ width: `${predictions.overallConfidence}%` }}
+                    style={{ width: `${predictions.dataQuality.score || 0}%` }}
                   ></div>
                 </div>
-                <span className="text-white font-medium">{predictions.overallConfidence}%</span>
+                <span className="text-white font-medium">{predictions.dataQuality.score || 0}%</span>
               </div>
+              <p className="text-sm text-slate-400 mt-2">
+                {predictions.dataSource || 'No data source info'}
+              </p>
             </div>
           )}
 
           {/* Prediction Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {predictions.predictions && predictions.predictions.map((prediction) => (
+            {predictions.predictions && Object.entries(predictions.predictions).map(([distance, prediction]) => (
               <PredictionCard 
-                key={prediction.distance} 
-                prediction={prediction}
+                key={distance} 
+                prediction={{ distance, ...prediction }}
                 raceDate={raceDate}
               />
             ))}

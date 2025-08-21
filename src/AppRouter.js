@@ -13,7 +13,7 @@ const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
 const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPageSimple')); // Simple working predictions
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
-const Settings = lazy(() => import('./components/Settings/Settings')); // Original working settings
+const Settings = lazy(() => import('./components/Settings/SettingsSimple')); // Simple working settings
 
 // Ultra-fast loading component for lazy loaded routes
 const RouteLoading = () => (

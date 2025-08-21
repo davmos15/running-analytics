@@ -2,7 +2,6 @@ import React from 'react';
 import { Timer, TrendingUp, Award, Activity, RefreshCw } from 'lucide-react';
 import { useHomepageSummary } from '../../hooks/useHomepageSummary';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { formatTime } from '../../utils/timeUtils';
 
 const HomepageSimple = () => {
   const { totalStats, keyPBs, isLoading, error, refetch } = useHomepageSummary();
@@ -157,13 +156,13 @@ const HomepageSimple = () => {
                   {pb ? (
                     <div>
                       <div className="text-2xl font-bold text-white mb-1" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                        {formatTime(pb.time)}
+                        {pb.time || 'No time'}
                       </div>
                       <div className="text-sm text-slate-400">
-                        {new Date(pb.date).toLocaleDateString()}
+                        {pb.date ? new Date(pb.date).toLocaleDateString() : 'No date'}
                       </div>
                       <div className="text-xs text-slate-500 mt-1">
-                        {pb.pace}/km
+                        {pb.pace || 'No pace'}/km
                       </div>
                     </div>
                   ) : (
