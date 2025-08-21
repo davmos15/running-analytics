@@ -36,10 +36,17 @@ const HomepageOptimized = () => {
       if (!forceRefresh) {
         const cachedData = cacheService.getCachedHomepageData();
         if (cachedData) {
-          console.log('Loading cached homepage data');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Loading cached homepage data');
+          }
           setTotalStats(cachedData.totalStats || totalStats);
           setKeyPBs(cachedData.keyPBs || {});
           setLastUpdated(cachedData.lastUpdated);
+          
+          // If we have valid cached data and it's not a force refresh, don't fetch fresh data
+          if (!forceRefresh) {
+            return;
+          }
         }
       }
 
@@ -72,7 +79,9 @@ const HomepageOptimized = () => {
           cacheService.cachePersonalBests(distance, pbs); // Cache the result
           return { distance, pb: pbs.length > 0 ? pbs[0] : null };
         } catch (error) {
-          console.error(`Error loading PB for ${distance}:`, error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`Error loading PB for ${distance}:`, error);
+          }
           return { distance, pb: null };
         }
       });
@@ -98,7 +107,9 @@ const HomepageOptimized = () => {
       cacheService.cacheHomepageData(homepageData);
       
     } catch (error) {
-      console.error('Error loading homepage data:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading homepage data:', error);
+      }
     } finally {
       setIsLoadingFresh(false);
     }

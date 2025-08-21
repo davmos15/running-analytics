@@ -25,7 +25,9 @@ class CacheService {
         version: '1.0'
       };
       localStorage.setItem(key, JSON.stringify(cacheEntry));
-      console.log(`Cache updated: ${key}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Cache updated: ${key}`);
+      }
     } catch (error) {
       console.warn('Cache storage failed:', error);
     }
@@ -43,11 +45,15 @@ class CacheService {
       if (age > maxAge) {
         // Cache expired, remove it
         localStorage.removeItem(key);
-        console.log(`Cache expired and removed: ${key}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Cache expired and removed: ${key}`);
+        }
         return null;
       }
 
-      console.log(`Cache hit: ${key} (age: ${Math.round(age / 1000)}s)`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Cache hit: ${key} (age: ${Math.round(age / 1000)}s)`);
+      }
       return cacheEntry.data;
     } catch (error) {
       console.warn('Cache retrieval failed:', error);
@@ -72,7 +78,9 @@ class CacheService {
   // Clear specific cache
   clearCache(key) {
     localStorage.removeItem(key);
-    console.log(`Cache cleared: ${key}`);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Cache cleared: ${key}`);
+    }
   }
 
   // Clear all athletic caches
@@ -80,7 +88,9 @@ class CacheService {
     Object.values(this.CACHE_KEYS).forEach(key => {
       localStorage.removeItem(key);
     });
-    console.log('All athletic caches cleared');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('All athletic caches cleared');
+    }
   }
 
   // Get cache info for debugging

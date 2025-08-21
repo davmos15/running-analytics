@@ -17,7 +17,9 @@ const PredictionsPageOptimized = () => {
   const loadCachedData = useCallback(() => {
     const cachedPredictions = cacheService.getCachedPredictions();
     if (cachedPredictions) {
-      console.log('Loading cached predictions');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Loading cached predictions');
+      }
       setPredictions(cachedPredictions.data);
       setRaceDate(cachedPredictions.raceDate || tempRaceDate);
       setLastUpdated(cachedPredictions.lastUpdated);
@@ -32,7 +34,9 @@ const PredictionsPageOptimized = () => {
       setIsLoadingFresh(true);
       setError(null);
       
-      console.log('Generating fresh predictions...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Generating fresh predictions...');
+      }
       const result = await predictionService.generatePredictionsForRaceDate(dateToUse);
       
       setPredictions(result);
@@ -48,7 +52,9 @@ const PredictionsPageOptimized = () => {
       cacheService.cachePredictions(cacheData);
       
     } catch (error) {
-      console.error('Error loading predictions:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error loading predictions:', error);
+      }
       setError(error.message);
     } finally {
       setIsLoadingFresh(false);
