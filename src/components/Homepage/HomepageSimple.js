@@ -73,51 +73,45 @@ const HomepageSimple = () => {
       {/* Total Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="athletic-card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mb-3">
               <TrendingUp className="w-6 h-6 text-blue-400" />
             </div>
-            <div>
-              <p className="text-sm text-slate-400">Total Distance</p>
-              <p className="text-2xl font-bold text-white">
-                {totalStats?.totalDistance ? `${totalStats.totalDistance.toFixed(0)}km` : 'No data'}
-              </p>
-            </div>
+            <p className="text-sm text-slate-400">Total Distance</p>
+            <p className="text-2xl font-bold text-white">
+              {totalStats?.totalDistance ? `${totalStats.totalDistance.toFixed(0)}km` : 'No data'}
+            </p>
           </div>
         </div>
         
         <div className="athletic-card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center mb-3">
               <Timer className="w-6 h-6 text-orange-400" />
             </div>
-            <div>
-              <p className="text-sm text-slate-400">Total Time</p>
-              <p className="text-2xl font-bold text-white">
-                {totalStats?.totalTime ? formatDuration(totalStats.totalTime) : 'No data'}
-              </p>
-            </div>
+            <p className="text-sm text-slate-400">Total Time</p>
+            <p className="text-2xl font-bold text-white">
+              {totalStats?.totalTime ? formatDuration(totalStats.totalTime) : 'No data'}
+            </p>
           </div>
         </div>
         
         <div className="athletic-card p-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mb-3">
               <Activity className="w-6 h-6 text-green-400" />
             </div>
-            <div>
-              <p className="text-sm text-slate-400">Total Runs</p>
-              <p className="text-2xl font-bold text-white">
-                {totalStats?.totalRuns || 'No data'}
-              </p>
-            </div>
+            <p className="text-sm text-slate-400">Total Runs</p>
+            <p className="text-2xl font-bold text-white">
+              {totalStats?.totalRuns || 'No data'}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Personal Bests Cards */}
       <div>
-        <div className="flex items-center space-x-2 mb-4">
+        <div className="flex items-center justify-center space-x-2 mb-4">
           <Award className="w-6 h-6 text-orange-400" />
           <h2 className="text-xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             Personal Bests

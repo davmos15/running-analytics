@@ -64,22 +64,20 @@ const PredictionsPageSimple = () => {
 
       {/* Race Date Input */}
       <div className="athletic-card p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Calendar className="w-5 h-5 text-orange-400" />
-          <h2 className="text-xl font-semibold text-white">Target Race Date</h2>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="flex-1">
-            <input
-              type="date"
-              value={tempRaceDate}
-              onChange={(e) => handleDateChange(e.target.value)}
-              onBlur={handleDateBlur}
-              onKeyPress={handleDateKeyPress}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white"
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-5 h-5 text-orange-400" />
+            <h2 className="text-xl font-semibold text-white">Target Race Date</h2>
           </div>
+          
+          <input
+            type="date"
+            value={tempRaceDate}
+            onChange={(e) => handleDateChange(e.target.value)}
+            onBlur={handleDateBlur}
+            onKeyPress={handleDateKeyPress}
+            className="w-full sm:w-auto px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white"
+          />
         </div>
         
         {tempRaceDate !== raceDate && (
@@ -102,31 +100,14 @@ const PredictionsPageSimple = () => {
       {/* Predictions Display */}
       {predictions && (
         <div className="space-y-6">
-          {/* Data Quality Overview */}
-          {predictions.dataQuality && (
-            <div className="athletic-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-3">Data Quality</h3>
-              <div className="flex items-center space-x-4">
-                <div className="flex-1 bg-slate-700 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-orange-500 to-green-500 h-3 rounded-full"
-                    style={{ width: `${predictions.dataQuality.score || 0}%` }}
-                  ></div>
-                </div>
-                <span className="text-white font-medium">{predictions.dataQuality.score || 0}%</span>
-              </div>
-              <p className="text-sm text-slate-400 mt-2">
-                {predictions.dataSource || 'No data source info'}
-              </p>
-            </div>
-          )}
 
           {/* Prediction Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {predictions.predictions && Object.entries(predictions.predictions).map(([distance, prediction]) => (
               <PredictionCard 
                 key={distance} 
-                prediction={{ distance, ...prediction }}
+                distance={distance}
+                prediction={prediction}
                 raceDate={raceDate}
               />
             ))}
