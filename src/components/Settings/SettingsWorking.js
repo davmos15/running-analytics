@@ -27,14 +27,29 @@ const SettingsWorking = () => {
     
     const savedCustomDistances = localStorage.getItem('customDistances');
     if (savedCustomDistances) {
-      setCustomDistances(JSON.parse(savedCustomDistances));
+      const parsed = JSON.parse(savedCustomDistances);
+      // Handle both old string format and new object format
+      if (parsed.length > 0 && typeof parsed[0] === 'string') {
+        // Convert old string format to new object format
+        const objectFormat = parsed.map(distance => ({
+          label: distance,
+          meters: distance.includes('K') ? parseFloat(distance) * 1000 : parseFloat(distance)
+        }));
+        setCustomDistances(objectFormat);
+        localStorage.setItem('customDistances', JSON.stringify(objectFormat));
+      } else {
+        setCustomDistances(parsed);
+      }
     }
   }, []);
 
   const toggleDistanceVisibility = (distance) => {
-    const newVisibleDistances = visibleDistances.includes(distance)
-      ? visibleDistances.filter(d => d !== distance)
-      : [...visibleDistances, distance];
+    // Handle both string distances and object distances
+    const distanceLabel = typeof distance === 'string' ? distance : distance.label;
+    
+    const newVisibleDistances = visibleDistances.includes(distanceLabel)
+      ? visibleDistances.filter(d => d !== distanceLabel)
+      : [...visibleDistances, distanceLabel];
     
     setVisibleDistances(newVisibleDistances);
     localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
@@ -44,15 +59,25 @@ const SettingsWorking = () => {
   const handleAddCustomDistance = () => {
     const distanceValue = parseFloat(newDistance);
     if (!isNaN(distanceValue) && distanceValue > 0) {
-      const distanceKm = distanceValue >= 1 ? `${distanceValue}K` : `${(distanceValue * 1000).toFixed(0)}m`;
+      const distanceMeters = distanceValue * 1000;
+      const distanceLabel = distanceValue >= 1 ? `${distanceValue}K` : `${distanceMeters.toFixed(0)}m`;
       
-      if (!customDistances.includes(distanceKm) && !DISTANCES.includes(distanceKm)) {
-        const newCustomDistances = [...customDistances, distanceKm];
+      // Check if distance already exists (by label)
+      const existingDistance = customDistances.find(d => d.label === distanceLabel);
+      const isStandardDistance = DISTANCES.includes(distanceLabel);
+      
+      if (!existingDistance && !isStandardDistance) {
+        const newDistanceObject = {
+          label: distanceLabel,
+          meters: distanceMeters
+        };
+        
+        const newCustomDistances = [...customDistances, newDistanceObject];
         setCustomDistances(newCustomDistances);
         localStorage.setItem('customDistances', JSON.stringify(newCustomDistances));
         
         // Also add to visible distances
-        const newVisibleDistances = [...visibleDistances, distanceKm];
+        const newVisibleDistances = [...visibleDistances, distanceLabel];
         setVisibleDistances(newVisibleDistances);
         localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
         
@@ -64,12 +89,15 @@ const SettingsWorking = () => {
   };
 
   const handleRemoveCustomDistance = (distance) => {
-    const newCustomDistances = customDistances.filter(d => d !== distance);
+    // Handle both string and object formats
+    const distanceLabel = typeof distance === 'string' ? distance : distance.label;
+    
+    const newCustomDistances = customDistances.filter(d => d.label !== distanceLabel);
     setCustomDistances(newCustomDistances);
     localStorage.setItem('customDistances', JSON.stringify(newCustomDistances));
     
     // Also remove from visible distances
-    const newVisibleDistances = visibleDistances.filter(d => d !== distance);
+    const newVisibleDistances = visibleDistances.filter(d => d !== distanceLabel);
     setVisibleDistances(newVisibleDistances);
     localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
     
@@ -282,16 +310,16 @@ const SettingsWorking = () => {
                 {customDistances.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {customDistances.map(distance => (
-                      <div key={distance} className="flex items-center space-x-1 px-3 py-1 bg-slate-700 rounded-lg">
+                      <div key={distance.label} className="flex items-center space-x-1 px-3 py-1 bg-slate-700 rounded-lg">
                         <button
-                          onClick={() => toggleDistanceVisibility(distance)}
+                          onClick={() => toggleDistanceVisibility(distance.label)}
                           className={`text-sm ${
-                            visibleDistances.includes(distance) ? 'text-green-400' : 'text-slate-400'
+                            visibleDistances.includes(distance.label) ? 'text-green-400' : 'text-slate-400'
                           }`}
                         >
-                          {visibleDistances.includes(distance) ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                          {visibleDistances.includes(distance.label) ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                         </button>
-                        <span className="text-sm text-white">{distance}</span>
+                        <span className="text-sm text-white">{distance.label}</span>
                         <button
                           onClick={() => handleRemoveCustomDistance(distance)}
                           className="text-red-400 hover:text-red-300"
