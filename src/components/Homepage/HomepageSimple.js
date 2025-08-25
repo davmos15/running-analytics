@@ -55,19 +55,11 @@ const HomepageSimple = () => {
     <div className="mt-6 space-y-6 mx-4">
       {/* Welcome Header */}
       <div className="athletic-card-gradient p-6">
-        <div className="text-center mb-4">
+        <div className="text-center">
           <h1 className="text-3xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             Athletic Performance Hub
           </h1>
-          {totalStats?.lastUpdated && (
-            <p className="text-sm text-slate-400 mt-2">
-              Updated: {new Date(totalStats.lastUpdated).toLocaleString()}
-            </p>
-          )}
         </div>
-        <p className="text-slate-300 text-center">
-          Your personalized running dashboard with performance analytics
-        </p>
       </div>
 
       {/* Total Stats Cards */}
@@ -125,12 +117,10 @@ const HomepageSimple = () => {
             return (
               <div key={distance} className="athletic-card overflow-hidden">
                 <div className={`h-2 bg-gradient-to-r ${distanceInfo.color}`}></div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">{distanceInfo.emoji}</span>
-                      <span className="font-semibold text-white">{distanceInfo.name}</span>
-                    </div>
+                <div className="p-4 text-center">
+                  <div className="flex items-center justify-center space-x-2 mb-3">
+                    <span className="text-xl">{distanceInfo.emoji}</span>
+                    <span className="font-semibold text-white">{distanceInfo.name}</span>
                   </div>
                   
                   {pb ? (

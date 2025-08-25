@@ -1,16 +1,79 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, Calendar, Database, Download, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, Calendar, Database, Download, RefreshCw, Eye, EyeOff, Plus, X } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
 import syncService from '../../services/syncService';
+import { DISTANCES } from '../../utils/constants';
 
 const SettingsWorking = () => {
   const [isImportingRuns, setIsImportingRuns] = useState(false);
   const [isReprocessing, setIsReprocessing] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [visibleDistances, setVisibleDistances] = useState(DISTANCES);
+  const [customDistances, setCustomDistances] = useState([]);
+  const [newDistance, setNewDistance] = useState('');
+  const [showAddDistance, setShowAddDistance] = useState(false);
 
   const showSuccess = () => {
     setShowSuccessMessage(true);
     setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  // Load settings on mount
+  useEffect(() => {
+    const savedVisibleDistances = localStorage.getItem('visibleDistances');
+    if (savedVisibleDistances) {
+      setVisibleDistances(JSON.parse(savedVisibleDistances));
+    }
+    
+    const savedCustomDistances = localStorage.getItem('customDistances');
+    if (savedCustomDistances) {
+      setCustomDistances(JSON.parse(savedCustomDistances));
+    }
+  }, []);
+
+  const toggleDistanceVisibility = (distance) => {
+    const newVisibleDistances = visibleDistances.includes(distance)
+      ? visibleDistances.filter(d => d !== distance)
+      : [...visibleDistances, distance];
+    
+    setVisibleDistances(newVisibleDistances);
+    localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
+    showSuccess();
+  };
+
+  const handleAddCustomDistance = () => {
+    const distanceValue = parseFloat(newDistance);
+    if (!isNaN(distanceValue) && distanceValue > 0) {
+      const distanceKm = distanceValue >= 1 ? `${distanceValue}K` : `${(distanceValue * 1000).toFixed(0)}m`;
+      
+      if (!customDistances.includes(distanceKm) && !DISTANCES.includes(distanceKm)) {
+        const newCustomDistances = [...customDistances, distanceKm];
+        setCustomDistances(newCustomDistances);
+        localStorage.setItem('customDistances', JSON.stringify(newCustomDistances));
+        
+        // Also add to visible distances
+        const newVisibleDistances = [...visibleDistances, distanceKm];
+        setVisibleDistances(newVisibleDistances);
+        localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
+        
+        setNewDistance('');
+        setShowAddDistance(false);
+        showSuccess();
+      }
+    }
+  };
+
+  const handleRemoveCustomDistance = (distance) => {
+    const newCustomDistances = customDistances.filter(d => d !== distance);
+    setCustomDistances(newCustomDistances);
+    localStorage.setItem('customDistances', JSON.stringify(newCustomDistances));
+    
+    // Also remove from visible distances
+    const newVisibleDistances = visibleDistances.filter(d => d !== distance);
+    setVisibleDistances(newVisibleDistances);
+    localStorage.setItem('visibleDistances', JSON.stringify(newVisibleDistances));
+    
+    showSuccess();
   };
 
   const handleImportRecentRuns = async () => {
@@ -134,6 +197,113 @@ const SettingsWorking = () => {
                   <Calendar className="w-4 h-4" />
                   <span>Regenerate Homepage</span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* PB Distance Settings */}
+          <div>
+            <div className="flex items-center space-x-2 mb-3">
+              <Eye className="w-4 h-4 text-orange-400" />
+              <h3 className="text-lg font-medium text-white">Personal Best Distances</h3>
+            </div>
+            
+            <div className="border border-slate-600 rounded-lg p-4">
+              <p className="text-sm text-slate-300 mb-4">
+                Choose which distances to show on the Personal Bests page
+              </p>
+              
+              {/* Standard Distances */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-white mb-2">Standard Distances</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {DISTANCES.map(distance => (
+                    <button
+                      key={distance}
+                      onClick={() => toggleDistanceVisibility(distance)}
+                      className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
+                        visibleDistances.includes(distance)
+                          ? 'bg-green-600 text-white'
+                          : 'bg-slate-700 text-slate-400'
+                      }`}
+                    >
+                      <span>{distance}</span>
+                      {visibleDistances.includes(distance) ? (
+                        <Eye className="w-3 h-3" />
+                      ) : (
+                        <EyeOff className="w-3 h-3" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Custom Distances */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-white">Custom Distances</h4>
+                  <button
+                    onClick={() => setShowAddDistance(!showAddDistance)}
+                    className="px-2 py-1 bg-orange-600 text-white rounded text-xs flex items-center space-x-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add</span>
+                  </button>
+                </div>
+                
+                {showAddDistance && (
+                  <div className="flex items-center space-x-2 mb-3">
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="Distance in km"
+                      value={newDistance}
+                      onChange={(e) => setNewDistance(e.target.value)}
+                      className="flex-1 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                    />
+                    <button
+                      onClick={handleAddCustomDistance}
+                      className="px-2 py-1 bg-green-600 text-white rounded text-sm"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAddDistance(false);
+                        setNewDistance('');
+                      }}
+                      className="px-2 py-1 bg-red-600 text-white rounded text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                
+                {customDistances.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {customDistances.map(distance => (
+                      <div key={distance} className="flex items-center space-x-1 px-3 py-1 bg-slate-700 rounded-lg">
+                        <button
+                          onClick={() => toggleDistanceVisibility(distance)}
+                          className={`text-sm ${
+                            visibleDistances.includes(distance) ? 'text-green-400' : 'text-slate-400'
+                          }`}
+                        >
+                          {visibleDistances.includes(distance) ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                        </button>
+                        <span className="text-sm text-white">{distance}</span>
+                        <button
+                          onClick={() => handleRemoveCustomDistance(distance)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">No custom distances added</p>
+                )}
               </div>
             </div>
           </div>

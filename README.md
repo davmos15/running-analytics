@@ -67,15 +67,17 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **🏠 Clean Navigation**: Removed sticky header for cleaner interface focused on content
 
 ### 📊 Comprehensive Analytics Dashboard
-- **🏠 Homepage Dashboard**: Customizable landing page with total stats, PB cards, and selected performance graphs
+- **🏠 Homepage Dashboard**: Streamlined homepage with centered content, clean design, and essential performance overview
 - **🗓️ Training Plan Creator**: Comprehensive training plan generation with AI-powered periodization and Firebase persistence
-- **🔮 Race Predictions Page**: Race date-based prediction dashboard with dynamic confidence scoring
-- **📈 Unified Graphs Page**: 
+- **🔮 Race Predictions Page**: Race date-based prediction dashboard with custom distance support and enhanced UX
+- **📈 Enhanced Graphs Page**: 
   - **Total Statistics Cards**: Distance, time, and runs totals at the top of graphs page
   - **Drag & Drop Interface**: Reorder graphs with intuitive drag-and-drop functionality
-  - **Flexible Layout**: Toggle between single and two-column layouts (mobile stays single column)
+  - **Consolidated Settings**: Single settings button per graph with comprehensive configuration options
+  - **Corrected Chart Types**: Fixed bar/column naming - "Column" creates vertical charts, "Bar" creates horizontal charts
+  - **Mobile-Optimized**: Automatic single-column layout on mobile devices for optimal viewing
   - **Dynamic Graph Management**: Add/remove Distance Analysis, Average, and Total metric graphs
-  - **No Sub-Pages**: Streamlined single-page experience with all graph types
+  - **Advanced Configuration**: Each graph supports type, metric, period, color, title customization, and action controls
 - **🏅 Enhanced Rankings**: Metallic badge styling with professional athletic feel
 - **📏 Custom Distance Management**: Create and manage custom distances in Settings (e.g., 7.5K, 12K)
 - **⚙️ Streamlined Data Management**: 
@@ -86,6 +88,13 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
   - Organize columns by category (Core Metrics, Performance Data, Environmental, Technical)
   - "More Columns" feature with collapsible category management
   - Drag-and-drop column reordering with persistent preferences
+- **🎨 Enhanced User Experience**: 
+  - **Cleaner Homepage**: Removed update timestamps and subtitles for streamlined design
+  - **Centered Content**: All card content properly centered for better visual appeal
+  - **Improved Predictions**: Custom distance support with better race distance labeling
+  - **Mobile-First Design**: PB controls optimized for mobile with proper button grouping
+  - **Consolidated Graph Controls**: Single settings modal replaces multiple scattered buttons
+  - **Distance Visibility Settings**: Granular control over which PB distances to display
 - **🏠 Homepage Customization**: 
   - Toggle display of total stats, PB cards, and performance graphs
   - Select which graphs to show on homepage (Average Speed, Monthly Distance, Distance Analysis)

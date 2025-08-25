@@ -114,7 +114,7 @@ const DistanceThresholdGraph = ({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    indexAxis: chartType === 'bar' ? 'x' : 'y',
+    indexAxis: chartType === 'column' ? 'x' : 'y',
     plugins: {
       legend: {
         display: false
@@ -138,7 +138,7 @@ const DistanceThresholdGraph = ({
         callbacks: {
           label: (context) => {
             const distance = context.label;
-            const count = context.parsed[chartType === 'bar' ? 'y' : 'x'];
+            const count = context.parsed[chartType === 'column' ? 'y' : 'x'];
             return `${count} runs ≥ ${distance}`;
           }
         }
@@ -147,7 +147,7 @@ const DistanceThresholdGraph = ({
     scales: {
       x: {
         title: {
-          display: chartType === 'bar',
+          display: chartType === 'column',
           text: 'Distance',
           color: '#e2e8f0',
           font: {
@@ -165,7 +165,7 @@ const DistanceThresholdGraph = ({
       y: {
         title: {
           display: true,
-          text: chartType === 'bar' ? 'Number of Runs' : 'Distance',
+          text: chartType === 'column' ? 'Number of Runs' : 'Distance',
           color: '#e2e8f0',
           font: {
             family: 'Inter, sans-serif',

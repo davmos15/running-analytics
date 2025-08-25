@@ -22,7 +22,7 @@ ChartJS.register(
   Legend
 );
 
-const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo, isTotal = false, speedUnit = 'kph' }) => {
+const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', timeFilter = 'all-time', customDateFrom, customDateTo, isTotal = false, speedUnit = 'kph', type = 'column' }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -230,6 +230,7 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    indexAxis: type === 'column' ? 'x' : 'y',
     plugins: {
       legend: {
         display: false

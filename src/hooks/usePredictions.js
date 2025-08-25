@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import predictionService from '../services/predictionService';
 
-export const usePredictions = (raceDate) => {
+export const usePredictions = (raceDate, customDistances = []) => {
   const [predictions, setPredictions] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,7 +13,7 @@ export const usePredictions = (raceDate) => {
       setIsLoading(true);
       
       // Generate predictions directly (same as working predictions page)
-      const newPredictions = await predictionService.generatePredictionsForRaceDate(raceDate);
+      const newPredictions = await predictionService.generatePredictionsForRaceDate(raceDate, customDistances);
       setPredictions(newPredictions);
       setError(null);
     } catch (err) {
@@ -22,7 +22,7 @@ export const usePredictions = (raceDate) => {
     } finally {
       setIsLoading(false);
     }
-  }, [raceDate]);
+  }, [raceDate, customDistances]);
 
   const regeneratePredictions = useCallback(async () => {
     // Just call fetchPredictions to regenerate

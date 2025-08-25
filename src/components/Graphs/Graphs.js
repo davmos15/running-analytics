@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Filter, Eye, EyeOff, Settings as SettingsIcon, GripVertical, X, Columns, Square, Maximize } from 'lucide-react';
+import { Plus, Filter, GripVertical, Columns, Square } from 'lucide-react';
 import BarGraph from './BarGraph';
 import DistanceThresholdGraph from './DistanceThresholdGraph';
 import GraphSettings from './GraphSettings';
@@ -51,7 +51,7 @@ const Graphs = () => {
           id: 'distance-threshold',
           type: 'distance-threshold',
           settings: {
-            chartType: 'bar',
+            chartType: 'column',
             color: '#f97316',
             visibleDistances: null,
             visible: true,
@@ -64,7 +64,7 @@ const Graphs = () => {
           id: 'avg-distance',
           type: 'average',
           settings: {
-            type: 'bar',
+            type: 'column',
             metric: 'distance',
             period: 'monthly',
             visible: true,
@@ -77,7 +77,7 @@ const Graphs = () => {
           id: 'avg-speed',
           type: 'average',
           settings: {
-            type: 'bar',
+            type: 'column',
             metric: 'speed',
             period: 'monthly',
             visible: true,
@@ -90,7 +90,7 @@ const Graphs = () => {
           id: 'total-distance',
           type: 'total',
           settings: {
-            type: 'bar',
+            type: 'column',
             metric: 'distance',
             period: 'monthly',
             visible: true,
@@ -103,7 +103,7 @@ const Graphs = () => {
           id: 'total-time',
           type: 'total',
           settings: {
-            type: 'bar',
+            type: 'column',
             metric: 'time',
             period: 'monthly',
             visible: true,
@@ -180,14 +180,14 @@ const Graphs = () => {
       id: `${type}-${Date.now()}`,
       type: type,
       settings: type === 'distance-threshold' ? {
-        chartType: 'bar',
+        chartType: 'column',
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
         visibleDistances: null,
         visible: true,
         showSettings: false,
         isFullWidth: false
       } : {
-        type: 'bar',
+        type: 'column',
         metric: type === 'average' ? 'distance' : 'distance',
         period: 'monthly',
         visible: true,
@@ -289,53 +289,18 @@ const Graphs = () => {
         <GripVertical className="w-5 h-5 text-slate-400" />
       </div>
       <div className="absolute top-2 right-2 flex items-center space-x-2 z-10">
-        <button
-          onClick={() => updateGraph(graph.id, { isFullWidth: !graph.settings.isFullWidth })}
-          className={`p-1 hover:text-slate-200 athletic-card rounded shadow hidden sm:block ${
-            graph.settings.isFullWidth ? 'text-orange-400' : 'text-slate-400'
-          }`}
-          title={graph.settings.isFullWidth ? 'Make normal width' : 'Make full width'}
-        >
-          <Maximize className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => updateGraph(graph.id, { visible: !graph.settings.visible })}
-          className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
-        >
-          {graph.settings.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-        </button>
-        {graph.type === 'distance-threshold' ? (
-          <>
-            <button
-              onClick={() => updateGraph(graph.id, { showSettings: !graph.settings.showSettings })}
-              className="p-1 text-slate-400 hover:text-slate-200 athletic-card rounded shadow"
-            >
-              <SettingsIcon className="w-4 h-4" />
-            </button>
-            <select
-              value={graph.settings.chartType}
-              onChange={(e) => updateGraph(graph.id, { chartType: e.target.value })}
-              className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <option value="bar">Bar Chart</option>
-              <option value="column">Column Chart</option>
-            </select>
-          </>
-        ) : (
-          <GraphSettings
-            graph={graph.settings}
-            allDistances={allDistances}
-            onUpdate={(updates) => updateGraph(graph.id, updates)}
-            isTotal={graph.type === 'total'}
-          />
-        )}
-        <button
-          onClick={() => deleteGraph(graph.id)}
-          className="p-1 text-red-400 hover:text-red-300 athletic-card rounded shadow"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        {/* Consolidated Settings Button */}
+        <GraphSettings
+          graph={graph.settings}
+          graphId={graph.id}
+          graphType={graph.type}
+          allDistances={allDistances}
+          onUpdate={(updates) => updateGraph(graph.id, updates)}
+          onToggleVisibility={() => updateGraph(graph.id, { visible: !graph.settings.visible })}
+          onDelete={() => deleteGraph(graph.id)}
+          isTotal={graph.type === 'total'}
+          showMobileFullWidth={false}
+        />
       </div>
 
       {/* Distance Filter Settings for distance-threshold graphs */}
@@ -378,20 +343,14 @@ const Graphs = () => {
       {graph.settings.visible && (
         <div className={graph.type === 'distance-threshold' && graph.settings.showSettings ? 'mt-2' : ''}>
           {graph.type === 'distance-threshold' ? (
-            <div>
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-white mb-1">Distance Analysis</h3>
-                <p className="text-sm text-slate-300">See how many runs exceed each distance threshold</p>
-              </div>
-              <DistanceThresholdGraph
-                color={graph.settings.color}
-                timePeriod={timeFilter}
-                customDateFrom={customDateFrom}
-                customDateTo={customDateTo}
-                chartType={graph.settings.chartType}
-                visibleDistances={graph.settings.visibleDistances}
-              />
-            </div>
+            <DistanceThresholdGraph
+              color={graph.settings.color}
+              timePeriod={timeFilter}
+              customDateFrom={customDateFrom}
+              customDateTo={customDateTo}
+              chartType={graph.settings.chartType}
+              visibleDistances={graph.settings.visibleDistances}
+            />
           ) : (
             <BarGraph
               metric={graph.settings.metric}
@@ -402,6 +361,7 @@ const Graphs = () => {
               customDateTo={customDateTo}
               isTotal={graph.type === 'total'}
               speedUnit={graph.settings.speedUnit || 'kph'}
+              type={graph.settings.type || 'column'}
             />
           )}
         </div>
@@ -565,7 +525,7 @@ const Graphs = () => {
 
           {/* Grid for regular width graphs */}
           {sortedGraphs.filter(graph => !graph.settings.isFullWidth).length > 0 && (
-            <div className={`grid gap-6 ${layoutMode === 'two-column' && !window.matchMedia('(max-width: 768px)').matches ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-6 ${layoutMode === 'two-column' ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
               {sortedGraphs
                 .filter(graph => !graph.settings.isFullWidth)
                 .map(graph => renderGraph(graph))
