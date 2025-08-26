@@ -1,0 +1,826 @@
+import firebaseService from './firebaseService';
+
+class EnhancedPredictionService {
+  constructor() {
+    // Default target distances for predictions (in meters)
+    this.defaultDistances = {
+      '5K': 5000,
+      '10K': 10000,
+      '21.1K': 21100,
+      '42.2K': 42200
+    };
+    
+    // Plausibility constraints
+    this.RATIO_BOUNDS = {
+      '5K_10K': { min: 2.05, max: 2.25 },      // 10K/5K ratio
+      '10K_HM': { min: 2.12, max: 2.30 },      // HM/10K ratio  
+      '5K_HM': { min: 4.35, max: 5.20 },       // HM/5K ratio
+      'HM_FM': { min: 2.10, max: 2.30 }        // FM/HM ratio
+    };
+    
+    // Temperature adjustment factors (Celsius)
+    this.TEMP_ADJUSTMENTS = {
+      5: 0.98,    // Cold: 2% slower
+      10: 1.00,   // Optimal
+      15: 1.00,   // Optimal
+      20: 1.01,   // Slightly warm
+      25: 1.03,   // Warm: 3% slower
+      30: 1.06    // Hot: 6% slower
+    };
+  }
+
+  /**
+   * Generate race predictions for a specific race date
+   */
+  async generatePredictionsForRaceDate(raceDate, customDistances = []) {
+    const today = new Date();
+    const race = new Date(raceDate);
+    const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
+    const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
+    
+    const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace);
+    return predictions;
+  }
+
+  /**
+   * Generate predictions with enhanced algorithm
+   */
+  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null) {
+    try {
+      const predictionData = await firebaseService.getPredictionData(weeksBack);
+      
+      if (!predictionData || predictionData.recentRaces.length === 0) {
+        throw new Error('Insufficient data for predictions. Need at least 2 recent races.');
+      }
+
+      // Calculate personalized endurance parameters
+      const enduranceParams = this.calculatePersonalEnduranceParameters(predictionData);
+      
+      // Combine distances
+      const allDistances = { ...this.defaultDistances };
+      customDistances.forEach(dist => {
+        allDistances[dist.label] = dist.meters;
+      });
+
+      const predictions = {};
+      const sortedDistances = Object.entries(allDistances).sort((a, b) => a[1] - b[1]);
+      
+      for (const [distanceLabel, distanceMeters] of sortedDistances) {
+        predictions[distanceLabel] = await this.predictDistanceEnhanced(
+          distanceMeters,
+          predictionData,
+          enduranceParams,
+          daysUntilRace
+        );
+      }
+
+      // Apply plausibility constraints
+      this.applyPlausibilityBounds(predictions);
+
+      return {
+        predictions,
+        dataQuality: this.assessDataQuality(predictionData),
+        enduranceProfile: enduranceParams,
+        lastUpdated: new Date(),
+        dataSource: `${predictionData.recentRaces.length} races, ${weeksBack} weeks`
+      };
+    } catch (error) {
+      console.error('Error generating predictions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate personalized endurance parameters using power law fit
+   */
+  calculatePersonalEnduranceParameters(data) {
+    const validRaces = data.recentRaces
+      .filter(race => race.distanceMeters >= 1000 && race.time > 0)
+      .map(race => ({
+        distance: race.distanceMeters,
+        time: race.time,
+        logD: Math.log(race.distanceMeters),
+        logT: Math.log(race.time),
+        date: new Date(race.date),
+        quality: this.assessRaceQuality(race)
+      }));
+
+    if (validRaces.length < 2) {
+      // Default to typical recreational runner parameters
+      return {
+        alpha: 0,
+        exponent: 1.06,
+        criticalSpeed: null,
+        anaerobic: null,
+        confidence: 0.3
+      };
+    }
+
+    // Weighted linear regression in log-log space
+    // ln(T) = alpha + b * ln(D)
+    const weights = validRaces.map((race, idx) => {
+      const daysSince = (new Date() - race.date) / (1000 * 60 * 60 * 24);
+      const recencyWeight = Math.exp(-daysSince / 60); // 60-day half-life
+      const qualityWeight = race.quality;
+      return recencyWeight * qualityWeight;
+    });
+
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    
+    // Weighted means
+    const meanLogD = validRaces.reduce((sum, race, idx) => 
+      sum + race.logD * weights[idx], 0) / totalWeight;
+    const meanLogT = validRaces.reduce((sum, race, idx) => 
+      sum + race.logT * weights[idx], 0) / totalWeight;
+
+    // Calculate slope (personalized Riegel exponent)
+    let numerator = 0;
+    let denominator = 0;
+    
+    for (let i = 0; i < validRaces.length; i++) {
+      const dLogD = validRaces[i].logD - meanLogD;
+      const dLogT = validRaces[i].logT - meanLogT;
+      numerator += weights[i] * dLogD * dLogT;
+      denominator += weights[i] * dLogD * dLogD;
+    }
+
+    const personalExponent = denominator > 0 ? numerator / denominator : 1.06;
+    const alpha = meanLogT - personalExponent * meanLogD;
+
+    // Bound the exponent to reasonable physiological limits
+    const boundedExponent = Math.max(1.02, Math.min(1.12, personalExponent));
+
+    // Calculate Critical Speed model if we have enough short/medium distance data
+    const criticalSpeedParams = this.calculateCriticalSpeed(validRaces);
+
+    return {
+      alpha,
+      exponent: boundedExponent,
+      rawExponent: personalExponent,
+      criticalSpeed: criticalSpeedParams.CS,
+      anaerobic: criticalSpeedParams.D_prime,
+      confidence: Math.min(0.9, validRaces.length / 5),
+      baseRaces: validRaces.length
+    };
+  }
+
+  /**
+   * Calculate Critical Speed parameters (CS and D')
+   */
+  calculateCriticalSpeed(races) {
+    // Filter races between 3 and 30 minutes for CS model
+    const csRaces = races.filter(race => 
+      race.time >= 180 && race.time <= 1800
+    );
+
+    if (csRaces.length < 3) {
+      return { CS: null, D_prime: null };
+    }
+
+    // Linear regression: Distance = CS * Time + D'
+    const n = csRaces.length;
+    const sumT = csRaces.reduce((sum, r) => sum + r.time, 0);
+    const sumD = csRaces.reduce((sum, r) => sum + r.distance, 0);
+    const sumTT = csRaces.reduce((sum, r) => sum + r.time * r.time, 0);
+    const sumTD = csRaces.reduce((sum, r) => sum + r.time * r.distance, 0);
+
+    const CS = (n * sumTD - sumT * sumD) / (n * sumTT - sumT * sumT);
+    const D_prime = (sumD - CS * sumT) / n;
+
+    // Validate CS is reasonable (2.5-6.0 m/s for most runners)
+    if (CS < 2.5 || CS > 6.0) {
+      return { CS: null, D_prime: null };
+    }
+
+    return { CS, D_prime: Math.max(0, D_prime) };
+  }
+
+  /**
+   * Enhanced prediction using log-space modeling
+   */
+  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace) {
+    // 1. Base prediction from personalized power law
+    const logBasePrediction = enduranceParams.alpha + 
+                             enduranceParams.exponent * Math.log(targetDistance);
+    let basePrediction = Math.exp(logBasePrediction);
+
+    // 2. Alternative: Critical Speed model (if available)
+    let csPrediction = null;
+    if (enduranceParams.criticalSpeed && targetDistance > enduranceParams.anaerobic) {
+      csPrediction = (targetDistance - enduranceParams.anaerobic) / enduranceParams.criticalSpeed;
+    }
+
+    // 3. Weighted combination of recent race predictions (in log space)
+    const riegelPredictions = this.getWeightedRacePredictions(targetDistance, data, enduranceParams);
+
+    // 4. Combine predictions
+    let combinedLogPrediction;
+    if (riegelPredictions.logPrediction && csPrediction) {
+      // Weighted average of all three methods
+      combinedLogPrediction = 
+        0.4 * logBasePrediction + 
+        0.4 * riegelPredictions.logPrediction + 
+        0.2 * Math.log(csPrediction);
+    } else if (riegelPredictions.logPrediction) {
+      // Use power law and recent races
+      combinedLogPrediction = 
+        0.3 * logBasePrediction + 
+        0.7 * riegelPredictions.logPrediction;
+    } else {
+      // Fall back to power law only
+      combinedLogPrediction = logBasePrediction;
+    }
+
+    // 5. Apply feature-based adjustments in log space
+    const featureAdjustment = this.calculateLogSpaceFeatureAdjustment(targetDistance, data);
+    combinedLogPrediction += featureAdjustment;
+
+    // 6. Apply training/taper adjustment if race date provided
+    if (daysUntilRace !== null) {
+      const taperAdjustment = this.calculateTaperAdjustment(daysUntilRace, data);
+      combinedLogPrediction += Math.log(1 + taperAdjustment);
+    }
+
+    // 7. Convert back to time
+    let finalPrediction = Math.exp(combinedLogPrediction);
+
+    // 8. Calculate confidence based on data quality and prediction agreement
+    const confidence = this.calculateEnhancedConfidence(
+      finalPrediction,
+      basePrediction,
+      csPrediction,
+      riegelPredictions,
+      data,
+      targetDistance
+    );
+
+    // 9. Calculate uncertainty intervals using residual analysis
+    const interval = this.calculatePredictionInterval(finalPrediction, confidence, targetDistance);
+
+    // 10. Calculate 30-day trend
+    const thirtyDayChange = await this.calculateEnhanced30DayChange(
+      targetDistance, 
+      finalPrediction,
+      enduranceParams
+    );
+
+    return {
+      prediction: Math.round(finalPrediction),
+      confidence,
+      range: interval,
+      method: 'Enhanced Multi-Model',
+      models: {
+        powerLaw: Math.round(basePrediction),
+        criticalSpeed: csPrediction ? Math.round(csPrediction) : null,
+        weightedRaces: Math.round(Math.exp(riegelPredictions.logPrediction || logBasePrediction))
+      },
+      factors: this.identifyPredictionFactors(targetDistance, data),
+      thirtyDayChange,
+      enduranceProfile: {
+        personalExponent: enduranceParams.exponent,
+        criticalSpeed: enduranceParams.criticalSpeed
+      }
+    };
+  }
+
+  /**
+   * Get weighted predictions from recent races using proper log-space averaging
+   */
+  getWeightedRacePredictions(targetDistance, data, enduranceParams) {
+    const recentRaces = data.recentRaces
+      .filter(race => race.distanceMeters >= 1000)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 6);
+
+    if (recentRaces.length === 0) {
+      return { logPrediction: null, confidence: 0 };
+    }
+
+    let sumWeightedLogTime = 0;
+    let sumWeights = 0;
+
+    recentRaces.forEach((race, index) => {
+      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
+      const distanceRatio = targetDistance / race.distanceMeters;
+      
+      // Skip if extrapolating too far
+      if (distanceRatio > 10 || distanceRatio < 0.1) return;
+
+      // Calculate predicted time using personalized exponent
+      const logPredictedTime = Math.log(race.time) + 
+                               enduranceParams.exponent * Math.log(distanceRatio);
+
+      // Calculate weights
+      const recencyWeight = Math.exp(-daysSince / 60); // 60-day decay
+      const distanceWeight = Math.exp(-Math.abs(Math.log(distanceRatio)) / 2); // Prefer similar distances
+      const qualityWeight = this.assessRaceQuality(race);
+      
+      const totalWeight = recencyWeight * distanceWeight * qualityWeight;
+
+      sumWeightedLogTime += logPredictedTime * totalWeight;
+      sumWeights += totalWeight;
+    });
+
+    if (sumWeights === 0) {
+      return { logPrediction: null, confidence: 0 };
+    }
+
+    return {
+      logPrediction: sumWeightedLogTime / sumWeights,
+      confidence: Math.min(0.9, sumWeights / 2),
+      racesUsed: recentRaces.length
+    };
+  }
+
+  /**
+   * Calculate feature adjustments in log space
+   */
+  calculateLogSpaceFeatureAdjustment(targetDistance, data) {
+    const features = this.extractEnhancedFeatures(targetDistance, data);
+    
+    if (!features.isValid) return 0;
+
+    let logAdjustment = 0;
+
+    // Training volume effect (log scale)
+    logAdjustment += features.volumeConsistency * -0.03;
+
+    // Distance-specific preparation
+    logAdjustment += features.distanceExperience * -0.02;
+
+    // Recent form trend
+    logAdjustment += features.formTrend * -0.025;
+
+    // HR efficiency if available
+    if (features.hrEfficiency) {
+      logAdjustment += features.hrEfficiency * -0.015;
+    }
+
+    // Long run preparation for longer distances
+    if (targetDistance >= 21100) {
+      logAdjustment += features.longRunPreparation * -0.02;
+    }
+
+    return logAdjustment;
+  }
+
+  /**
+   * Enhanced feature extraction
+   */
+  extractEnhancedFeatures(targetDistance, data) {
+    const now = new Date();
+    const features = {};
+
+    // Recent activities (12 weeks)
+    const recentActivities = data.activities.filter(activity => {
+      const daysSince = (now - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 84;
+    });
+
+    if (recentActivities.length < 5) {
+      return { isValid: false };
+    }
+
+    // Volume consistency (coefficient of variation)
+    features.volumeConsistency = this.calculateVolumeConsistency(recentActivities);
+
+    // Distance-specific experience
+    features.distanceExperience = this.calculateDistanceExperience(targetDistance, data);
+
+    // Form trend (improvement rate)
+    features.formTrend = this.calculateFormTrend(data);
+
+    // HR efficiency
+    const hrActivities = recentActivities.filter(a => a.averageHeartRate);
+    if (hrActivities.length >= 3) {
+      features.hrEfficiency = this.calculateHREfficiency(hrActivities);
+    }
+
+    // Long run preparation (for half marathon and marathon)
+    if (targetDistance >= 21100) {
+      features.longRunPreparation = this.calculateLongRunPreparation(targetDistance, recentActivities);
+    }
+
+    features.isValid = true;
+    return features;
+  }
+
+  /**
+   * Calculate form trend using power law normalization
+   */
+  calculateFormTrend(data) {
+    const races = data.recentRaces
+      .filter(r => r.distanceMeters >= 3000)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (races.length < 2) return 0;
+
+    // Compare recent vs older performance
+    const recentRaces = races.slice(0, Math.ceil(races.length / 2));
+    const olderRaces = races.slice(Math.ceil(races.length / 2));
+
+    // Calculate average pace normalized to 5K equivalent
+    const normalizeToFiveK = (race) => {
+      const ratio = 5000 / race.distanceMeters;
+      // Use standard 1.06 exponent for normalization
+      return (race.time / race.distanceMeters * 1000) * Math.pow(ratio, 0.06);
+    };
+
+    const recentAvgPace = recentRaces.reduce((sum, r) => 
+      sum + normalizeToFiveK(r), 0) / recentRaces.length;
+    const olderAvgPace = olderRaces.reduce((sum, r) => 
+      sum + normalizeToFiveK(r), 0) / olderRaces.length;
+
+    // Negative means improvement
+    return (olderAvgPace - recentAvgPace) / olderAvgPace;
+  }
+
+  /**
+   * Calculate long run preparation
+   */
+  calculateLongRunPreparation(targetDistance, activities) {
+    const longRuns = activities.filter(a => {
+      const distance = a.distanceMeters || a.distance || 0;
+      return distance >= targetDistance * 0.6;
+    });
+
+    const veryLongRuns = activities.filter(a => {
+      const distance = a.distanceMeters || a.distance || 0;
+      return distance >= targetDistance * 0.8;
+    });
+
+    const preparation = (longRuns.length / 10) * 0.6 + (veryLongRuns.length / 5) * 0.4;
+    return Math.min(1.0, preparation);
+  }
+
+  /**
+   * Calculate taper adjustment based on training load
+   */
+  calculateTaperAdjustment(daysUntilRace, data) {
+    if (daysUntilRace <= 0) return 0;
+
+    // Calculate recent training load
+    const recentActivities = data.activities.filter(a => {
+      const daysSince = (new Date() - new Date(a.start_date || a.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 28;
+    });
+
+    // Weekly volume calculation for future use
+    // const weeklyVolume = recentActivities.reduce((sum, a) => 
+    //   sum + (a.distanceMeters || a.distance || 0), 0) / 4;
+
+    // Taper benefit calculation
+    if (daysUntilRace <= 14) {
+      // In taper period - expect improvement from rest
+      return -0.01; // 1% improvement
+    } else if (daysUntilRace <= 56) {
+      // Training period - gradual improvement possible
+      const weeklyImprovement = 0.002; // 0.2% per week
+      const weeks = Math.min(6, daysUntilRace / 7);
+      return -Math.min(0.015, weeks * weeklyImprovement);
+    } else {
+      // Far future - less certain
+      return -0.01; // Cap at 1%
+    }
+  }
+
+  /**
+   * Apply plausibility bounds to predictions
+   */
+  applyPlausibilityBounds(predictions) {
+    // Ensure 10K pace doesn't exceed 5K pace
+    if (predictions['5K'] && predictions['10K']) {
+      const pace5K = predictions['5K'].prediction / 5000;
+      const pace10K = predictions['10K'].prediction / 10000;
+      
+      if (pace10K < pace5K) {
+        // 10K pace is faster than 5K - adjust
+        predictions['10K'].prediction = Math.round(predictions['5K'].prediction * 2.08);
+        predictions['10K'].confidence *= 0.8;
+      }
+
+      // Check ratio bounds
+      const ratio = predictions['10K'].prediction / predictions['5K'].prediction;
+      if (ratio < this.RATIO_BOUNDS['5K_10K'].min || ratio > this.RATIO_BOUNDS['5K_10K'].max) {
+        predictions['10K'].confidence *= 0.7;
+      }
+    }
+
+    // Similar checks for other distance pairs
+    if (predictions['21.1K'] && predictions['10K']) {
+      const paceHM = predictions['21.1K'].prediction / 21100;
+      const pace10K = predictions['10K'].prediction / 10000;
+      
+      if (paceHM < pace10K) {
+        predictions['21.1K'].prediction = Math.round(predictions['10K'].prediction * 2.15);
+        predictions['21.1K'].confidence *= 0.8;
+      }
+    }
+  }
+
+  /**
+   * Enhanced confidence calculation
+   */
+  calculateEnhancedConfidence(finalPrediction, powerLawPred, csPred, riegelPreds, data, targetDistance) {
+    let confidence = 0;
+
+    // Base confidence from data quantity and quality
+    const dataConfidence = Math.min(0.3, data.recentRaces.length / 10);
+    confidence += dataConfidence;
+
+    // Model agreement
+    const models = [powerLawPred];
+    if (csPred) models.push(csPred);
+    if (riegelPreds.logPrediction) models.push(Math.exp(riegelPreds.logPrediction));
+
+    if (models.length > 1) {
+      const mean = models.reduce((sum, p) => sum + p, 0) / models.length;
+      const variance = models.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / models.length;
+      const cv = Math.sqrt(variance) / mean;
+      
+      // Lower coefficient of variation = higher agreement
+      const agreementConfidence = Math.max(0, 0.3 * (1 - cv * 2));
+      confidence += agreementConfidence;
+    }
+
+    // Distance-specific experience
+    const similarRaces = data.recentRaces.filter(race => {
+      const ratio = targetDistance / race.distanceMeters;
+      return ratio >= 0.7 && ratio <= 1.4;
+    }).length;
+    confidence += Math.min(0.2, similarRaces * 0.05);
+
+    // Training consistency
+    const consistencyScore = this.calculateVolumeConsistency(data.activities);
+    confidence += consistencyScore * 0.2;
+
+    return Math.min(0.85, Math.max(0.4, confidence));
+  }
+
+  /**
+   * Calculate prediction intervals using quantile regression approach
+   */
+  calculatePredictionInterval(prediction, confidence, targetDistance) {
+    // Base uncertainty varies by distance
+    let baseUncertainty;
+    if (targetDistance <= 5000) {
+      baseUncertainty = 0.03; // 3% for 5K
+    } else if (targetDistance <= 10000) {
+      baseUncertainty = 0.04; // 4% for 10K
+    } else if (targetDistance <= 21100) {
+      baseUncertainty = 0.05; // 5% for HM
+    } else {
+      baseUncertainty = 0.07; // 7% for Marathon
+    }
+
+    // Adjust based on confidence
+    const adjustedUncertainty = baseUncertainty * (2 - confidence);
+
+    return {
+      lower: Math.round(prediction * (1 - adjustedUncertainty)),
+      upper: Math.round(prediction * (1 + adjustedUncertainty)),
+      margin: Math.round(prediction * adjustedUncertainty),
+      percentile_80_lower: Math.round(prediction * (1 - adjustedUncertainty * 0.8)),
+      percentile_80_upper: Math.round(prediction * (1 + adjustedUncertainty * 0.8))
+    };
+  }
+
+  /**
+   * Calculate 30-day trend using power law scaling
+   */
+  async calculateEnhanced30DayChange(targetDistance, currentPrediction, enduranceParams) {
+    try {
+      const data = await firebaseService.getPredictionData(12);
+      
+      if (!data || data.recentRaces.length < 2) {
+        return null;
+      }
+
+      // Normalize all races to target distance using personal exponent
+      const normalizedPerformances = data.recentRaces
+        .filter(race => race.distanceMeters >= 1000)
+        .map(race => {
+          const ratio = targetDistance / race.distanceMeters;
+          const normalizedTime = race.time * Math.pow(ratio, enduranceParams.exponent);
+          return {
+            time: normalizedTime,
+            date: new Date(race.date)
+          };
+        })
+        .sort((a, b) => b.date - a.date);
+
+      if (normalizedPerformances.length < 2) {
+        return null;
+      }
+
+      // Calculate trend over last 60 days
+      const now = new Date();
+      const recentPerf = normalizedPerformances.filter(p => 
+        (now - p.date) / (1000 * 60 * 60 * 24) <= 30
+      );
+      const olderPerf = normalizedPerformances.filter(p => {
+        const days = (now - p.date) / (1000 * 60 * 60 * 24);
+        return days > 30 && days <= 60;
+      });
+
+      if (recentPerf.length === 0 || olderPerf.length === 0) {
+        return null;
+      }
+
+      const recentAvg = recentPerf.reduce((sum, p) => sum + p.time, 0) / recentPerf.length;
+      const olderAvg = olderPerf.reduce((sum, p) => sum + p.time, 0) / olderPerf.length;
+
+      const change = recentAvg - olderAvg;
+      
+      // Cap at reasonable bounds
+      const maxChange = currentPrediction * 0.1;
+      return Math.round(Math.max(-maxChange, Math.min(maxChange, change)));
+    } catch (error) {
+      console.error('Error calculating 30-day change:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Assess race quality for weighting
+   */
+  assessRaceQuality(race) {
+    let quality = 1.0;
+
+    // Official races get higher weight
+    if (race.name && race.name.toLowerCase().includes('race')) {
+      quality *= 1.2;
+    }
+
+    // Parkrun or time trial
+    if (race.name && (race.name.toLowerCase().includes('parkrun') || 
+                      race.name.toLowerCase().includes('time trial'))) {
+      quality *= 1.1;
+    }
+
+    // Check for GPS issues (unrealistic pace)
+    const pace = race.time / (race.distanceMeters / 1000);
+    if (pace < 120 || pace > 600) { // < 2:00/km or > 10:00/km
+      quality *= 0.5;
+    }
+
+    // Standard distances are more reliable
+    const standardDistances = [5000, 10000, 21097.5, 42195];
+    const isStandard = standardDistances.some(d => 
+      Math.abs(race.distanceMeters - d) / d < 0.01
+    );
+    if (isStandard) {
+      quality *= 1.1;
+    }
+
+    return Math.min(1.5, quality);
+  }
+
+  /**
+   * Helper functions from original service
+   */
+  calculateVolumeConsistency(activities) {
+    if (activities.length < 4) return 0;
+
+    const weeklyVolumes = {};
+    activities.forEach(activity => {
+      const week = this.getWeekKey(new Date(activity.start_date || activity.date));
+      weeklyVolumes[week] = (weeklyVolumes[week] || 0) + (activity.distanceMeters || activity.distance || 0);
+    });
+
+    const volumes = Object.values(weeklyVolumes);
+    if (volumes.length < 4) return 0;
+
+    const mean = volumes.reduce((sum, vol) => sum + vol, 0) / volumes.length;
+    const variance = volumes.reduce((sum, vol) => sum + Math.pow(vol - mean, 2), 0) / volumes.length;
+    const cv = Math.sqrt(variance) / mean;
+
+    return Math.max(0, 1 - cv);
+  }
+
+  calculateDistanceExperience(targetDistance, data) {
+    const similarRaces = data.recentRaces.filter(race => {
+      const ratio = targetDistance / race.distanceMeters;
+      return ratio >= 0.5 && ratio <= 2.0;
+    });
+
+    return Math.min(1.0, similarRaces.length / 5);
+  }
+
+  calculateHREfficiency(hrActivities) {
+    const ratios = hrActivities.map(activity => {
+      const time = activity.time || activity.moving_time;
+      const distance = activity.distanceMeters || activity.distance;
+      const pace = time / (distance / 1000);
+      return activity.averageHeartRate / pace;
+    });
+
+    if (ratios.length < 3) return 0;
+
+    const recent = ratios.slice(0, Math.floor(ratios.length / 2));
+    const older = ratios.slice(Math.floor(ratios.length / 2));
+
+    const recentAvg = recent.reduce((sum, r) => sum + r, 0) / recent.length;
+    const olderAvg = older.reduce((sum, r) => sum + r, 0) / older.length;
+
+    return Math.max(0, Math.min(1, (recentAvg - olderAvg) / olderAvg));
+  }
+
+  assessDataQuality(data) {
+    let score = 0;
+    let maxScore = 0;
+    
+    const recentRaces = data.recentRaces.filter(race => {
+      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 90;
+    });
+    score += Math.min(40, recentRaces.length * 10);
+    maxScore += 40;
+    
+    const recentActivities = data.activities.filter(activity => {
+      const daysSince = (new Date() - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 84;
+    });
+    score += Math.min(30, recentActivities.length * 1.5);
+    maxScore += 30;
+    
+    if (recentRaces.length > 0) {
+      const mostRecentDays = (new Date() - new Date(recentRaces[0].date)) / (1000 * 60 * 60 * 24);
+      score += Math.max(0, 20 - mostRecentDays * 0.5);
+    }
+    maxScore += 20;
+    
+    const distanceVariety = new Set(data.recentRaces.map(r => Math.round(r.distanceMeters / 1000))).size;
+    score += Math.min(10, distanceVariety * 2);
+    maxScore += 10;
+    
+    return {
+      score: Math.round((score / maxScore) * 100),
+      level: score / maxScore > 0.8 ? 'high' : score / maxScore > 0.5 ? 'medium' : 'low',
+      recommendations: this.getDataQualityRecommendations(data)
+    };
+  }
+
+  getDataQualityRecommendations(data) {
+    const recommendations = [];
+    
+    const recentRaceCount = data.recentRaces.filter(race => {
+      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 60;
+    }).length;
+    
+    if (recentRaceCount < 2) {
+      recommendations.push('Complete a recent time trial or race for more accurate predictions');
+    }
+    
+    return recommendations;
+  }
+
+  identifyPredictionFactors(targetDistance, data) {
+    const factors = [];
+    
+    const recentRaceCount = data.recentRaces.filter(race => {
+      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
+      return daysSince <= 60;
+    }).length;
+    
+    if (recentRaceCount >= 2) {
+      factors.push({ factor: 'Recent race data', impact: 'positive', strength: 'high' });
+    } else {
+      factors.push({ factor: 'Limited recent races', impact: 'negative', strength: 'medium' });
+    }
+    
+    const recentVolume = data.activities
+      .filter(a => (new Date() - new Date(a.start_date || a.date)) / (1000 * 60 * 60 * 24) <= 28)
+      .reduce((sum, a) => sum + (a.distanceMeters || a.distance || 0), 0);
+    
+    if (recentVolume > targetDistance * 3) {
+      factors.push({ factor: 'Good training volume', impact: 'positive', strength: 'medium' });
+    } else if (recentVolume < targetDistance) {
+      factors.push({ factor: 'Low training volume', impact: 'negative', strength: 'high' });
+    }
+    
+    return factors;
+  }
+
+  getWeekKey(date) {
+    const year = date.getFullYear();
+    const week = Math.floor((date - new Date(year, 0, 1)) / (7 * 24 * 60 * 60 * 1000));
+    return `${year}-W${week}`;
+  }
+
+  formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } else {
+      return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    }
+  }
+}
+
+const enhancedPredictionService = new EnhancedPredictionService();
+export default enhancedPredictionService;

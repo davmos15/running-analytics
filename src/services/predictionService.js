@@ -1,4 +1,5 @@
 import firebaseService from './firebaseService';
+import enhancedPredictionService from './predictionServiceEnhanced';
 
 class PredictionService {
   constructor() {
@@ -15,19 +16,40 @@ class PredictionService {
    * Generate race predictions for a specific race date
    */
   async generatePredictionsForRaceDate(raceDate, customDistances = []) {
-    const today = new Date();
-    const race = new Date(raceDate);
-    const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
-    const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
-    
-    const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace);
-    return predictions;
+    try {
+      // Use enhanced prediction service
+      return await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances);
+    } catch (error) {
+      console.error('Enhanced prediction failed, falling back to original:', error);
+      // Fallback to original implementation if enhanced fails
+      const today = new Date();
+      const race = new Date(raceDate);
+      const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
+      const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
+      
+      const predictions = await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
+      return predictions;
+    }
   }
 
   /**
    * Generate race predictions for all target distances
    */
   async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null) {
+    try {
+      // Use enhanced prediction service
+      return await enhancedPredictionService.generatePredictions(weeksBack, customDistances, daysUntilRace);
+    } catch (error) {
+      console.error('Enhanced prediction failed, falling back to original:', error);
+      // Fallback to original implementation
+      return await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
+    }
+  }
+
+  /**
+   * Original prediction implementation (fallback)
+   */
+  async generatePredictionsOriginal(weeksBack = 16, customDistances = [], daysUntilRace = null) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
