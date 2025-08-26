@@ -465,22 +465,21 @@ class EnhancedPredictionService {
       return daysSince <= 28;
     });
 
-    // Weekly volume calculation for future use
-    // const weeklyVolume = recentActivities.reduce((sum, a) => 
-    //   sum + (a.distanceMeters || a.distance || 0), 0) / 4;
+    // Use activity count as a proxy for training load
+    const trainingConsistency = Math.min(1.0, recentActivities.length / 12);
 
-    // Taper benefit calculation
+    // Taper benefit calculation based on training consistency
     if (daysUntilRace <= 14) {
-      // In taper period - expect improvement from rest
-      return -0.01; // 1% improvement
+      // In taper period - expect improvement from rest (scaled by consistency)
+      return -0.01 * trainingConsistency; // Up to 1% improvement
     } else if (daysUntilRace <= 56) {
       // Training period - gradual improvement possible
-      const weeklyImprovement = 0.002; // 0.2% per week
+      const weeklyImprovement = 0.002 * trainingConsistency; // 0.2% per week if consistent
       const weeks = Math.min(6, daysUntilRace / 7);
       return -Math.min(0.015, weeks * weeklyImprovement);
     } else {
-      // Far future - less certain
-      return -0.01; // Cap at 1%
+      // Far future - less certain, scale by training consistency
+      return -0.01 * trainingConsistency; // Cap at 1%
     }
   }
 
