@@ -7,6 +7,7 @@ import SettingsSimple from './components/Settings/SettingsSimple';
 import Graphs from './components/Graphs/Graphs';
 import PredictionsPage from './components/Predictions/PredictionsPage';
 import TrainingPlanPage from './components/TrainingPlan/TrainingPlanPage';
+import PredictionDebug from './components/Debug/PredictionDebug';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -89,6 +90,11 @@ function App() {
         {activeTab === 'settings' && (
           <ErrorBoundary>
             <SettingsSimple />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'debug' && (
+          <ErrorBoundary>
+            <PredictionDebug />
           </ErrorBoundary>
         )}
       </Layout>
