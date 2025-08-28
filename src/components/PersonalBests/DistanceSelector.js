@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, Columns } from 'lucide-react';
+import { Filter, Columns, Eye, EyeOff } from 'lucide-react';
 
 const DistanceSelector = ({ 
   selectedDistance, 
@@ -10,7 +10,9 @@ const DistanceSelector = ({
   isColumnSelectorOpen,
   setIsColumnSelectorOpen,
   visibleColumns,
-  setVisibleColumns
+  setVisibleColumns,
+  showAllDistances,
+  setShowAllDistances
 }) => {
   return (
     <div className="athletic-card-gradient p-4">
@@ -26,6 +28,20 @@ const DistanceSelector = ({
               <option key={distance} value={distance}>{distance}</option>
             ))}
           </select>
+          <button 
+            onClick={() => setShowAllDistances(!showAllDistances)}
+            className={`flex items-center space-x-1 px-2 sm:px-3 py-2 rounded-lg transition-colors ${
+              showAllDistances 
+                ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                : 'athletic-button-secondary text-slate-300'
+            }`}
+            title={showAllDistances ? "Showing all distances" : "Showing selected distances only"}
+          >
+            {showAllDistances ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            <span className="text-sm font-medium hidden sm:inline">
+              {showAllDistances ? 'All' : 'Selected'}
+            </span>
+          </button>
           <button 
             onClick={() => setIsFilterOpen(!isFilterOpen)}
             className="flex items-center space-x-1 px-2 sm:px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"

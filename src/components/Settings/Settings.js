@@ -445,6 +445,12 @@ const Settings = () => {
                     </label>
                   ))}
                 </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Save & Refresh
+                </button>
               </div>
             )}
           </div>

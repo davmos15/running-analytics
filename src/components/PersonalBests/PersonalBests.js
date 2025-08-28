@@ -16,9 +16,20 @@ const PersonalBests = () => {
   const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [allDistances, setAllDistances] = useState(DISTANCES);
+  const [showAllDistances, setShowAllDistances] = useState(false);
+  const [homepageSettings, setHomepageSettings] = useState({
+    pbDistances: ['5K', '10K', '21.1K', '42.2K']
+  });
 
   // Initialize visible columns and distances on mount
   useEffect(() => {
+    // Load homepage settings for pbDistances
+    const savedHomepageSettings = localStorage.getItem('homepageSettings');
+    if (savedHomepageSettings) {
+      const settings = JSON.parse(savedHomepageSettings);
+      setHomepageSettings(settings);
+    }
+    
     const savedColumns = localStorage.getItem('visibleColumns');
     if (savedColumns) {
       try {
@@ -95,6 +106,32 @@ const PersonalBests = () => {
     customDateTo
   });
 
+  // Filter distances based on settings unless Show All is active
+  const getVisibleDistances = () => {
+    if (showAllDistances) {
+      return allDistances;
+    }
+    
+    // Get custom distances
+    const savedDistances = localStorage.getItem('customDistances');
+    const customDistances = savedDistances ? JSON.parse(savedDistances) : [];
+    const customLabels = customDistances.map(d => d.label);
+    
+    // Filter to show only enabled distances from settings plus custom distances
+    return allDistances.filter(distance => 
+      homepageSettings.pbDistances.includes(distance) || customLabels.includes(distance)
+    );
+  };
+
+  const visibleDistances = getVisibleDistances();
+
+  // If selected distance is hidden, switch to first visible distance
+  useEffect(() => {
+    if (!visibleDistances.includes(selectedDistance) && visibleDistances.length > 0) {
+      setSelectedDistance(visibleDistances[0]);
+    }
+  }, [visibleDistances, selectedDistance]);
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -104,13 +141,15 @@ const PersonalBests = () => {
       <DistanceSelector
         selectedDistance={selectedDistance}
         setSelectedDistance={setSelectedDistance}
-        distances={allDistances}
+        distances={visibleDistances}
         isFilterOpen={isFilterOpen}
         setIsFilterOpen={setIsFilterOpen}
         isColumnSelectorOpen={isColumnSelectorOpen}
         setIsColumnSelectorOpen={setIsColumnSelectorOpen}
         visibleColumns={visibleColumns}
         setVisibleColumns={setVisibleColumns}
+        showAllDistances={showAllDistances}
+        setShowAllDistances={setShowAllDistances}
       />
 
       {isFilterOpen && (
