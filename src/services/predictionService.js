@@ -1,5 +1,5 @@
 import firebaseService from './firebaseService';
-// import enhancedPredictionService from './predictionServiceEnhanced'; // Temporarily disabled
+import enhancedPredictionService from './predictionServiceEnhanced';
 
 class PredictionService {
   constructor() {
@@ -16,21 +16,8 @@ class PredictionService {
    * Generate race predictions for a specific race date
    */
   async generatePredictionsForRaceDate(raceDate, customDistances = []) {
-    // Temporarily disable enhanced service to debug issue
-    console.log('🔍 Using original prediction service for debugging');
-    
-    const today = new Date();
-    const race = new Date(raceDate);
-    const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
-    const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
-    
-    const predictions = await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
-    return predictions;
-    
-    // TODO: Re-enable enhanced service after debugging
-    /*
     try {
-      // Use enhanced prediction service
+      // Use enhanced prediction service with NaN fixes
       return await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances);
     } catch (error) {
       console.error('Enhanced prediction failed, falling back to original:', error);
@@ -43,7 +30,6 @@ class PredictionService {
       const predictions = await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
       return predictions;
     }
-    */
   }
 
   /**

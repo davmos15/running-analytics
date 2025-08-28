@@ -96,14 +96,25 @@ class EnhancedPredictionService {
   calculatePersonalEnduranceParameters(data) {
     const validRaces = data.recentRaces
       .filter(race => race.distanceMeters >= 1000 && race.time > 0)
-      .map(race => ({
-        distance: race.distanceMeters,
-        time: race.time,
-        logD: Math.log(race.distanceMeters),
-        logT: Math.log(race.time),
-        date: new Date(race.date),
-        quality: this.assessRaceQuality(race)
-      }));
+      .map(race => {
+        const logD = Math.log(race.distanceMeters);
+        const logT = Math.log(race.time);
+        
+        // Skip races with invalid log values
+        if (!isFinite(logD) || !isFinite(logT)) {
+          return null;
+        }
+        
+        return {
+          distance: race.distanceMeters,
+          time: race.time,
+          logD,
+          logT,
+          date: new Date(race.date),
+          quality: this.assessRaceQuality(race)
+        };
+      })
+      .filter(race => race !== null);
 
     if (validRaces.length < 2) {
       // Default to typical recreational runner parameters
@@ -127,11 +138,33 @@ class EnhancedPredictionService {
 
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
     
-    // Weighted means
+    // Safety check for zero weight
+    if (totalWeight === 0 || !isFinite(totalWeight)) {
+      return {
+        alpha: 0,
+        exponent: 1.06,
+        criticalSpeed: null,
+        anaerobic: null,
+        confidence: 0.3
+      };
+    }
+    
+    // Weighted means with safety checks
     const meanLogD = validRaces.reduce((sum, race, idx) => 
       sum + race.logD * weights[idx], 0) / totalWeight;
     const meanLogT = validRaces.reduce((sum, race, idx) => 
       sum + race.logT * weights[idx], 0) / totalWeight;
+    
+    // Verify means are finite
+    if (!isFinite(meanLogD) || !isFinite(meanLogT)) {
+      return {
+        alpha: 0,
+        exponent: 1.06,
+        criticalSpeed: null,
+        anaerobic: null,
+        confidence: 0.3
+      };
+    }
 
     // Calculate slope (personalized Riegel exponent)
     let numerator = 0;
@@ -144,19 +177,28 @@ class EnhancedPredictionService {
       denominator += weights[i] * dLogD * dLogD;
     }
 
-    const personalExponent = denominator > 0 ? numerator / denominator : 1.06;
-    const alpha = meanLogT - personalExponent * meanLogD;
+    const personalExponent = (denominator > 0 && isFinite(numerator) && isFinite(denominator)) 
+      ? numerator / denominator 
+      : 1.06;
+    
+    // Safety check for NaN or Infinity
+    const safePersonalExponent = isFinite(personalExponent) ? personalExponent : 1.06;
+    
+    const alpha = meanLogT - safePersonalExponent * meanLogD;
+    
+    // Safety check for alpha
+    const safeAlpha = isFinite(alpha) ? alpha : 0;
 
     // Bound the exponent to reasonable physiological limits
-    const boundedExponent = Math.max(1.02, Math.min(1.12, personalExponent));
+    const boundedExponent = Math.max(1.02, Math.min(1.12, safePersonalExponent));
 
     // Calculate Critical Speed model if we have enough short/medium distance data
     const criticalSpeedParams = this.calculateCriticalSpeed(validRaces);
 
     return {
-      alpha,
+      alpha: safeAlpha,
       exponent: boundedExponent,
-      rawExponent: personalExponent,
+      rawExponent: safePersonalExponent,
       criticalSpeed: criticalSpeedParams.CS,
       anaerobic: criticalSpeedParams.D_prime,
       confidence: Math.min(0.9, validRaces.length / 5),
@@ -199,10 +241,42 @@ class EnhancedPredictionService {
    * Enhanced prediction using log-space modeling
    */
   async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace) {
-    // 1. Base prediction from personalized power law
-    const logBasePrediction = enduranceParams.alpha + 
-                             enduranceParams.exponent * Math.log(targetDistance);
+    // 1. Base prediction from personalized power law with safety checks
+    const logTargetDistance = Math.log(targetDistance);
+    
+    if (!isFinite(logTargetDistance) || !isFinite(enduranceParams.alpha) || !isFinite(enduranceParams.exponent)) {
+      // Fallback to simple Riegel formula
+      const fallbackTime = targetDistance * 0.06; // Very rough estimate
+      return {
+        prediction: Math.round(fallbackTime),
+        confidence: 0.3,
+        range: { lower: Math.round(fallbackTime * 0.9), upper: Math.round(fallbackTime * 1.1) },
+        method: 'Fallback',
+        factors: [],
+        thirtyDayChange: null
+      };
+    }
+    
+    const logBasePrediction = enduranceParams.alpha + enduranceParams.exponent * logTargetDistance;
+    
+    if (!isFinite(logBasePrediction)) {
+      // Fallback if log prediction is invalid
+      const fallbackTime = targetDistance * 0.06;
+      return {
+        prediction: Math.round(fallbackTime),
+        confidence: 0.3,
+        range: { lower: Math.round(fallbackTime * 0.9), upper: Math.round(fallbackTime * 1.1) },
+        method: 'Fallback',
+        factors: [],
+        thirtyDayChange: null
+      };
+    }
+    
     let basePrediction = Math.exp(logBasePrediction);
+    
+    if (!isFinite(basePrediction)) {
+      basePrediction = targetDistance * 0.06; // Fallback
+    }
 
     // 2. Alternative: Critical Speed model (if available)
     let csPrediction = null;
@@ -213,21 +287,33 @@ class EnhancedPredictionService {
     // 3. Weighted combination of recent race predictions (in log space)
     const riegelPredictions = this.getWeightedRacePredictions(targetDistance, data, enduranceParams);
 
-    // 4. Combine predictions
+    // 4. Combine predictions with safety checks
     let combinedLogPrediction;
-    if (riegelPredictions.logPrediction && csPrediction) {
+    if (riegelPredictions.logPrediction && isFinite(riegelPredictions.logPrediction) && csPrediction && isFinite(csPrediction)) {
       // Weighted average of all three methods
-      combinedLogPrediction = 
-        0.4 * logBasePrediction + 
-        0.4 * riegelPredictions.logPrediction + 
-        0.2 * Math.log(csPrediction);
-    } else if (riegelPredictions.logPrediction) {
+      const logCS = Math.log(csPrediction);
+      if (isFinite(logCS)) {
+        combinedLogPrediction = 
+          0.4 * logBasePrediction + 
+          0.4 * riegelPredictions.logPrediction + 
+          0.2 * logCS;
+      } else {
+        combinedLogPrediction = 
+          0.5 * logBasePrediction + 
+          0.5 * riegelPredictions.logPrediction;
+      }
+    } else if (riegelPredictions.logPrediction && isFinite(riegelPredictions.logPrediction)) {
       // Use power law and recent races
       combinedLogPrediction = 
         0.3 * logBasePrediction + 
         0.7 * riegelPredictions.logPrediction;
     } else {
       // Fall back to power law only
+      combinedLogPrediction = logBasePrediction;
+    }
+    
+    // Verify combined prediction is valid
+    if (!isFinite(combinedLogPrediction)) {
       combinedLogPrediction = logBasePrediction;
     }
 
@@ -241,8 +327,17 @@ class EnhancedPredictionService {
       combinedLogPrediction += Math.log(1 + taperAdjustment);
     }
 
-    // 7. Convert back to time
+    // 7. Convert back to time with safety check
     let finalPrediction = Math.exp(combinedLogPrediction);
+    
+    if (!isFinite(finalPrediction) || finalPrediction <= 0) {
+      // Last resort fallback based on rough pace estimates
+      const pacePerKm = targetDistance <= 5000 ? 240 : // 4:00/km for 5K
+                        targetDistance <= 10000 ? 250 : // 4:10/km for 10K
+                        targetDistance <= 21100 ? 270 : // 4:30/km for HM
+                        300; // 5:00/km for Marathon
+      finalPrediction = (targetDistance / 1000) * pacePerKm;
+    }
 
     // 8. Calculate confidence based on data quality and prediction agreement
     const confidence = this.calculateEnhancedConfidence(
@@ -288,7 +383,7 @@ class EnhancedPredictionService {
    */
   getWeightedRacePredictions(targetDistance, data, enduranceParams) {
     const recentRaces = data.recentRaces
-      .filter(race => race.distanceMeters >= 1000)
+      .filter(race => race.distanceMeters >= 1000 && race.time > 0)
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 6);
 
@@ -303,30 +398,45 @@ class EnhancedPredictionService {
       const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
       const distanceRatio = targetDistance / race.distanceMeters;
       
-      // Skip if extrapolating too far
+      // Skip if extrapolating too far or invalid values
       if (distanceRatio > 10 || distanceRatio < 0.1) return;
+      if (!isFinite(race.time) || !isFinite(race.distanceMeters)) return;
 
-      // Calculate predicted time using personalized exponent
-      const logPredictedTime = Math.log(race.time) + 
-                               enduranceParams.exponent * Math.log(distanceRatio);
+      // Calculate predicted time using personalized exponent with safety checks
+      const logRaceTime = Math.log(race.time);
+      const logDistanceRatio = Math.log(distanceRatio);
+      
+      if (!isFinite(logRaceTime) || !isFinite(logDistanceRatio)) return;
+      
+      const logPredictedTime = logRaceTime + enduranceParams.exponent * logDistanceRatio;
+      
+      if (!isFinite(logPredictedTime)) return;
 
-      // Calculate weights
+      // Calculate weights with safety checks
       const recencyWeight = Math.exp(-daysSince / 60); // 60-day decay
-      const distanceWeight = Math.exp(-Math.abs(Math.log(distanceRatio)) / 2); // Prefer similar distances
+      const distanceWeight = Math.exp(-Math.abs(logDistanceRatio) / 2); // Prefer similar distances
       const qualityWeight = this.assessRaceQuality(race);
       
       const totalWeight = recencyWeight * distanceWeight * qualityWeight;
+      
+      if (!isFinite(totalWeight) || totalWeight <= 0) return;
 
       sumWeightedLogTime += logPredictedTime * totalWeight;
       sumWeights += totalWeight;
     });
 
-    if (sumWeights === 0) {
+    if (sumWeights === 0 || !isFinite(sumWeights)) {
+      return { logPrediction: null, confidence: 0 };
+    }
+
+    const logPrediction = sumWeightedLogTime / sumWeights;
+    
+    if (!isFinite(logPrediction)) {
       return { logPrediction: null, confidence: 0 };
     }
 
     return {
-      logPrediction: sumWeightedLogTime / sumWeights,
+      logPrediction,
       confidence: Math.min(0.9, sumWeights / 2),
       racesUsed: recentRaces.length
     };
