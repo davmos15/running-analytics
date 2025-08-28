@@ -118,8 +118,11 @@ class EnhancedPredictionService {
 
     if (validRaces.length < 2) {
       // Default to typical recreational runner parameters
+      // For a 22-minute 5K runner: ln(1320) = 7.185, with exponent 1.06
+      // alpha = ln(time) - exponent * ln(distance)
+      // alpha = 7.185 - 1.06 * ln(5000) = 7.185 - 1.06 * 8.517 = -1.843
       return {
-        alpha: 0,
+        alpha: -1.843,  // Reasonable default for ~22min 5K runner
         exponent: 1.06,
         criticalSpeed: null,
         anaerobic: null,
@@ -141,7 +144,7 @@ class EnhancedPredictionService {
     // Safety check for zero weight
     if (totalWeight === 0 || !isFinite(totalWeight)) {
       return {
-        alpha: 0,
+        alpha: -1.843,  // Reasonable default for ~22min 5K runner
         exponent: 1.06,
         criticalSpeed: null,
         anaerobic: null,
@@ -158,7 +161,7 @@ class EnhancedPredictionService {
     // Verify means are finite
     if (!isFinite(meanLogD) || !isFinite(meanLogT)) {
       return {
-        alpha: 0,
+        alpha: -1.843,  // Reasonable default for ~22min 5K runner
         exponent: 1.06,
         criticalSpeed: null,
         anaerobic: null,
@@ -186,8 +189,8 @@ class EnhancedPredictionService {
     
     const alpha = meanLogT - safePersonalExponent * meanLogD;
     
-    // Safety check for alpha
-    const safeAlpha = isFinite(alpha) ? alpha : 0;
+    // Safety check for alpha - use reasonable default if invalid
+    const safeAlpha = isFinite(alpha) ? alpha : -1.843;
 
     // Bound the exponent to reasonable physiological limits
     const boundedExponent = Math.max(1.02, Math.min(1.12, safePersonalExponent));
@@ -241,12 +244,25 @@ class EnhancedPredictionService {
    * Enhanced prediction using log-space modeling
    */
   async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace) {
+    // Debug logging to identify the issue
+    console.log('🔍 Enhanced prediction debug:', {
+      targetDistance,
+      enduranceParams,
+      hasData: !!data,
+      racesCount: data?.recentRaces?.length
+    });
+    
     // 1. Base prediction from personalized power law with safety checks
     const logTargetDistance = Math.log(targetDistance);
     
     if (!isFinite(logTargetDistance) || !isFinite(enduranceParams.alpha) || !isFinite(enduranceParams.exponent)) {
-      // Fallback to simple Riegel formula
-      const fallbackTime = targetDistance * 0.06; // Very rough estimate
+      console.warn('⚠️ Using fallback due to invalid params');
+      // Better fallback based on reasonable pace estimates
+      const pacePerKm = targetDistance <= 5000 ? 240 : // 4:00/km for 5K
+                        targetDistance <= 10000 ? 250 : // 4:10/km for 10K  
+                        targetDistance <= 21100 ? 270 : // 4:30/km for HM
+                        300; // 5:00/km for Marathon
+      const fallbackTime = (targetDistance / 1000) * pacePerKm;
       return {
         prediction: Math.round(fallbackTime),
         confidence: 0.3,
@@ -259,9 +275,22 @@ class EnhancedPredictionService {
     
     const logBasePrediction = enduranceParams.alpha + enduranceParams.exponent * logTargetDistance;
     
-    if (!isFinite(logBasePrediction)) {
-      // Fallback if log prediction is invalid
-      const fallbackTime = targetDistance * 0.06;
+    console.log('📊 Prediction calculation:', {
+      alpha: enduranceParams.alpha,
+      exponent: enduranceParams.exponent,
+      logTargetDistance,
+      logBasePrediction,
+      willPredict: Math.exp(logBasePrediction)
+    });
+    
+    if (!isFinite(logBasePrediction) || logBasePrediction > 15) { // exp(15) is unreasonably large
+      console.warn('⚠️ Invalid log prediction:', logBasePrediction);
+      // Better fallback
+      const pacePerKm = targetDistance <= 5000 ? 240 : 
+                        targetDistance <= 10000 ? 250 :
+                        targetDistance <= 21100 ? 270 :
+                        300;
+      const fallbackTime = (targetDistance / 1000) * pacePerKm;
       return {
         prediction: Math.round(fallbackTime),
         confidence: 0.3,
@@ -274,8 +303,14 @@ class EnhancedPredictionService {
     
     let basePrediction = Math.exp(logBasePrediction);
     
-    if (!isFinite(basePrediction)) {
-      basePrediction = targetDistance * 0.06; // Fallback
+    // Sanity check - no prediction should be more than 10 hours
+    if (!isFinite(basePrediction) || basePrediction > 36000) {
+      console.warn('⚠️ Unreasonable prediction:', basePrediction);
+      const pacePerKm = targetDistance <= 5000 ? 240 :
+                        targetDistance <= 10000 ? 250 :
+                        targetDistance <= 21100 ? 270 :
+                        300;
+      basePrediction = (targetDistance / 1000) * pacePerKm;
     }
 
     // 2. Alternative: Critical Speed model (if available)
