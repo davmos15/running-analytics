@@ -14,6 +14,9 @@ const PredictionsPage = () => {
   const [customDistances, setCustomDistances] = useState([]);
   const [newDistance, setNewDistance] = useState('');
   const [isAddingDistance, setIsAddingDistance] = useState(false);
+  const [homepageSettings, setHomepageSettings] = useState({
+    pbDistances: ['5K', '10K', '21.1K', '42.2K']
+  });
 
   const loadPredictionsCallback = useCallback(async () => {
     try {
@@ -47,10 +50,17 @@ const PredictionsPage = () => {
     }
   };
 
-  // Initialize race date on first load
+  // Initialize race date and load settings on first load
   useEffect(() => {
     if (!raceDate) {
       setRaceDate(tempRaceDate);
+    }
+    
+    // Load homepage settings from localStorage
+    const savedSettings = localStorage.getItem('homepageSettings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setHomepageSettings(settings);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -273,13 +283,19 @@ const PredictionsPage = () => {
 
       {/* Prediction Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {Object.entries(predictions.predictions).map(([distance, prediction]) => (
-          <PredictionCard
-            key={distance}
-            distance={distance}
-            prediction={prediction}
-          />
-        ))}
+        {Object.entries(predictions.predictions)
+          .filter(([distance]) => {
+            // Show distance if it's in pbDistances OR if it's a custom distance
+            return homepageSettings.pbDistances.includes(distance) || 
+                   customDistances.some(cd => cd.label === distance);
+          })
+          .map(([distance, prediction]) => (
+            <PredictionCard
+              key={distance}
+              distance={distance}
+              prediction={prediction}
+            />
+          ))}
       </div>
 
     </div>
