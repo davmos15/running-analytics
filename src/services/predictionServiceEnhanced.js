@@ -32,20 +32,20 @@ class EnhancedPredictionService {
   /**
    * Generate race predictions for a specific race date
    */
-  async generatePredictionsForRaceDate(raceDate, customDistances = []) {
+  async generatePredictionsForRaceDate(raceDate, customDistances = [], raceConditions = {}) {
     const today = new Date();
     const race = new Date(raceDate);
     const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
     const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
     
-    const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace);
+    const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace, raceConditions);
     return predictions;
   }
 
   /**
    * Generate predictions with enhanced algorithm
    */
-  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null) {
+  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null, raceConditions = {}) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
@@ -70,7 +70,8 @@ class EnhancedPredictionService {
           distanceMeters,
           predictionData,
           enduranceParams,
-          daysUntilRace
+          daysUntilRace,
+          raceConditions
         );
       }
 
@@ -243,7 +244,7 @@ class EnhancedPredictionService {
   /**
    * Enhanced prediction using log-space modeling
    */
-  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace) {
+  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}) {
     // Debug logging to identify the issue
     console.log('🔍 Enhanced prediction debug:', {
       targetDistance,
@@ -358,11 +359,15 @@ class EnhancedPredictionService {
 
     // 6. Apply training/taper adjustment if race date provided
     if (daysUntilRace !== null) {
-      const taperAdjustment = this.calculateTaperAdjustment(daysUntilRace, data);
+      const taperAdjustment = this.calculateTaperAdjustment(daysUntilRace, data, raceConditions);
       combinedLogPrediction += Math.log(1 + taperAdjustment);
     }
 
-    // 7. Convert back to time with safety check
+    // 7. Apply race conditions adjustments (weather, elevation, etc.)
+    const conditionsAdjustment = this.calculateConditionsAdjustment(targetDistance, raceConditions);
+    combinedLogPrediction += Math.log(1 + conditionsAdjustment);
+
+    // 8. Convert back to time with safety check
     let finalPrediction = Math.exp(combinedLogPrediction);
     
     if (!isFinite(finalPrediction) || finalPrediction <= 0) {
@@ -374,7 +379,7 @@ class EnhancedPredictionService {
       finalPrediction = (targetDistance / 1000) * pacePerKm;
     }
 
-    // 8. Calculate confidence based on data quality and prediction agreement
+    // 9. Calculate confidence based on data quality and prediction agreement
     const confidence = this.calculateEnhancedConfidence(
       finalPrediction,
       basePrediction,
@@ -384,10 +389,10 @@ class EnhancedPredictionService {
       targetDistance
     );
 
-    // 9. Calculate uncertainty intervals using residual analysis
-    const interval = this.calculatePredictionInterval(finalPrediction, confidence, targetDistance);
+    // 10. Calculate uncertainty intervals using residual analysis with improved margins
+    const interval = this.calculatePredictionInterval(finalPrediction, confidence, targetDistance, data, enduranceParams);
 
-    // 10. Calculate 30-day trend
+    // 11. Calculate 30-day trend
     const thirtyDayChange = await this.calculateEnhanced30DayChange(
       targetDistance, 
       finalPrediction,
@@ -409,7 +414,9 @@ class EnhancedPredictionService {
       enduranceProfile: {
         personalExponent: enduranceParams.exponent,
         criticalSpeed: enduranceParams.criticalSpeed
-      }
+      },
+      raceConditions: raceConditions || {},
+      optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions)
     };
   }
 
@@ -599,9 +606,122 @@ class EnhancedPredictionService {
   }
 
   /**
-   * Calculate taper adjustment based on training load
+   * Calculate conditions adjustment for weather, elevation, and course profile
    */
-  calculateTaperAdjustment(daysUntilRace, data) {
+  calculateConditionsAdjustment(targetDistance, raceConditions = {}) {
+    let totalAdjustment = 0;
+
+    // Weather adjustment
+    if (raceConditions.temperature !== undefined) {
+      const temp = raceConditions.temperature;
+      // Optimal temperature is 10-15°C
+      if (temp >= 5 && temp <= 30) {
+        const tempAdjustment = this.TEMP_ADJUSTMENTS[Math.round(temp / 5) * 5] || 1.0;
+        totalAdjustment += tempAdjustment - 1;
+      } else if (temp < 5) {
+        totalAdjustment += 0.02; // 2% slower in very cold
+      } else if (temp > 30) {
+        totalAdjustment += 0.08; // 8% slower in very hot
+      }
+    } else if (raceConditions.optimalWeather) {
+      // Optimal weather conditions: 10-15°C, low humidity, no wind
+      totalAdjustment -= 0.015; // 1.5% faster
+    }
+
+    // Elevation adjustment (meters of elevation gain)
+    if (raceConditions.elevation !== undefined && raceConditions.elevation > 0) {
+      // Rule of thumb: 1.5-2 seconds per meter of elevation gain per km
+      const elevationPerKm = raceConditions.elevation / (targetDistance / 1000);
+      const elevationPenalty = elevationPerKm * 1.75 / 60; // Convert to minutes per km
+      const avgPaceMin = 5; // Assume ~5 min/km average pace
+      totalAdjustment += elevationPenalty / avgPaceMin; // Proportional adjustment
+    } else if (raceConditions.flatCourse) {
+      // Flat course advantage (compared to typical undulating course)
+      totalAdjustment -= 0.01; // 1% faster on flat course
+    }
+
+    // Wind adjustment
+    if (raceConditions.windSpeed !== undefined) {
+      const windSpeed = raceConditions.windSpeed; // in km/h
+      if (windSpeed > 20) {
+        totalAdjustment += 0.03; // 3% slower in strong wind
+      } else if (windSpeed > 10) {
+        totalAdjustment += 0.015; // 1.5% slower in moderate wind
+      }
+    }
+
+    // Altitude adjustment (for races at elevation)
+    if (raceConditions.altitude !== undefined && raceConditions.altitude > 1000) {
+      // Performance decreases ~2% per 1000m above sea level
+      const altitudePenalty = (raceConditions.altitude / 1000) * 0.02;
+      totalAdjustment += altitudePenalty;
+    }
+
+    return totalAdjustment;
+  }
+
+  /**
+   * Calculate optimal conditions prediction
+   */
+  calculateOptimalConditionsPrediction(basePrediction, targetDistance, currentConditions = {}) {
+    // Calculate what the prediction would be under optimal conditions
+    const optimalConditions = {
+      optimalTaper: true,
+      optimalWeather: true,
+      flatCourse: true,
+      temperature: 12, // Optimal temperature
+      windSpeed: 0,
+      elevation: 0
+    };
+
+    // Calculate the difference between current and optimal conditions
+    const currentAdjustment = this.calculateConditionsAdjustment(targetDistance, currentConditions);
+    const optimalAdjustment = this.calculateConditionsAdjustment(targetDistance, optimalConditions);
+    
+    // Optimal prediction is base minus current adjustment plus optimal adjustment
+    const optimalTime = basePrediction / (1 + currentAdjustment) * (1 + optimalAdjustment);
+    
+    return {
+      time: Math.round(optimalTime),
+      improvement: Math.round(basePrediction - optimalTime),
+      improvementPercent: Math.round(((basePrediction - optimalTime) / basePrediction) * 100)
+    };
+  }
+
+  /**
+   * Calculate residual variance from recent race predictions
+   */
+  calculateResidualVariance(data, enduranceParams) {
+    const recentRaces = data.recentRaces
+      .filter(race => race.distanceMeters >= 1000 && race.time > 0)
+      .slice(0, 10); // Use last 10 races
+
+    if (recentRaces.length < 3) {
+      return 1.0; // Default variance if not enough data
+    }
+
+    const residuals = recentRaces.map(race => {
+      // Predict this race time using the model
+      const logPrediction = enduranceParams.alpha + enduranceParams.exponent * Math.log(race.distanceMeters);
+      const predictedTime = Math.exp(logPrediction);
+      
+      // Calculate relative error
+      const relativeError = Math.abs(race.time - predictedTime) / race.time;
+      return relativeError;
+    });
+
+    // Calculate mean absolute percentage error (MAPE)
+    const mape = residuals.reduce((sum, r) => sum + r, 0) / residuals.length;
+    
+    // Convert to variance factor (lower MAPE = lower variance factor)
+    // MAPE of 2% = factor of 0.5, MAPE of 5% = factor of 1.0, etc.
+    return Math.max(0.3, Math.min(1.5, mape * 20));
+  }
+
+  /**
+   * Calculate taper adjustment based on training load and optimal taper option
+   */
+  calculateTaperAdjustment(daysUntilRace, data, raceConditions = {}) {
     if (daysUntilRace <= 0) return 0;
 
     // Calculate recent training load
@@ -613,15 +733,20 @@ class EnhancedPredictionService {
     // Use activity count as a proxy for training load
     const trainingConsistency = Math.min(1.0, recentActivities.length / 12);
 
+    // Check if optimal taper is enabled
+    const optimalTaperBonus = raceConditions.optimalTaper ? -0.015 : 0; // 1.5% bonus for optimal taper
+
     // Taper benefit calculation based on training consistency
     if (daysUntilRace <= 14) {
       // In taper period - expect improvement from rest (scaled by consistency)
-      return -0.01 * trainingConsistency; // Up to 1% improvement
+      const baseTaper = -0.01 * trainingConsistency; // Up to 1% improvement
+      return baseTaper + optimalTaperBonus;
     } else if (daysUntilRace <= 56) {
       // Training period - gradual improvement possible
       const weeklyImprovement = 0.002 * trainingConsistency; // 0.2% per week if consistent
       const weeks = Math.min(6, daysUntilRace / 7);
-      return -Math.min(0.015, weeks * weeklyImprovement);
+      const baseImprovement = -Math.min(0.015, weeks * weeklyImprovement);
+      return baseImprovement + (optimalTaperBonus * 0.5); // Partial taper benefit during training
     } else {
       // Far future - less certain, scale by training consistency
       return -0.01 * trainingConsistency; // Cap at 1%
@@ -702,30 +827,40 @@ class EnhancedPredictionService {
   }
 
   /**
-   * Calculate prediction intervals using quantile regression approach
+   * Calculate prediction intervals using improved statistical modeling
    */
-  calculatePredictionInterval(prediction, confidence, targetDistance) {
-    // Base uncertainty varies by distance
+  calculatePredictionInterval(prediction, confidence, targetDistance, data, enduranceParams) {
+    // Calculate residual variance from recent races to get tighter margins
+    const residualVariance = this.calculateResidualVariance(data, enduranceParams);
+    
+    // Base uncertainty varies by distance - reduced for better margins
     let baseUncertainty;
     if (targetDistance <= 5000) {
-      baseUncertainty = 0.03; // 3% for 5K
+      baseUncertainty = 0.015; // 1.5% for 5K (reduced from 3%)
     } else if (targetDistance <= 10000) {
-      baseUncertainty = 0.04; // 4% for 10K
+      baseUncertainty = 0.02; // 2% for 10K (reduced from 4%)
     } else if (targetDistance <= 21100) {
-      baseUncertainty = 0.05; // 5% for HM
+      baseUncertainty = 0.025; // 2.5% for HM (reduced from 5%)
     } else {
-      baseUncertainty = 0.07; // 7% for Marathon
+      baseUncertainty = 0.035; // 3.5% for Marathon (reduced from 7%)
     }
 
-    // Adjust based on confidence
-    const adjustedUncertainty = baseUncertainty * (2 - confidence);
+    // Adjust based on confidence and actual variance
+    const varianceAdjustment = Math.min(1.5, Math.max(0.5, residualVariance));
+    const adjustedUncertainty = baseUncertainty * (2 - confidence) * varianceAdjustment;
+
+    // Calculate asymmetric bounds (runners more likely to run slower than faster)
+    const lowerBound = prediction * (1 - adjustedUncertainty * 0.8); // Tighter lower bound
+    const upperBound = prediction * (1 + adjustedUncertainty * 1.2); // Slightly wider upper bound
 
     return {
-      lower: Math.round(prediction * (1 - adjustedUncertainty)),
-      upper: Math.round(prediction * (1 + adjustedUncertainty)),
-      margin: Math.round(prediction * adjustedUncertainty),
-      percentile_80_lower: Math.round(prediction * (1 - adjustedUncertainty * 0.8)),
-      percentile_80_upper: Math.round(prediction * (1 + adjustedUncertainty * 0.8))
+      lower: Math.round(lowerBound),
+      upper: Math.round(upperBound),
+      margin: Math.round((upperBound - lowerBound) / 2),
+      percentile_80_lower: Math.round(prediction * (1 - adjustedUncertainty * 0.6)),
+      percentile_80_upper: Math.round(prediction * (1 + adjustedUncertainty * 0.9)),
+      confidence_level: Math.round(confidence * 100),
+      uncertainty_percent: Math.round(adjustedUncertainty * 100)
     };
   }
 

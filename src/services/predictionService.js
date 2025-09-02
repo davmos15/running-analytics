@@ -15,10 +15,10 @@ class PredictionService {
   /**
    * Generate race predictions for a specific race date
    */
-  async generatePredictionsForRaceDate(raceDate, customDistances = []) {
+  async generatePredictionsForRaceDate(raceDate, customDistances = [], raceConditions = {}) {
     try {
       // Use enhanced prediction service with NaN fixes
-      return await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances);
+      return await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances, raceConditions);
     } catch (error) {
       console.error('Enhanced prediction failed, falling back to original:', error);
       // Fallback to original implementation if enhanced fails
@@ -35,22 +35,15 @@ class PredictionService {
   /**
    * Generate race predictions for all target distances
    */
-  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null) {
-    // Temporarily disable enhanced service to debug issue
-    console.log('🔍 Using original prediction service for debugging');
-    return await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
-    
-    // TODO: Re-enable enhanced service after debugging
-    /*
+  async generatePredictions(weeksBack = 16, customDistances = [], daysUntilRace = null, raceConditions = {}) {
     try {
       // Use enhanced prediction service
-      return await enhancedPredictionService.generatePredictions(weeksBack, customDistances, daysUntilRace);
+      return await enhancedPredictionService.generatePredictions(weeksBack, customDistances, daysUntilRace, raceConditions);
     } catch (error) {
       console.error('Enhanced prediction failed, falling back to original:', error);
       // Fallback to original implementation
       return await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
     }
-    */
   }
 
   /**

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Timer, ChevronDown, ChevronUp } from 'lucide-react';
+import { Timer, ChevronDown, ChevronUp, Zap, TrendingUp } from 'lucide-react';
 import predictionService from '../../services/predictionService';
 
-const PredictionCard = ({ distance, prediction }) => {
+const PredictionCard = ({ distance, prediction, raceConditions }) => {
   const [showDetails, setShowDetails] = useState(false);
 
   const formatTime = (seconds) => {
@@ -53,6 +53,12 @@ const PredictionCard = ({ distance, prediction }) => {
           <div className="text-sm text-slate-300">
             Range: {formatTime(prediction.range.lower)} - {formatTime(prediction.range.upper)}
           </div>
+          {prediction.optimalPrediction && prediction.optimalPrediction.improvement > 0 && (
+            <div className="mt-2 text-xs text-orange-400 flex items-center justify-center space-x-1">
+              <Zap className="w-3 h-3" />
+              <span>Optimal conditions: {formatTime(prediction.optimalPrediction.time)} (-{formatTime(prediction.optimalPrediction.improvement)})</span>
+            </div>
+          )}
         </div>
 
         {/* Margin Display */}
@@ -62,7 +68,7 @@ const PredictionCard = ({ distance, prediction }) => {
               <span className="text-lg font-semibold text-slate-300">
                 ±{Math.round(prediction.range.margin / 60)}m {Math.round(prediction.range.margin % 60)}s
               </span>
-              <span className="text-xs text-slate-400 ml-2">Margin</span>
+              <span className="text-xs text-slate-400 ml-2">Margin ({prediction.range.uncertainty_percent || Math.round((prediction.range.margin / prediction.prediction) * 100)}%)</span>
             </div>
             <div>
               <span className={`text-lg font-semibold ${getConfidenceColor(prediction.confidence)}`}>
@@ -92,16 +98,32 @@ const PredictionCard = ({ distance, prediction }) => {
           <div className="mt-4 space-y-4">
             {/* Confidence Breakdown */}
             <div>
-              <h4 className="text-sm font-medium text-slate-300 mb-2">Confidence Factors</h4>
+              <h4 className="text-sm font-medium text-slate-300 mb-2">Prediction Details</h4>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Data Quality:</span>
-                  <span className="text-white">{Math.round(prediction.confidence * 100)}%</span>
+                  <span className="text-slate-400">Confidence Level:</span>
+                  <span className="text-white">{prediction.range.confidence_level || Math.round(prediction.confidence * 100)}%</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Prediction Range:</span>
-                  <span className="text-white">±{Math.round(prediction.range.margin / 60)}m {Math.round(prediction.range.margin % 60)}s</span>
+                  <span className="text-slate-400">80% Likely Range:</span>
+                  <span className="text-white">
+                    {formatTime(prediction.range.percentile_80_lower)} - {formatTime(prediction.range.percentile_80_upper)}
+                  </span>
                 </div>
+                {prediction.models && (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-400">Power Law Model:</span>
+                      <span className="text-white">{formatTime(prediction.models.powerLaw)}</span>
+                    </div>
+                    {prediction.models.criticalSpeed && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">Critical Speed Model:</span>
+                        <span className="text-white">{formatTime(prediction.models.criticalSpeed)}</span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -138,6 +160,45 @@ const PredictionCard = ({ distance, prediction }) => {
               </div>
             </div>
 
+            {/* Race Conditions Applied */}
+            {prediction.raceConditions && Object.keys(prediction.raceConditions).some(key => 
+              prediction.raceConditions[key] === true || 
+              (prediction.raceConditions[key] && prediction.raceConditions[key] !== '')) && (
+              <div>
+                <h4 className="text-sm font-medium text-slate-300 mb-2">Applied Conditions</h4>
+                <div className="space-y-1 text-sm">
+                  {prediction.raceConditions.optimalTaper && (
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                      <span className="text-slate-300">Optimal taper applied</span>
+                    </div>
+                  )}
+                  {prediction.raceConditions.optimalWeather && (
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                      <span className="text-slate-300">Optimal weather conditions</span>
+                    </div>
+                  )}
+                  {prediction.raceConditions.flatCourse && (
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                      <span className="text-slate-300">Flat course advantage</span>
+                    </div>
+                  )}
+                  {prediction.raceConditions.elevation && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-300">Elevation: {prediction.raceConditions.elevation}m gain</span>
+                    </div>
+                  )}
+                  {prediction.raceConditions.temperature && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-slate-300">Temperature: {prediction.raceConditions.temperature}°C</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {/* Key Factors */}
             {prediction.factors && prediction.factors.length > 0 && (
               <div>

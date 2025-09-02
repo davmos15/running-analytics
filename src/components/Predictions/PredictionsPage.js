@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, Plus, X } from 'lucide-react';
+import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, Plus, X, Mountain, Cloud, Wind } from 'lucide-react';
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
@@ -17,13 +17,33 @@ const PredictionsPage = () => {
   const [homepageSettings, setHomepageSettings] = useState({
     pbDistances: ['5K', '10K', '21.1K', '42.2K']
   });
+  const [raceConditions, setRaceConditions] = useState({
+    optimalTaper: false,
+    optimalWeather: false,
+    flatCourse: false,
+    elevation: '',
+    temperature: '',
+    windSpeed: '',
+    altitude: ''
+  });
+  const [showConditionsPanel, setShowConditionsPanel] = useState(false);
 
   const loadPredictionsCallback = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       const dateToUse = raceDate || new Date().toISOString().split('T')[0];
-      const result = await predictionService.generatePredictionsForRaceDate(dateToUse, customDistances);
+      
+      // Prepare race conditions, converting string inputs to numbers where needed
+      const preparedConditions = {
+        ...raceConditions,
+        elevation: raceConditions.elevation ? parseFloat(raceConditions.elevation) : undefined,
+        temperature: raceConditions.temperature ? parseFloat(raceConditions.temperature) : undefined,
+        windSpeed: raceConditions.windSpeed ? parseFloat(raceConditions.windSpeed) : undefined,
+        altitude: raceConditions.altitude ? parseFloat(raceConditions.altitude) : undefined
+      };
+      
+      const result = await predictionService.generatePredictionsForRaceDate(dateToUse, customDistances, preparedConditions);
       setPredictions(result);
     } catch (error) {
       console.error('Error loading predictions:', error);
@@ -31,7 +51,7 @@ const PredictionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [raceDate, customDistances]);
+  }, [raceDate, customDistances, raceConditions]);
 
   const handleDateChange = (newDate) => {
     setTempRaceDate(newDate);
@@ -174,6 +194,14 @@ const PredictionsPage = () => {
               <span className="text-sm font-medium">How it works</span>
             </button>
             
+            <button
+              onClick={() => setShowConditionsPanel(!showConditionsPanel)}
+              className="flex items-center space-x-2 px-3 py-2 athletic-button-secondary text-slate-300 rounded-lg transition-colors"
+            >
+              <Mountain className="w-4 h-4" />
+              <span className="text-sm font-medium">Race Conditions</span>
+            </button>
+            
             {/* Custom Distance Input */}
             <div className="flex items-center gap-2">
               <input
@@ -204,6 +232,136 @@ const PredictionsPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Race Conditions Panel */}
+        {showConditionsPanel && (
+          <div className="athletic-card-gradient p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+                <Mountain className="w-5 h-5 text-orange-400" />
+                <span>Race Conditions & Course Profile</span>
+              </h3>
+              <button
+                onClick={() => setShowConditionsPanel(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Optimal Conditions Toggles */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-slate-300 mb-2">Optimal Conditions</h4>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={raceConditions.optimalTaper}
+                    onChange={(e) => setRaceConditions({...raceConditions, optimalTaper: e.target.checked})}
+                    className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-slate-300">Optimal Taper (well-rested, peak form)</span>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={raceConditions.optimalWeather}
+                    onChange={(e) => setRaceConditions({...raceConditions, optimalWeather: e.target.checked})}
+                    className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-slate-300">Optimal Weather (10-15°C, no wind)</span>
+                </label>
+                
+                <label className="flex items-center space-x-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={raceConditions.flatCourse}
+                    onChange={(e) => setRaceConditions({...raceConditions, flatCourse: e.target.checked})}
+                    className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-slate-300">Flat Course (minimal elevation change)</span>
+                </label>
+              </div>
+              
+              {/* Specific Conditions Inputs */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-slate-300 mb-2">Specific Conditions</h4>
+                
+                <div className="flex items-center space-x-3">
+                  <Mountain className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    placeholder="Elevation gain (m)"
+                    value={raceConditions.elevation}
+                    onChange={(e) => setRaceConditions({...raceConditions, elevation: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400 text-sm"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Cloud className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    placeholder="Temperature (°C)"
+                    value={raceConditions.temperature}
+                    onChange={(e) => setRaceConditions({...raceConditions, temperature: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400 text-sm"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Wind className="w-4 h-4 text-slate-400" />
+                  <input
+                    type="number"
+                    placeholder="Wind speed (km/h)"
+                    value={raceConditions.windSpeed}
+                    onChange={(e) => setRaceConditions({...raceConditions, windSpeed: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-white placeholder-slate-400 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Elevation Impact Calculator */}
+            {raceConditions.elevation && (
+              <div className="mt-4 p-3 bg-slate-800/50 rounded-lg">
+                <p className="text-sm text-slate-300">
+                  <span className="font-medium text-orange-400">Elevation Impact:</span> {raceConditions.elevation}m of climb will add approximately{' '}
+                  <span className="font-semibold text-white">
+                    {Math.round(raceConditions.elevation * 1.75 / 10) / 10} seconds per kilometer
+                  </span>
+                </p>
+              </div>
+            )}
+            
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setRaceConditions({
+                    optimalTaper: false,
+                    optimalWeather: false,
+                    flatCourse: false,
+                    elevation: '',
+                    temperature: '',
+                    windSpeed: '',
+                    altitude: ''
+                  });
+                }}
+                className="px-4 py-2 text-sm athletic-button-secondary text-slate-300 rounded-lg mr-3"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={loadPredictionsCallback}
+                className="px-4 py-2 text-sm athletic-button-primary text-white rounded-lg"
+              >
+                Apply Conditions
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Data Quality and Settings */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 athletic-card rounded-lg">
