@@ -245,6 +245,8 @@ class EnhancedPredictionService {
    * Enhanced prediction using log-space modeling
    */
   async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}) {
+    // Apply race to training adjustment if we have the data
+    const raceAdjustment = data.raceToTrainingRatio ? (1 - data.raceToTrainingRatio) : 0;
     // Debug logging to identify the issue
     console.log('🔍 Enhanced prediction debug:', {
       targetDistance,
@@ -366,8 +368,13 @@ class EnhancedPredictionService {
     // 7. Apply race conditions adjustments (weather, elevation, etc.)
     const conditionsAdjustment = this.calculateConditionsAdjustment(targetDistance, raceConditions);
     combinedLogPrediction += Math.log(1 + conditionsAdjustment);
+    
+    // 8. Apply race vs training adjustment (how much faster you run in races)
+    if (raceAdjustment !== 0) {
+      combinedLogPrediction += Math.log(1 + raceAdjustment);
+    }
 
-    // 8. Convert back to time with safety check
+    // 9. Convert back to time with safety check
     let finalPrediction = Math.exp(combinedLogPrediction);
     
     if (!isFinite(finalPrediction) || finalPrediction <= 0) {
@@ -379,7 +386,7 @@ class EnhancedPredictionService {
       finalPrediction = (targetDistance / 1000) * pacePerKm;
     }
 
-    // 9. Calculate confidence based on data quality and prediction agreement
+    // 10. Calculate confidence based on data quality and prediction agreement
     const confidence = this.calculateEnhancedConfidence(
       finalPrediction,
       basePrediction,
@@ -389,10 +396,10 @@ class EnhancedPredictionService {
       targetDistance
     );
 
-    // 10. Calculate uncertainty intervals using residual analysis with improved margins
+    // 11. Calculate uncertainty intervals using residual analysis with improved margins
     const interval = this.calculatePredictionInterval(finalPrediction, confidence, targetDistance, data, enduranceParams);
 
-    // 11. Calculate 30-day trend
+    // 12. Calculate 30-day trend
     const thirtyDayChange = await this.calculateEnhanced30DayChange(
       targetDistance, 
       finalPrediction,
@@ -417,7 +424,10 @@ class EnhancedPredictionService {
       },
       raceConditions: raceConditions || {},
       optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions),
-      dataSource: `${data.recentRaces.length} races, last ${Math.ceil((new Date() - new Date(data.recentRaces[0]?.date)) / (1000 * 60 * 60 * 24))} days ago`
+      dataSource: data.runClassification ? 
+        `${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts from ${data.runClassification.totalRuns} runs` :
+        `${data.recentRaces.length} performances`,
+      raceTrainingAdjustment: raceAdjustment
     };
   }
 
@@ -1059,25 +1069,93 @@ class EnhancedPredictionService {
   identifyPredictionFactors(targetDistance, data) {
     const factors = [];
     
-    const recentRaceCount = data.recentRaces.filter(race => {
-      const daysSince = (new Date() - new Date(race.date)) / (1000 * 60 * 60 * 24);
-      return daysSince <= 60;
-    }).length;
-    
-    if (recentRaceCount >= 2) {
-      factors.push({ factor: 'Recent race data', impact: 'positive', strength: 'high' });
-    } else {
-      factors.push({ factor: 'Limited recent races', impact: 'negative', strength: 'medium' });
+    // Race data quality
+    if (data.runClassification) {
+      if (data.runClassification.races >= 3) {
+        factors.push({ 
+          factor: 'Strong race data', 
+          impact: 'positive', 
+          strength: 'high',
+          value: `${data.runClassification.races} races`,
+          percentage: 15 // 15% confidence boost
+        });
+      } else if (data.runClassification.races > 0) {
+        factors.push({ 
+          factor: 'Limited race data', 
+          impact: 'negative', 
+          strength: 'medium',
+          value: `Only ${data.runClassification.races} race(s)`,
+          percentage: -10 // 10% confidence reduction
+        });
+      }
+      
+      // Race to training ratio
+      if (data.raceToTrainingRatio && data.raceToTrainingRatio < 0.9) {
+        const improvement = Math.round((1 - data.raceToTrainingRatio) * 100);
+        factors.push({ 
+          factor: 'Race day performance boost', 
+          impact: 'positive', 
+          strength: 'high',
+          value: `${improvement}% faster in races`,
+          percentage: improvement
+        });
+      }
     }
     
+    // Training volume
     const recentVolume = data.activities
       .filter(a => (new Date() - new Date(a.start_date || a.date)) / (1000 * 60 * 60 * 24) <= 28)
       .reduce((sum, a) => sum + (a.distanceMeters || a.distance || 0), 0);
     
-    if (recentVolume > targetDistance * 3) {
-      factors.push({ factor: 'Good training volume', impact: 'positive', strength: 'medium' });
-    } else if (recentVolume < targetDistance) {
-      factors.push({ factor: 'Low training volume', impact: 'negative', strength: 'high' });
+    const volumeRatio = recentVolume / targetDistance;
+    if (volumeRatio > 4) {
+      factors.push({ 
+        factor: 'Excellent training volume', 
+        impact: 'positive', 
+        strength: 'high',
+        value: `${Math.round(volumeRatio)}x race distance`,
+        percentage: 8 // 8% improvement
+      });
+    } else if (volumeRatio > 2.5) {
+      factors.push({ 
+        factor: 'Good training volume', 
+        impact: 'positive', 
+        strength: 'medium',
+        value: `${Math.round(volumeRatio * 10) / 10}x race distance`,
+        percentage: 5 // 5% improvement
+      });
+    } else if (volumeRatio < 1.5) {
+      factors.push({ 
+        factor: 'Low training volume', 
+        impact: 'negative', 
+        strength: 'high',
+        value: `Only ${Math.round(volumeRatio * 10) / 10}x race distance`,
+        percentage: -12 // 12% penalty
+      });
+    }
+    
+    // Distance-specific experience
+    const similarRaces = data.recentRaces.filter(race => {
+      const ratio = targetDistance / race.distanceMeters;
+      return ratio >= 0.8 && ratio <= 1.2;
+    }).length;
+    
+    if (similarRaces >= 3) {
+      factors.push({ 
+        factor: 'Strong distance experience', 
+        impact: 'positive', 
+        strength: 'medium',
+        value: `${similarRaces} similar distance efforts`,
+        percentage: 6 // 6% improvement
+      });
+    } else if (similarRaces === 0) {
+      factors.push({ 
+        factor: 'No recent distance experience', 
+        impact: 'negative', 
+        strength: 'medium',
+        value: 'Extrapolating from other distances',
+        percentage: -8 // 8% uncertainty
+      });
     }
     
     return factors;

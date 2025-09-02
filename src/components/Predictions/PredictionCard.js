@@ -27,6 +27,10 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
   };
 
   const distanceInfo = getDistanceInfo(distance);
+  
+  // Use optimal prediction as main if available, otherwise use regular prediction
+  const mainPredictionTime = prediction.optimalPrediction?.time || prediction.prediction;
+  const isOptimalShown = prediction.optimalPrediction?.time && prediction.optimalPrediction.time < prediction.prediction;
 
   return (
     <div className="athletic-card-gradient overflow-hidden">
@@ -42,40 +46,30 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
           </div>
         </div>
 
-        {/* Main Prediction - Simplified */}
+        {/* Main Prediction - Shows optimal time */}
         <div className="text-center py-4">
           <div className="flex items-center justify-center space-x-2 mb-2">
             <Timer className="w-5 h-5 text-orange-400" />
-            <span className="text-lg font-medium text-orange-400">Predicted Time</span>
+            <span className="text-lg font-medium text-orange-400">
+              {isOptimalShown ? 'Optimal Prediction' : 'Predicted Time'}
+            </span>
           </div>
-          <div className="text-4xl font-bold text-white mb-4" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            {formatTime(prediction.prediction)}
+          <div className="text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            {formatTime(mainPredictionTime)}
           </div>
           
-          {/* Key Metrics Row */}
-          <div className="flex items-center justify-center space-x-6">
-            <div className="text-center">
-              <div className="text-lg font-semibold text-slate-300">
-                ±{Math.round(prediction.range.margin / 60)}:{String(Math.round(prediction.range.margin % 60)).padStart(2, '0')}
-              </div>
-              <div className="text-xs text-slate-400">Margin</div>
+          {/* Show confidence only */}
+          <div className="text-center mt-4">
+            <div className={`text-lg font-semibold ${getConfidenceColor(prediction.confidence)}`}>
+              {Math.round(prediction.confidence * 100)}%
             </div>
-            
-            <div className="w-px h-8 bg-slate-600"></div>
-            
-            <div className="text-center">
-              <div className={`text-lg font-semibold ${getConfidenceColor(prediction.confidence)}`}>
-                {Math.round(prediction.confidence * 100)}%
-              </div>
-              <div className="text-xs text-slate-400">Confidence</div>
-            </div>
+            <div className="text-xs text-slate-400">Confidence</div>
           </div>
 
-          {/* Optimal Conditions Note */}
-          {prediction.optimalPrediction && prediction.optimalPrediction.improvement > 0 && (
-            <div className="mt-3 text-xs text-orange-400 flex items-center justify-center space-x-1">
-              <Zap className="w-3 h-3" />
-              <span>Optimal: {formatTime(prediction.optimalPrediction.time)} (-{formatTime(prediction.optimalPrediction.improvement)})</span>
+          {/* Show standard prediction if optimal is being displayed */}
+          {isOptimalShown && (
+            <div className="mt-3 text-sm text-slate-300">
+              Standard conditions: {formatTime(prediction.prediction)}
             </div>
           )}
         </div>
@@ -97,7 +91,7 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
 
         {showDetails && (
           <div className="px-4 pb-4 space-y-4">
-            {/* Prediction Range */}
+            {/* Prediction Range with Margin */}
             <div className="p-3 bg-slate-800/50 rounded-lg">
               <h4 className="text-sm font-medium text-slate-300 mb-2 flex items-center space-x-2">
                 <Activity className="w-4 h-4 text-orange-400" />
@@ -108,6 +102,13 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
                   <span className="text-slate-400">Full Range:</span>
                   <span className="text-white font-medium">
                     {formatTime(prediction.range.lower)} - {formatTime(prediction.range.upper)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-400">Margin:</span>
+                  <span className="text-white font-medium">
+                    ±{Math.round(prediction.range.margin / 60)}:{String(Math.round(prediction.range.margin % 60)).padStart(2, '0')}
+                    {prediction.range.uncertainty_percent && ` (${prediction.range.uncertainty_percent}%)`}
                   </span>
                 </div>
                 {prediction.range.percentile_80_lower && (
@@ -148,24 +149,31 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
               </div>
             )}
 
-            {/* Key Factors */}
+            {/* Key Performance Factors with Percentages */}
             {prediction.factors && prediction.factors.length > 0 && (
               <div className="p-3 bg-slate-800/50 rounded-lg">
                 <h4 className="text-sm font-medium text-slate-300 mb-2">Key Performance Factors</h4>
-                <div className="space-y-1">
-                  {prediction.factors.slice(0, 3).map((factor, index) => (
-                    <div key={index} className="flex items-center space-x-2 text-sm">
-                      <div className={`w-2 h-2 rounded-full ${
-                        factor.impact === 'positive' ? 'bg-green-500' : 'bg-red-500'
-                      } opacity-75`} />
-                      <span className="text-slate-300">{factor.factor}</span>
-                      <span className={`text-xs px-1 rounded ${
-                        factor.strength === 'high' ? 'bg-orange-500/20 text-orange-400' :
-                        factor.strength === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-slate-500/20 text-slate-400'
-                      }`}>
-                        {factor.strength}
-                      </span>
+                <div className="space-y-2">
+                  {prediction.factors.slice(0, 4).map((factor, index) => (
+                    <div key={index} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            factor.impact === 'positive' ? 'bg-green-500' : 'bg-red-500'
+                          } opacity-75`} />
+                          <span className="text-sm text-slate-300">{factor.factor}</span>
+                        </div>
+                        {factor.percentage && (
+                          <span className={`text-sm font-medium ${
+                            factor.impact === 'positive' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {factor.impact === 'positive' ? '+' : ''}{factor.percentage}%
+                          </span>
+                        )}
+                      </div>
+                      {factor.value && (
+                        <div className="text-xs text-slate-500 ml-4">{factor.value}</div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -182,24 +190,25 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
                   {prediction.raceConditions.optimalTaper && (
                     <div className="flex items-center space-x-2">
                       <span className="text-green-400">✓</span>
-                      <span className="text-slate-300">Optimal taper</span>
+                      <span className="text-slate-300">Optimal taper (+1.5%)</span>
                     </div>
                   )}
                   {prediction.raceConditions.optimalWeather && (
                     <div className="flex items-center space-x-2">
                       <span className="text-green-400">✓</span>
-                      <span className="text-slate-300">Optimal weather</span>
+                      <span className="text-slate-300">Optimal weather (+1.5%)</span>
                     </div>
                   )}
                   {prediction.raceConditions.flatCourse && (
                     <div className="flex items-center space-x-2">
                       <span className="text-green-400">✓</span>
-                      <span className="text-slate-300">Flat course</span>
+                      <span className="text-slate-300">Flat course (+1%)</span>
                     </div>
                   )}
                   {prediction.raceConditions.elevation && (
                     <div className="text-slate-300">
-                      Elevation: {prediction.raceConditions.elevation}m gain
+                      Elevation: {prediction.raceConditions.elevation}m gain 
+                      (-{Math.round(prediction.raceConditions.elevation * 1.75 / (distance.replace('K', '') * 1000) * 100) / 100} sec/km)
                     </div>
                   )}
                   {prediction.raceConditions.temperature && (
@@ -234,27 +243,61 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
               <h4 className="text-sm font-bold text-white">How This Prediction Was Calculated</h4>
             </div>
 
-            {/* Model Components */}
+            {/* Model Components with Details */}
             {prediction.models && (
               <div className="space-y-3">
                 <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Prediction Models</div>
                 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-2 bg-slate-800/30 rounded">
-                    <span className="text-sm text-slate-300">Power Law Model:</span>
-                    <span className="text-sm font-mono text-white">{formatTime(prediction.models.powerLaw)}</span>
+                <div className="space-y-3">
+                  <div className="p-3 bg-slate-800/30 rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-300">Power Law Model</span>
+                      <span className="text-sm font-mono text-white">{formatTime(prediction.models.powerLaw)}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Based on your personal exponent ({prediction.enduranceProfile?.personalExponent?.toFixed(3) || '1.06'})
+                      <br />Formula: Time = e^(α + β × ln(distance))
+                      <br />Uses weighted regression from {prediction.enduranceProfile?.baseRaces || 'recent'} races
+                    </div>
                   </div>
                   
                   {prediction.models.criticalSpeed && (
-                    <div className="flex items-center justify-between p-2 bg-slate-800/30 rounded">
-                      <span className="text-sm text-slate-300">Critical Speed Model:</span>
-                      <span className="text-sm font-mono text-white">{formatTime(prediction.models.criticalSpeed)}</span>
+                    <div className="p-3 bg-slate-800/30 rounded">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-300">Critical Speed Model</span>
+                        <span className="text-sm font-mono text-white">{formatTime(prediction.models.criticalSpeed)}</span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Critical Speed: {((prediction.enduranceProfile?.criticalSpeed || 0) * 3.6).toFixed(2)} km/h
+                        <br />Formula: Time = (Distance - D') / CS
+                        <br />Models your sustainable aerobic threshold
+                      </div>
                     </div>
                   )}
                   
-                  <div className="flex items-center justify-between p-2 bg-slate-800/30 rounded">
-                    <span className="text-sm text-slate-300">Weighted Race Average:</span>
-                    <span className="text-sm font-mono text-white">{formatTime(prediction.models.weightedRaces)}</span>
+                  <div className="p-3 bg-slate-800/30 rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-300">Weighted Race Average</span>
+                      <span className="text-sm font-mono text-white">{formatTime(prediction.models.weightedRaces)}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Weighted by: recency (60-day decay), distance similarity, race quality
+                      <br />Extrapolates from similar distance performances
+                    </div>
+                  </div>
+                  
+                  {/* Combined Prediction */}
+                  <div className="p-3 bg-orange-500/10 rounded border border-orange-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-orange-400">Combined Prediction</span>
+                      <span className="text-sm font-mono text-orange-400">{formatTime(prediction.prediction)}</span>
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      Weights: Power Law (40%), Weighted Races (40%), Critical Speed (20%)
+                      {prediction.raceTrainingAdjustment && (
+                        <><br />Race vs Training adjustment: {(prediction.raceTrainingAdjustment * 100).toFixed(1)}% faster</>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -279,6 +322,10 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
                   )}
                   <div className="text-xs text-slate-500 mt-2">
                     Exponent indicates endurance: Lower (1.02-1.05) = better endurance, Higher (1.08-1.12) = more speed-oriented
+                    <br />Your value of {prediction.enduranceProfile.personalExponent.toFixed(3)} suggests{' '}
+                    {prediction.enduranceProfile.personalExponent < 1.055 ? 'excellent endurance' :
+                     prediction.enduranceProfile.personalExponent < 1.075 ? 'balanced speed/endurance' :
+                     'speed-oriented profile'}
                   </div>
                 </div>
               </div>
@@ -289,13 +336,14 @@ const PredictionCard = ({ distance, prediction, raceConditions }) => {
               <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Calculation Method</div>
               <div className="p-3 bg-slate-800/30 rounded">
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  {prediction.method || 'Enhanced Multi-Model'} approach combining:
+                  {prediction.method || 'Enhanced Multi-Model'} approach:
                 </p>
                 <ul className="mt-2 space-y-1 text-xs text-slate-400">
                   <li>• Personalized power law based on your race history</li>
                   <li>• Critical speed model for aerobic capacity</li>
                   <li>• Weighted average of recent similar-distance performances</li>
                   <li>• Machine learning adjustments for training patterns</li>
+                  <li>• Race vs training pace calibration</li>
                   <li>• Environmental and course condition factors</li>
                 </ul>
               </div>

@@ -1180,6 +1180,67 @@ class FirebaseService {
   }
 
   // Prediction-related methods
+
+  /**
+   * Classify runs into races, hard efforts, and training runs
+   */
+  classifyRuns(activities) {
+    const races = [];
+    const hardEfforts = [];
+    const trainingRuns = [];
+    
+    activities.forEach(activity => {
+      if (!activity.distance || !activity.moving_time) return;
+      
+      const pacePerKm = (activity.moving_time / 60) / (activity.distance / 1000);
+      const avgHeartRate = activity.average_heartrate || activity.averageHeartRate;
+      const maxHeartRate = activity.max_heartrate || activity.maxHeartRate;
+      const relativeEffort = activity.average_watts || activity.suffer_score;
+      
+      // Check if it's labeled as a race or has race keywords
+      const isRace = 
+        activity.workout_type === 1 || // Strava race workout type
+        (activity.name && (
+          activity.name.toLowerCase().includes('race') ||
+          activity.name.toLowerCase().includes('parkrun') ||
+          activity.name.toLowerCase().includes('time trial') ||
+          activity.name.toLowerCase().includes('tt') ||
+          activity.name.toLowerCase().includes('5k') ||
+          activity.name.toLowerCase().includes('10k') ||
+          activity.name.toLowerCase().includes('half marathon') ||
+          activity.name.toLowerCase().includes('marathon')
+        ));
+      
+      // Check if it's a hard effort based on relative metrics
+      const isHardEffort = !isRace && (
+        // Very fast pace for distance
+        (activity.distance >= 5000 && pacePerKm < 5.5) || // Sub 5:30/km for 5K+
+        (activity.distance >= 10000 && pacePerKm < 6) || // Sub 6:00/km for 10K+
+        // High heart rate effort
+        (avgHeartRate && maxHeartRate && avgHeartRate > maxHeartRate * 0.85) ||
+        // Has achievement count (PRs/CRs)
+        (activity.achievement_count && activity.achievement_count > 0) ||
+        // Tempo/threshold keywords
+        (activity.name && (
+          activity.name.toLowerCase().includes('tempo') ||
+          activity.name.toLowerCase().includes('threshold') ||
+          activity.name.toLowerCase().includes('interval') ||
+          activity.name.toLowerCase().includes('workout') ||
+          activity.name.toLowerCase().includes('effort')
+        ))
+      );
+      
+      if (isRace) {
+        races.push(activity);
+      } else if (isHardEffort) {
+        hardEfforts.push(activity);
+      } else {
+        trainingRuns.push(activity);
+      }
+    });
+    
+    return { races, hardEfforts, trainingRuns };
+  }
   
   /**
    * Get comprehensive data for race predictions
@@ -1196,11 +1257,17 @@ class FirebaseService {
         return activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
       });
 
-      // Get race performances (longer efforts that could be used for prediction)
-      const raceActivities = recentActivities.filter(activity => {
+      // Classify runs into races, hard efforts, and training runs
+      const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
+      
+      // Use only actual races and hard efforts for predictions (filter for minimum distance)
+      const raceActivities = [...races, ...hardEfforts].filter(activity => {
         return activity.distance >= 3000 && // At least 3K
                activity.moving_time >= 600;   // At least 10 minutes
       });
+      
+      // Calculate training pace statistics for calibration
+      const trainingPaceStats = this.calculateTrainingPaceStats(trainingRuns);
 
       // Get personal bests that could serve as race times
       const personalBests = await this.getAllPersonalBests(weeksBack);
@@ -1251,7 +1318,15 @@ class FirebaseService {
           startDate: cutoffDate,
           endDate: new Date(),
           weeksBack
-        }
+        },
+        runClassification: {
+          totalRuns: recentActivities.length,
+          races: races.length,
+          hardEfforts: hardEfforts.length,
+          trainingRuns: trainingRuns.length
+        },
+        trainingPaceStats,
+        raceToTrainingRatio: this.calculateRaceToTrainingRatio(races, hardEfforts, trainingRuns)
       };
     } catch (error) {
       console.error('Error getting prediction data:', error);
@@ -1294,6 +1369,63 @@ class FirebaseService {
     }
   }
 
+  /**
+   * Calculate training pace statistics
+   */
+  calculateTrainingPaceStats(trainingRuns) {
+    if (trainingRuns.length === 0) return null;
+    
+    const paces = trainingRuns
+      .filter(run => run.distance >= 1000) // At least 1K
+      .map(run => (run.moving_time / 60) / (run.distance / 1000)); // min/km
+    
+    if (paces.length === 0) return null;
+    
+    paces.sort((a, b) => a - b);
+    const avgPace = paces.reduce((sum, p) => sum + p, 0) / paces.length;
+    const medianPace = paces[Math.floor(paces.length / 2)];
+    
+    return {
+      averagePace: avgPace,
+      medianPace: medianPace,
+      fastestPace: paces[0],
+      slowestPace: paces[paces.length - 1],
+      paceRange: paces[paces.length - 1] - paces[0]
+    };
+  }
+  
+  /**
+   * Calculate race to training ratio for adjustment factor
+   */
+  calculateRaceToTrainingRatio(races, hardEfforts, trainingRuns) {
+    if (races.length === 0 || trainingRuns.length === 0) {
+      return 1.0; // Default ratio
+    }
+    
+    // Get average pace for races vs training
+    const racePaces = races
+      .filter(r => r.distance >= 3000)
+      .map(r => (r.moving_time / 60) / (r.distance / 1000));
+    
+    const trainingPaces = trainingRuns
+      .filter(r => r.distance >= 3000)
+      .map(r => (r.moving_time / 60) / (r.distance / 1000));
+    
+    if (racePaces.length === 0 || trainingPaces.length === 0) {
+      return 1.0;
+    }
+    
+    const avgRacePace = racePaces.reduce((sum, p) => sum + p, 0) / racePaces.length;
+    const avgTrainingPace = trainingPaces.reduce((sum, p) => sum + p, 0) / trainingPaces.length;
+    
+    // Calculate how much faster races are than training runs
+    const ratio = avgRacePace / avgTrainingPace;
+    
+    // Typical ratio is 0.85-0.95 (races 5-15% faster than training)
+    // Bound to reasonable limits
+    return Math.max(0.8, Math.min(1.0, ratio));
+  }
+  
   /**
    * Remove duplicate race performances
    */
