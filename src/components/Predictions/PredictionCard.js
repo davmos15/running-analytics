@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Timer, ChevronDown, ChevronUp, Zap, TrendingUp, Info, Calculator, Activity } from 'lucide-react';
+import { Timer, ChevronDown, ChevronUp, TrendingUp, Info, Calculator, Activity } from 'lucide-react';
 import predictionService from '../../services/predictionService';
 
 const PredictionCard = ({ distance, prediction, raceConditions }) => {
