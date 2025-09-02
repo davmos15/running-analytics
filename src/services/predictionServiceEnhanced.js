@@ -416,7 +416,8 @@ class EnhancedPredictionService {
         criticalSpeed: enduranceParams.criticalSpeed
       },
       raceConditions: raceConditions || {},
-      optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions)
+      optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions),
+      dataSource: `${data.recentRaces.length} races, last ${Math.ceil((new Date() - new Date(data.recentRaces[0]?.date)) / (1000 * 60 * 60 * 24))} days ago`
     };
   }
 
