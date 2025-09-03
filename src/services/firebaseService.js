@@ -1255,7 +1255,7 @@ class FirebaseService {
         const isRecentRun = activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
         return isRecentRun;
       });
-      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length}`);
+      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length} - CODE VERSION: 2024-01`);
 
       // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
@@ -1341,7 +1341,7 @@ class FirebaseService {
    * Get all personal bests for prediction analysis - OPTIMIZED VERSION
    * This does ONE Firebase query instead of 13+ separate queries
    */
-  async getAllPersonalBests(weeksBack = 16) {
+  async getAllPersonalBests(weeksBack = 52) {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
@@ -1502,7 +1502,7 @@ class FirebaseService {
   /**
    * Get training consistency metrics
    */
-  async getTrainingConsistency(weeksBack = 12) {
+  async getTrainingConsistency(weeksBack = 52) {
     try {
       const activities = await this.getActivities();
       const cutoffDate = new Date();
