@@ -134,6 +134,11 @@ const PredictionsPage = () => {
             <LoadingSpinner />
           </div>
         </div>
+        
+        {/* Course-Specific Predictions - Always show */}
+        <div className="mt-8">
+          <CoursePrediction />
+        </div>
       </div>
     );
   }
@@ -163,11 +168,16 @@ const PredictionsPage = () => {
             </button>
           </div>
         </div>
+        
+        {/* Course-Specific Predictions - Always show */}
+        <div className="mt-8">
+          <CoursePrediction />
+        </div>
       </div>
     );
   }
 
-  const dataQuality = formatDataQualityLevel(predictions.dataQuality.level);
+  const dataQuality = predictions?.dataQuality?.level ? formatDataQualityLevel(predictions.dataQuality.level) : 'Unknown';
 
   return (
     <div className="mt-6 space-y-6 mx-4">
