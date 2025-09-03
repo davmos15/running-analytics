@@ -1241,7 +1241,7 @@ class FirebaseService {
   /**
    * Get comprehensive data for race predictions
    */
-  async getPredictionData(weeksBack = 24) {
+  async getPredictionData(weeksBack = 52) {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));

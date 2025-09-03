@@ -35,7 +35,7 @@ class PredictionService {
   /**
    * Generate race predictions for all target distances
    */
-  async generatePredictions(weeksBack = 24, customDistances = [], daysUntilRace = null, raceConditions = {}) {
+  async generatePredictions(weeksBack = 52, customDistances = [], daysUntilRace = null, raceConditions = {}) {
     try {
       // Use enhanced prediction service
       return await enhancedPredictionService.generatePredictions(weeksBack, customDistances, daysUntilRace, raceConditions);
@@ -49,7 +49,7 @@ class PredictionService {
   /**
    * Original prediction implementation (fallback)
    */
-  async generatePredictionsOriginal(weeksBack = 24, customDistances = [], daysUntilRace = null) {
+  async generatePredictionsOriginal(weeksBack = 52, customDistances = [], daysUntilRace = null) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       

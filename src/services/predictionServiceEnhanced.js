@@ -45,7 +45,7 @@ class EnhancedPredictionService {
   /**
    * Generate predictions with enhanced algorithm
    */
-  async generatePredictions(weeksBack = 24, customDistances = [], daysUntilRace = null, raceConditions = {}) {
+  async generatePredictions(weeksBack = 52, customDistances = [], daysUntilRace = null, raceConditions = {}) {
     try {
       const predictionData = await firebaseService.getPredictionData(weeksBack);
       
