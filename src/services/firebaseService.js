@@ -1210,23 +1210,22 @@ class FirebaseService {
           activity.name.toLowerCase().includes('marathon')
         ));
       
-      // Check if it's a hard effort based on relative metrics
+      // Check if it's a hard effort based on more restrictive criteria
       const isHardEffort = !isRace && (
-        // Very fast pace for distance
-        (activity.distance >= 5000 && pacePerKm < 5.5) || // Sub 5:30/km for 5K+
-        (activity.distance >= 10000 && pacePerKm < 6) || // Sub 6:00/km for 10K+
-        // High heart rate effort
-        (avgHeartRate && maxHeartRate && avgHeartRate > maxHeartRate * 0.85) ||
-        // Has achievement count (PRs/CRs)
-        (activity.achievement_count && activity.achievement_count > 0) ||
-        // Tempo/threshold keywords
+        // Only very fast paces (much more restrictive)
+        (activity.distance >= 5000 && pacePerKm < 4.5) || // Sub 4:30/km for 5K+ (very fast)
+        (activity.distance >= 10000 && pacePerKm < 5.0) || // Sub 5:00/km for 10K+ (very fast)
+        // Specifically named workout types (most reliable indicator)
         (activity.name && (
           activity.name.toLowerCase().includes('tempo') ||
           activity.name.toLowerCase().includes('threshold') ||
           activity.name.toLowerCase().includes('interval') ||
-          activity.name.toLowerCase().includes('workout') ||
-          activity.name.toLowerCase().includes('effort')
-        ))
+          activity.name.toLowerCase().includes('fartlek') ||
+          activity.name.toLowerCase().includes('speed work') ||
+          activity.name.toLowerCase().includes('track')
+        )) ||
+        // Strava workout type for training
+        activity.workout_type === 3 // Strava workout type
       );
       
       if (isRace) {
@@ -1259,10 +1258,10 @@ class FirebaseService {
       // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
       
-      // Use ALL activities for predictions (not just races/hard efforts)
+      // Use ALL activities for predictions (with minimal filtering)
       const raceActivities = recentActivities.filter(activity => {
-        return activity.distance >= 3000 && // At least 3K
-               activity.moving_time >= 600;   // At least 10 minutes
+        return activity.distance >= 1000 && // At least 1K (much more inclusive)
+               activity.moving_time >= 300;   // At least 5 minutes (much more inclusive)
       });
       
       // Calculate training pace statistics for calibration

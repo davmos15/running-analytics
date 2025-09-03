@@ -425,7 +425,7 @@ class EnhancedPredictionService {
       raceConditions: raceConditions || {},
       optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions),
       dataSource: data.runClassification ? 
-        `${data.runClassification.usedForPredictions || data.recentRaces.length} runs analyzed (${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts, ${data.runClassification.trainingRuns} training)` :
+        `${data.runClassification.usedForPredictions || data.recentRaces.length} runs used from ${data.runClassification.totalRuns} total (${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts, ${data.runClassification.trainingRuns} training)` :
         `${data.recentRaces.length} performances`,
       raceTrainingAdjustment: raceAdjustment
     };
