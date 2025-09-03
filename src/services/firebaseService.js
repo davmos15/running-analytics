@@ -1193,8 +1193,6 @@ class FirebaseService {
       if (!activity.distance || !activity.moving_time) return;
       
       const pacePerKm = (activity.moving_time / 60) / (activity.distance / 1000);
-      const avgHeartRate = activity.average_heartrate || activity.averageHeartRate;
-      const maxHeartRate = activity.max_heartrate || activity.maxHeartRate;
       
       // Check if it's labeled as a race or has race keywords
       const isRace = 
