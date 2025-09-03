@@ -1256,11 +1256,11 @@ class FirebaseService {
         return activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
       });
 
-      // Classify runs into races, hard efforts, and training runs
+      // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
       
-      // Use only actual races and hard efforts for predictions (filter for minimum distance)
-      const raceActivities = [...races, ...hardEfforts].filter(activity => {
+      // Use ALL activities for predictions (not just races/hard efforts)
+      const raceActivities = recentActivities.filter(activity => {
         return activity.distance >= 3000 && // At least 3K
                activity.moving_time >= 600;   // At least 10 minutes
       });
@@ -1274,7 +1274,7 @@ class FirebaseService {
       // Combine race activities and PBs into race performances
       const recentRaces = [];
       
-      // Add race activities
+      // Add ALL qualifying activities (not just races)
       raceActivities.forEach(activity => {
         recentRaces.push({
           activityId: activity.id,
@@ -1322,7 +1322,8 @@ class FirebaseService {
           totalRuns: recentActivities.length,
           races: races.length,
           hardEfforts: hardEfforts.length,
-          trainingRuns: trainingRuns.length
+          trainingRuns: trainingRuns.length,
+          usedForPredictions: raceActivities.length
         },
         trainingPaceStats,
         raceToTrainingRatio: this.calculateRaceToTrainingRatio(races, hardEfforts, trainingRuns)
@@ -1397,32 +1398,40 @@ class FirebaseService {
    * Calculate race to training ratio for adjustment factor
    */
   calculateRaceToTrainingRatio(races, hardEfforts, trainingRuns) {
-    if (races.length === 0 || trainingRuns.length === 0) {
-      return 1.0; // Default ratio
+    // Combine races and hard efforts for "race pace"
+    const raceEfforts = [...races, ...hardEfforts];
+    
+    if (raceEfforts.length === 0 || trainingRuns.length === 0) {
+      return 0.0; // No adjustment if we don't have both types
     }
     
-    // Get average pace for races vs training
-    const racePaces = races
-      .filter(r => r.distance >= 3000)
-      .map(r => (r.moving_time / 60) / (r.distance / 1000));
+    // Get average pace for race efforts vs training runs (similar distances only)
+    const racePaces = raceEfforts
+      .filter(r => r.distance >= 3000 && r.distance <= 25000) // 3K to 25K for fair comparison
+      .map(r => (r.moving_time / 60) / (r.distance / 1000)); // min/km
     
     const trainingPaces = trainingRuns
-      .filter(r => r.distance >= 3000)
+      .filter(r => r.distance >= 3000 && r.distance <= 25000) // Same distance range
       .map(r => (r.moving_time / 60) / (r.distance / 1000));
     
     if (racePaces.length === 0 || trainingPaces.length === 0) {
-      return 1.0;
+      return 0.0; // No adjustment if insufficient data
     }
     
-    const avgRacePace = racePaces.reduce((sum, p) => sum + p, 0) / racePaces.length;
-    const avgTrainingPace = trainingPaces.reduce((sum, p) => sum + p, 0) / trainingPaces.length;
+    // Use median to avoid outliers
+    racePaces.sort((a, b) => a - b);
+    trainingPaces.sort((a, b) => a - b);
+    
+    const medianRacePace = racePaces[Math.floor(racePaces.length / 2)];
+    const medianTrainingPace = trainingPaces[Math.floor(trainingPaces.length / 2)];
     
     // Calculate how much faster races are than training runs
-    const ratio = avgRacePace / avgTrainingPace;
+    // If race pace is faster (lower time), this will be negative (good for time prediction)
+    const improvement = (medianTrainingPace - medianRacePace) / medianTrainingPace;
     
-    // Typical ratio is 0.85-0.95 (races 5-15% faster than training)
-    // Bound to reasonable limits
-    return Math.max(0.8, Math.min(1.0, ratio));
+    // Typical improvement is 5-15% (0.05-0.15)
+    // Bound to reasonable limits and return as time improvement
+    return Math.max(0.0, Math.min(0.20, improvement));
   }
   
   /**

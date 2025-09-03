@@ -245,8 +245,8 @@ class EnhancedPredictionService {
    * Enhanced prediction using log-space modeling
    */
   async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}) {
-    // Apply race to training adjustment if we have the data
-    const raceAdjustment = data.raceToTrainingRatio ? (1 - data.raceToTrainingRatio) : 0;
+    // Apply race to training adjustment (improvement percentage)
+    const raceAdjustment = data.raceToTrainingRatio || 0;
     // Debug logging to identify the issue
     console.log('🔍 Enhanced prediction debug:', {
       targetDistance,
@@ -370,8 +370,8 @@ class EnhancedPredictionService {
     combinedLogPrediction += Math.log(1 + conditionsAdjustment);
     
     // 8. Apply race vs training adjustment (how much faster you run in races)
-    if (raceAdjustment !== 0) {
-      combinedLogPrediction += Math.log(1 + raceAdjustment);
+    if (raceAdjustment > 0) {
+      combinedLogPrediction += Math.log(1 - raceAdjustment); // Subtract because faster = lower time
     }
 
     // 9. Convert back to time with safety check
@@ -425,7 +425,7 @@ class EnhancedPredictionService {
       raceConditions: raceConditions || {},
       optimalPrediction: this.calculateOptimalConditionsPrediction(finalPrediction, targetDistance, raceConditions),
       dataSource: data.runClassification ? 
-        `${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts from ${data.runClassification.totalRuns} runs` :
+        `${data.runClassification.usedForPredictions || data.recentRaces.length} runs analyzed (${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts, ${data.runClassification.trainingRuns} training)` :
         `${data.recentRaces.length} performances`,
       raceTrainingAdjustment: raceAdjustment
     };
@@ -1089,14 +1089,14 @@ class EnhancedPredictionService {
         });
       }
       
-      // Race to training ratio
-      if (data.raceToTrainingRatio && data.raceToTrainingRatio < 0.9) {
-        const improvement = Math.round((1 - data.raceToTrainingRatio) * 100);
+      // Race to training ratio  
+      if (data.raceToTrainingRatio && data.raceToTrainingRatio > 0.03) {
+        const improvement = Math.round(data.raceToTrainingRatio * 100);
         factors.push({ 
           factor: 'Race day performance boost', 
           impact: 'positive', 
           strength: 'high',
-          value: `${improvement}% faster in races`,
+          value: `${improvement}% faster in races vs training`,
           percentage: improvement
         });
       }
