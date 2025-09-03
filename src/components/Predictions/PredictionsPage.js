@@ -3,6 +3,7 @@ import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, Plus, X, Mountain
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
+import CoursePrediction from './CoursePrediction';
 
 const PredictionsPage = () => {
   const [predictions, setPredictions] = useState(null);
@@ -454,6 +455,11 @@ const PredictionsPage = () => {
               prediction={prediction}
             />
           ))}
+      </div>
+
+      {/* Course-Specific Predictions */}
+      <div className="mt-8">
+        <CoursePrediction />
       </div>
 
     </div>

@@ -1179,6 +1179,190 @@ class EnhancedPredictionService {
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
     }
   }
+
+  /**
+   * Generate course-specific prediction based on route data
+   */
+  async generateCoursePrediction(routeData) {
+    try {
+      // Get base prediction for the distance
+      const basePrediction = await this.generatePredictions(52, [], null, {});
+      
+      // Find the closest standard distance or use custom
+      const distance = routeData.distance;
+      let closestPrediction = null;
+      let closestDistance = Infinity;
+      
+      // Check standard distances first
+      for (const [label, dist] of Object.entries(this.defaultDistances)) {
+        const diff = Math.abs(dist - distance);
+        if (diff < closestDistance) {
+          closestDistance = diff;
+          closestPrediction = basePrediction.predictions[label];
+        }
+      }
+      
+      // If no close match, generate custom prediction
+      if (closestDistance > 500 || !closestPrediction) {
+        const predictionData = await firebaseService.getPredictionData(52);
+        const enduranceParams = this.calculatePersonalEnduranceParameters(predictionData);
+        closestPrediction = await this.predictDistanceEnhanced(
+          distance,
+          predictionData,
+          enduranceParams,
+          null,
+          {}
+        );
+      }
+      
+      // Calculate elevation impact
+      const elevationImpact = this.calculateElevationImpactForRoute(
+        routeData.elevation_gain,
+        distance,
+        closestPrediction.prediction
+      );
+      
+      // Get similar runs from history
+      const activities = await firebaseService.getActivities();
+      const similarRuns = await this.findSimilarCourseRuns(routeData, activities);
+      
+      // Calculate final prediction
+      const adjustedTime = closestPrediction.prediction + elevationImpact;
+      const pace = adjustedTime / (distance / 1000);
+      
+      // Generate pacing strategy
+      const pacingStrategy = this.generateCoursePacingStrategy(routeData, pace);
+      
+      // Compile factors affecting the prediction
+      const factors = [];
+      if (routeData.elevation_gain > 50) {
+        factors.push(`${routeData.elevation_gain}m elevation gain adds ~${Math.round(elevationImpact)}s`);
+      }
+      if (similarRuns.length > 0) {
+        factors.push(`Based on ${similarRuns.length} similar runs`);
+      }
+      if (routeData.surface_type !== 'road') {
+        factors.push(`${routeData.surface_type} surface may affect pace`);
+      }
+      
+      return {
+        time: adjustedTime,
+        pace: pace,
+        elevationImpact: elevationImpact,
+        confidence: closestPrediction.confidence * (similarRuns.length > 0 ? 0.95 : 0.85),
+        similarRuns: similarRuns.length,
+        pacingStrategy: pacingStrategy,
+        factors: factors,
+        baseDistance: closestDistance < 500 ? distance : null
+      };
+    } catch (error) {
+      console.error('Error generating course prediction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate elevation impact for a specific route
+   */
+  calculateElevationImpactForRoute(elevationGain, distance, baseTime) {
+    // Research suggests ~2.5-3.5 seconds per meter of elevation gain per km
+    // Adjusted based on runner's fitness level
+    const elevationPerKm = elevationGain / (distance / 1000);
+    const secondsPerMeterPerKm = 2.8; // Can be personalized based on user's hill performance
+    
+    // Calculate total impact
+    const totalImpact = elevationPerKm * secondsPerMeterPerKm * (distance / 1000);
+    
+    // Apply diminishing returns for very hilly courses
+    const adjustedImpact = totalImpact * (1 - Math.min(0.2, elevationPerKm / 200));
+    
+    return Math.max(0, adjustedImpact);
+  }
+
+  /**
+   * Find similar course runs from user's history
+   */
+  async findSimilarCourseRuns(routeData, activities) {
+    const similar = [];
+    const targetDistance = routeData.distance;
+    const targetElevation = routeData.elevation_gain;
+    
+    for (const activity of activities) {
+      if (activity.type !== 'Run' && activity.type !== 'TrailRun') continue;
+      
+      // Check similarity in distance and elevation
+      const distanceRatio = activity.distance / targetDistance;
+      const elevationRatio = activity.total_elevation_gain / (targetElevation || 1);
+      
+      if (distanceRatio > 0.9 && distanceRatio < 1.1) {
+        if (targetElevation < 20) {
+          // Flat course - just match distance
+          if (activity.total_elevation_gain < 30) {
+            similar.push(activity);
+          }
+        } else {
+          // Hilly course - match both distance and elevation
+          if (elevationRatio > 0.7 && elevationRatio < 1.3) {
+            similar.push(activity);
+          }
+        }
+      }
+    }
+    
+    return similar;
+  }
+
+  /**
+   * Generate pacing strategy specific to the course
+   */
+  generateCoursePacingStrategy(routeData, avgPace) {
+    const profile = routeData.elevation_profile || [];
+    const sections = [];
+    
+    if (profile.length > 0) {
+      // Divide course into thirds
+      const third = Math.floor(profile.length / 3);
+      
+      for (let i = 0; i < 3; i++) {
+        const start = i * third;
+        const end = i === 2 ? profile.length : (i + 1) * third;
+        const sectionProfile = profile.slice(start, end);
+        
+        // Calculate average elevation change for this section
+        let elevationChange = 0;
+        if (sectionProfile.length > 1) {
+          for (let j = 1; j < sectionProfile.length; j++) {
+            elevationChange += sectionProfile[j] - sectionProfile[j-1];
+          }
+        }
+        
+        // Adjust pace based on elevation profile
+        let paceFactor = 1.0;
+        if (elevationChange > 5) {
+          paceFactor = 1.05; // 5% slower on uphill
+        } else if (elevationChange < -5) {
+          paceFactor = 0.95; // 5% faster on downhill
+        }
+        
+        sections.push({
+          label: i === 0 ? 'Start' : i === 1 ? 'Middle' : 'Finish',
+          pace: avgPace * paceFactor,
+          description: elevationChange > 5 ? 'Uphill section' : 
+                      elevationChange < -5 ? 'Downhill section' : 
+                      'Flat section'
+        });
+      }
+    } else {
+      // No elevation data - use standard pacing
+      sections.push(
+        { label: 'Start', pace: avgPace * 1.02, description: 'Conservative start' },
+        { label: 'Middle', pace: avgPace * 0.98, description: 'Settle into rhythm' },
+        { label: 'Finish', pace: avgPace * 1.00, description: 'Strong finish' }
+      );
+    }
+    
+    return sections;
+  }
 }
 
 const enhancedPredictionService = new EnhancedPredictionService();

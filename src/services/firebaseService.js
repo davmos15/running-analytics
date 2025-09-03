@@ -1859,6 +1859,49 @@ class FirebaseService {
       throw error;
     }
   }
+
+  /**
+   * Save course predictions to Firebase
+   */
+  async saveCourses(courses) {
+    try {
+      const userId = await this.getCurrentUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      await setDoc(doc(db, 'users', userId, 'data', 'saved_courses'), {
+        courses: courses,
+        updatedAt: new Date().toISOString()
+      });
+
+      console.log('✅ Courses saved successfully');
+    } catch (error) {
+      console.error('Error saving courses:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get saved courses from Firebase
+   */
+  async getSavedCourses() {
+    try {
+      const userId = await this.getCurrentUserId();
+      if (!userId) {
+        return [];
+      }
+
+      const coursesDoc = await getDoc(doc(db, 'users', userId, 'data', 'saved_courses'));
+      if (coursesDoc.exists()) {
+        return coursesDoc.data().courses || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error getting saved courses:', error);
+      return [];
+    }
+  }
 }
 
 const firebaseService = new FirebaseService();
