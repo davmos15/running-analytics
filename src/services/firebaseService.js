@@ -1241,26 +1241,32 @@ class FirebaseService {
   /**
    * Get comprehensive data for race predictions
    */
-  async getPredictionData(weeksBack = 16) {
+  async getPredictionData(weeksBack = 24) {
     try {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
 
       // Get all activities and segments from the time period
       const activities = await this.getActivities();
+      console.log(`📊 Total activities fetched: ${activities.length}`);
+      
       const recentActivities = activities.filter(activity => {
         const activityDate = new Date(activity.start_date);
-        return activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
+        const isRecentRun = activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
+        return isRecentRun;
       });
+      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length}`);
 
       // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
+      console.log(`📊 Classification: ${races.length} races, ${hardEfforts.length} hard efforts, ${trainingRuns.length} training`);
       
-      // Use ALL activities for predictions (with minimal filtering)
+      // Use ALL activities for predictions (with very minimal filtering)
       const raceActivities = recentActivities.filter(activity => {
-        return activity.distance >= 1000 && // At least 1K (much more inclusive)
-               activity.moving_time >= 300;   // At least 5 minutes (much more inclusive)
+        return activity.distance >= 500 && // At least 0.5K (very inclusive)
+               activity.moving_time >= 180;   // At least 3 minutes (very inclusive)
       });
+      console.log(`📊 Activities used for predictions: ${raceActivities.length} (filtered from ${recentActivities.length})`);
       
       // Calculate training pace statistics for calibration
       const trainingPaceStats = this.calculateTrainingPaceStats(trainingRuns);
