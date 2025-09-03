@@ -36,7 +36,7 @@ class EnhancedPredictionService {
     const today = new Date();
     const race = new Date(raceDate);
     const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
-    const weeksBack = Math.min(52, Math.max(12, Math.ceil(daysUntilRace / 7) + 8));
+    const weeksBack = 52; // Always use full year of data for most accurate predictions
     
     const predictions = await this.generatePredictions(weeksBack, customDistances, daysUntilRace, raceConditions);
     return predictions;
