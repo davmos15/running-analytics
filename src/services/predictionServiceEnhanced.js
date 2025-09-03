@@ -71,7 +71,8 @@ class EnhancedPredictionService {
           predictionData,
           enduranceParams,
           daysUntilRace,
-          raceConditions
+          raceConditions,
+          weeksBack
         );
       }
 
@@ -244,7 +245,7 @@ class EnhancedPredictionService {
   /**
    * Enhanced prediction using log-space modeling
    */
-  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}) {
+  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}, weeksBack = 52) {
     // Apply race to training adjustment (improvement percentage)
     const raceAdjustment = data.raceToTrainingRatio || 0;
     // Debug logging to identify the issue
@@ -356,7 +357,7 @@ class EnhancedPredictionService {
     }
 
     // 5. Apply feature-based adjustments in log space
-    const featureAdjustment = this.calculateLogSpaceFeatureAdjustment(targetDistance, data);
+    const featureAdjustment = this.calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack);
     combinedLogPrediction += featureAdjustment;
 
     // 6. Apply training/taper adjustment if race date provided
@@ -498,8 +499,8 @@ class EnhancedPredictionService {
   /**
    * Calculate feature adjustments in log space
    */
-  calculateLogSpaceFeatureAdjustment(targetDistance, data) {
-    const features = this.extractEnhancedFeatures(targetDistance, data);
+  calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack = 52) {
+    const features = this.extractEnhancedFeatures(targetDistance, data, weeksBack);
     
     if (!features.isValid) return 0;
 
@@ -530,14 +531,14 @@ class EnhancedPredictionService {
   /**
    * Enhanced feature extraction
    */
-  extractEnhancedFeatures(targetDistance, data) {
+  extractEnhancedFeatures(targetDistance, data, weeksBack = 52) {
     const now = new Date();
     const features = {};
 
-    // Recent activities (12 weeks)
+    // Recent activities (using weeksBack parameter)
     const recentActivities = data.activities.filter(activity => {
       const daysSince = (now - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
-      return daysSince <= 84;
+      return daysSince <= (weeksBack * 7);
     });
 
     if (recentActivities.length < 5) {
@@ -880,7 +881,7 @@ class EnhancedPredictionService {
    */
   async calculateEnhanced30DayChange(targetDistance, currentPrediction, enduranceParams) {
     try {
-      const data = await firebaseService.getPredictionData(12);
+      const data = await firebaseService.getPredictionData(52);
       
       if (!data || data.recentRaces.length < 2) {
         return null;

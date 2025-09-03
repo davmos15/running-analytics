@@ -695,7 +695,7 @@ class TrainingPlanService {
     });
     
     const activeWeeks = Object.keys(weeks).length;
-    const totalWeeks = 12; // Last 12 weeks
+    const totalWeeks = 52; // Last 52 weeks for consistency
     
     return activeWeeks / totalWeeks;
   }

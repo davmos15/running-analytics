@@ -93,9 +93,9 @@ class PredictionService {
   /**
    * Predict time for a specific distance using ML-based approach
    */
-  async predictDistance(targetDistance, data, daysUntilRace = null) {
+  async predictDistance(targetDistance, data, daysUntilRace = null, weeksBack = 52) {
     // Use ML feature-based prediction as primary method
-    const mlPrediction = this.featureBasedPrediction(targetDistance, data);
+    const mlPrediction = this.featureBasedPrediction(targetDistance, data, weeksBack);
     
     // Use simple Riegel as a baseline for comparison (not in final prediction)
     const baselinePrediction = this.simpleRiegelBaseline(targetDistance, data);
@@ -245,14 +245,14 @@ class PredictionService {
   /**
    * Extract features for ML-based prediction
    */
-  extractFeatures(targetDistance, data) {
+  extractFeatures(targetDistance, data, weeksBack = 52) {
     const now = new Date();
     const features = {};
 
-    // Recent pace trends (4, 8, 12 week averages)
+    // Recent pace trends (using weeksBack parameter)
     const recentActivities = data.activities.filter(activity => {
       const daysSince = (now - new Date(activity.start_date || activity.date)) / (1000 * 60 * 60 * 24);
-      return daysSince <= 84; // 12 weeks
+      return daysSince <= (weeksBack * 7); // Use weeksBack parameter
     });
 
     if (recentActivities.length < 5) {

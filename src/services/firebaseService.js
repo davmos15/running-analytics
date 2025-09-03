@@ -1255,7 +1255,7 @@ class FirebaseService {
         const isRecentRun = activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
         return isRecentRun;
       });
-      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length} - CODE VERSION: 2024-01`);
+      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length} - CODE VERSION: 2024-02`);
 
       // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
