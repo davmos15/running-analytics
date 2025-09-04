@@ -45,27 +45,6 @@ class StravaRouteService {
    */
   async fetchViaWebProxy(routeId) {
     try {
-      // For routes we have specific data for, use it
-      // Otherwise generate realistic data based on route ID
-      
-      // Known route database - only for specific routes with actual data
-      const routeDatabase = {
-        '3357221206441249674': {
-          name: 'Princes Park 10K Loop',
-          distance: 10550, // meters
-          elevation_gain: 45, // meters
-          elevation_loss: 45,
-          max_elevation: 89,
-          min_elevation: 44,
-          elevation_profile: this.generateRealisticElevationProfile(10550, 45, 'park'),
-          surface_type: 'park path',
-          estimated_moving_time: 2400, // seconds
-          description: 'Classic 10K loop around Princes Park, Carlton',
-          location: 'Melbourne, Australia',
-          terrain: 'flat with gentle undulations'
-        }
-      };
-
       // Always generate unique route data based on route ID
       // This ensures each route URL produces different results
       const routeData = this.generateRouteFromId(routeId);
