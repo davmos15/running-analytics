@@ -4,7 +4,6 @@ import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
 import CoursePrediction from './CoursePrediction';
-import CoursePredictionTest from './CoursePredictionTest';
 
 const PredictionsPage = () => {
   const [predictions, setPredictions] = useState(null);
@@ -130,7 +129,6 @@ const PredictionsPage = () => {
   if (isLoading) {
     return (
       <div className="mt-6 space-y-6 mx-4">
-        <CoursePredictionTest />
         <div className="athletic-card-gradient p-6">
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner />
@@ -138,7 +136,6 @@ const PredictionsPage = () => {
         </div>
         
         {/* Course-Specific Predictions - Always show */}
-        <CoursePredictionTest />
         <div className="mt-8">
           <CoursePrediction />
         </div>
@@ -173,7 +170,6 @@ const PredictionsPage = () => {
         </div>
         
         {/* Course-Specific Predictions - Always show */}
-        <CoursePredictionTest />
         <div className="mt-8">
           <CoursePrediction />
         </div>

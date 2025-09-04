@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Clock, Info } from 'lucide-react';
+import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Info } from 'lucide-react';
 import stravaRouteService from '../../services/stravaRouteService';
 import predictionServiceEnhanced from '../../services/predictionServiceEnhanced';
 import firebaseService from '../../services/firebaseService';
