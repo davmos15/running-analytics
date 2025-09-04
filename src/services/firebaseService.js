@@ -40,11 +40,8 @@ class FirebaseService {
     const now = Date.now();
     
     if (cached && (now - cached.timestamp) < this.cacheTimeout) {
-      console.log(`📋 Cache HIT for ${cacheKey} - saved Firebase read`);
       return cached.data;
     }
-    
-    console.log(`🔍 Cache MISS for ${cacheKey} - executing Firebase query`);
     const data = await queryFunction();
     this.queryCache.set(cacheKey, { data, timestamp: now });
     
@@ -56,7 +53,6 @@ class FirebaseService {
    */
   clearCache() {
     this.queryCache.clear();
-    console.log('🗑️ Firebase query cache cleared');
   }
 
   // Activities
@@ -68,12 +64,6 @@ class FirebaseService {
       if (streams) {
         const activityMetrics = this.calculateActivityMetrics(streams);
         Object.assign(enhancedData, activityMetrics);
-        console.log(`Enhanced activity ${activityId} with streams:`, {
-          hasHeartRate: !!streams.heartrate,
-          hasCadence: !!streams.cadence,
-          hasAltitude: !!streams.altitude,
-          calculatedMetrics: Object.keys(activityMetrics)
-        });
       }
       
       await setDoc(doc(db, 'activities', activityId.toString()), {
@@ -247,7 +237,6 @@ class FirebaseService {
       
       // If no PB exists yet, this segment is the first one for this distance
       if (pbSnapshot.empty) {
-        console.log(`First segment for ${segmentData.distance} - automatically a PB`);
         return;
       }
       
@@ -255,7 +244,6 @@ class FirebaseService {
       
       // Check if this segment is faster than the current PB
       if (segmentData.time < currentPB.time) {
-        console.log(`New PB for ${segmentData.distance}! Time: ${segmentData.time}s (previous: ${currentPB.time}s)`);
         // The segment is already saved, and will be picked up as the new PB in queries
       }
     } catch (error) {
@@ -1011,7 +999,6 @@ class FirebaseService {
   // Reprocess all activities to ensure all distance segments exist
   async reprocessAllActivitiesForSegments() {
     try {
-      console.log('Reprocessing all activities for segments...');
       const activities = await this.getActivities();
       const runningActivities = activities.filter(activity => 
         ['Run', 'TrailRun'].includes(activity.type)
@@ -1021,10 +1008,8 @@ class FirebaseService {
       for (const activity of runningActivities) {
         await this.processActivityForSegments(activity);
         processed++;
-        console.log(`Processed ${processed}/${runningActivities.length} activities`);
       }
 
-      console.log('Finished reprocessing activities');
       return processed;
     } catch (error) {
       console.error('Error reprocessing activities:', error);
@@ -1035,7 +1020,6 @@ class FirebaseService {
   // Generate segments for a specific distance across all activities
   async generateSegmentsForDistance(distanceMeters) {
     try {
-      console.log(`Generating segments for ${distanceMeters}m distance...`);
       const activities = await this.getActivities();
       const runningActivities = activities.filter(activity => 
         ['Run', 'TrailRun'].includes(activity.type) && activity.distance >= distanceMeters
@@ -1067,7 +1051,6 @@ class FirebaseService {
         await this.saveSegment(segment);
       }
 
-      console.log(`Generated segments for ${runningActivities.length} activities`);
       return runningActivities.length;
     } catch (error) {
       console.error('Error generating segments for distance:', error);
@@ -1078,7 +1061,6 @@ class FirebaseService {
   // Ensure all distances have PBs calculated from existing segments
   async ensureAllDistancesHavePBs() {
     try {
-      console.log('Checking and updating PBs for all distances...');
       
       // Get all unique distances from segments
       const segmentsSnapshot = await getDocs(collection(db, 'segments'));
@@ -1092,7 +1074,6 @@ class FirebaseService {
         distanceMap.get(segment.distance).push(segment);
       });
       
-      console.log(`Found ${distanceMap.size} unique distances with segments`);
       
       // For each distance, ensure PB is identified
       for (const [distance, segments] of distanceMap) {
@@ -1100,7 +1081,6 @@ class FirebaseService {
         const sortedSegments = segments.sort((a, b) => a.time - b.time);
         const fastestSegment = sortedSegments[0];
         
-        console.log(`Distance ${distance}: PB is ${fastestSegment.time}s from ${new Date(fastestSegment.date).toLocaleDateString()}`);
       }
       
       return { distancesChecked: distanceMap.size };
@@ -1132,7 +1112,6 @@ class FirebaseService {
    */
   async reprocessActivitiesForPBs(activityLimit = 100) {
     try {
-      console.log('Starting reprocessing of activities for correct PB detection...');
       
       // Get recent activities
       const activities = await this.getActivities();
@@ -1140,7 +1119,6 @@ class FirebaseService {
         .filter(activity => activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type))
         .slice(0, activityLimit);
       
-      console.log(`Found ${runActivities.length} run activities to reprocess`);
       
       let processedCount = 0;
       let segmentsUpdated = 0;
@@ -1151,7 +1129,6 @@ class FirebaseService {
           const streams = await this.getActivityStreams(activity.id);
           
           if (streams && streams.distance && streams.time) {
-            console.log(`Reprocessing activity: ${activity.name} (${activity.id})`);
             
             // Find best segments using the corrected algorithm
             const segments = await this.findBestSegmentsFromStreams(activity, streams);
@@ -1164,14 +1141,12 @@ class FirebaseService {
             
             processedCount++;
           } else {
-            console.log(`No GPS streams for activity: ${activity.name}, using basic extraction`);
           }
         } catch (error) {
           console.error(`Error reprocessing activity ${activity.id}:`, error);
         }
       }
       
-      console.log(`✅ Reprocessing complete! Processed ${processedCount} activities, updated ${segmentsUpdated} segments`);
       return { processedCount, segmentsUpdated };
     } catch (error) {
       console.error('Error reprocessing activities:', error);
@@ -1248,25 +1223,21 @@ class FirebaseService {
 
       // Get all activities and segments from the time period
       const activities = await this.getActivities();
-      console.log(`📊 Total activities fetched: ${activities.length}`);
       
       const recentActivities = activities.filter(activity => {
         const activityDate = new Date(activity.start_date);
         const isRecentRun = activityDate >= cutoffDate && activity.type && ['Run', 'TrailRun'].includes(activity.type);
         return isRecentRun;
       });
-      console.log(`📊 Recent running activities (last ${weeksBack} weeks): ${recentActivities.length} - CODE VERSION: 2024-03`);
 
       // Classify runs into races, hard efforts, and training runs for ratio calculation
       const { races, hardEfforts, trainingRuns } = this.classifyRuns(recentActivities);
-      console.log(`📊 Classification: ${races.length} races, ${hardEfforts.length} hard efforts, ${trainingRuns.length} training`);
       
       // Use ALL activities for predictions (with very minimal filtering)
       const raceActivities = recentActivities.filter(activity => {
         return activity.distance >= 500 && // At least 0.5K (very inclusive)
                activity.moving_time >= 180;   // At least 3 minutes (very inclusive)
       });
-      console.log(`📊 Activities used for predictions: ${raceActivities.length} (filtered from ${recentActivities.length})`);
       
       // Calculate training pace statistics for calibration
       const trainingPaceStats = this.calculateTrainingPaceStats(trainingRuns);
@@ -1346,7 +1317,6 @@ class FirebaseService {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
 
-      console.log('🔥 OPTIMIZED: Fetching all segments with single query instead of 13+ separate queries');
       
       // Single query to get ALL segments within date range
       const querySnapshot = await getDocs(
@@ -1357,7 +1327,6 @@ class FirebaseService {
         )
       );
       
-      console.log(`📊 Retrieved ${querySnapshot.docs.length} segments with 1 read operation`);
       
       const personalBests = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -1711,7 +1680,6 @@ class FirebaseService {
         ...plan,
         updatedAt: new Date().toISOString()
       });
-      console.log('✅ Training plan saved to Firebase');
     } catch (error) {
       console.error('Error saving training plan:', error);
       throw error;
@@ -1747,7 +1715,6 @@ class FirebaseService {
       if (plan && plan.id) {
         const planRef = doc(db, 'users', userId, 'trainingPlans', plan.id);
         await deleteDoc(planRef);
-        console.log('✅ Training plan deleted from Firebase');
       }
     } catch (error) {
       console.error('Error deleting training plan:', error);
@@ -1797,7 +1764,6 @@ class FirebaseService {
       };
 
       await setDoc(doc(db, 'activities', 'homepage_summary'), summaryData);
-      console.log('✅ Homepage summary generated and stored');
       return summaryData;
     } catch (error) {
       console.error('Error generating homepage summary:', error);
@@ -1816,7 +1782,6 @@ class FirebaseService {
       }
       
       // If no summary exists, generate it
-      console.log('No homepage summary found, generating...');
       return await this.generateHomepageSummary();
     } catch (error) {
       console.error('Error getting homepage summary:', error);
@@ -1836,7 +1801,6 @@ class FirebaseService {
       };
       
       await setDoc(doc(db, 'segments', 'predictions_summary'), predictionDoc);
-      console.log('✅ Predictions stored');
       return predictionDoc;
     } catch (error) {
       console.error('Error storing predictions:', error);

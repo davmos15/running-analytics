@@ -16,7 +16,6 @@ class SyncService {
 
     try {
       this.isSyncing = true;
-      console.log('Starting full activity sync...');
 
       let page = 1;
       let allActivities = [];
@@ -44,14 +43,12 @@ class SyncService {
         }
       }
 
-      console.log(`Found ${allActivities.length} total activities`);
 
       // Filter for running activities
       const runningActivities = allActivities.filter(activity => 
         activity.type && ['Run', 'TrailRun'].includes(activity.type)
       );
 
-      console.log(`Processing ${runningActivities.length} running activities`);
       
       // Estimate Firebase quota usage
       const quotaEstimate = firebaseMonitor.estimateQuotaUsage(runningActivities.length);
@@ -66,7 +63,6 @@ class SyncService {
       }
 
       // OPTIMIZATION: Batch check which activities already exist to reduce Firebase reads
-      console.log('🚀 OPTIMIZATION: Batch checking activity existence...');
       const existingActivities = new Set();
       
       // Get existing activity IDs in batches of 10
@@ -87,7 +83,6 @@ class SyncService {
         }
       }
       
-      console.log(`📊 Found ${existingActivities.size} existing activities out of ${runningActivities.length}`);
 
       // Process each activity
       let processedCount = 0;
@@ -116,7 +111,6 @@ class SyncService {
           // Save activity and process segments with streams if available
           await firebaseService.saveActivity(activity.id, activity, streams);
           await firebaseService.processActivityForSegments(activity, streams);
-          console.log(`Processed new activity: ${activity.name}`);
         }
 
         processedCount++;
@@ -134,7 +128,6 @@ class SyncService {
         });
       }
 
-      console.log('Sync completed successfully');
       return { success: true, processedCount };
 
     } catch (error) {
@@ -153,7 +146,6 @@ class SyncService {
 
   async syncRecentActivities() {
     try {
-      console.log('Syncing recent activities...');
       
       // Get recent activities from Strava
       const activities = await stravaApi.getActivities(1, 20);
@@ -163,7 +155,6 @@ class SyncService {
 
       let newActivitiesCount = 0;
       
-      console.log('🚀 OPTIMIZATION: Batch checking recent activity existence...');
       const existingRecentActivities = new Set();
       for (const activity of runningActivities) {
         const exists = await firebaseService.activityExists(activity.id);
@@ -192,7 +183,6 @@ class SyncService {
         }
       }
 
-      console.log(`Synced ${newActivitiesCount} new activities`);
       return { success: true, newActivitiesCount };
 
     } catch (error) {
@@ -209,7 +199,6 @@ class SyncService {
 
     try {
       this.isSyncing = true;
-      console.log('Starting historical stream data backfill...');
 
       if (progressCallback) {
         progressCallback({
@@ -234,16 +223,6 @@ class SyncService {
         return !hasHeartRateData;
       });
 
-      console.log(`Found ${activitiesNeedingStreams.length} activities without heart rate data`);
-      console.log('Sample activities needing streams:', activitiesNeedingStreams.slice(0, 3).map(a => ({
-        id: a.id,
-        name: a.name,
-        date: a.start_date,
-        hasAvgHR: !!a.average_heartrate,
-        hasAvgHeartRate: !!a.averageHeartRate,
-        hasMaxHR: !!a.max_heartrate,
-        hasMaxHeartRate: !!a.maxHeartRate
-      })));
       
       // Removed specific Morning Run debugging since issue is resolved
 
@@ -300,7 +279,6 @@ class SyncService {
               await firebaseService.processActivityForSegments(activity, streams);
               
               updatedCount++;
-              console.log(`Enhanced activity ${activity.id} with stream data`);
             }
           } catch (streamError) {
             console.log(`Could not fetch streams for activity ${activity.id}:`, streamError.message);
@@ -324,7 +302,6 @@ class SyncService {
         });
       }
 
-      console.log(`Historical stream backfill completed: ${updatedCount} activities enhanced`);
       return { success: true, updatedCount };
 
     } catch (error) {
@@ -357,7 +334,6 @@ class SyncService {
 
     try {
       this.isSyncing = true;
-      console.log('Starting segment heart rate data fix...');
 
       if (progressCallback) {
         progressCallback({
@@ -373,7 +349,6 @@ class SyncService {
         (activity.average_heartrate || activity.averageHeartRate)
       );
 
-      console.log(`Found ${activitiesWithHR.length} activities with heart rate data`);
 
       // For each activity with HR data, check if its segments need updating
       let updatedSegments = 0;
@@ -403,7 +378,6 @@ class SyncService {
         });
       }
 
-      console.log(`Fixed segments for ${updatedSegments} activities`);
       return { success: true, updatedSegments };
 
     } catch (error) {

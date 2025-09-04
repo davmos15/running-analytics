@@ -248,13 +248,6 @@ class EnhancedPredictionService {
   async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}, weeksBack = 52) {
     // Apply race to training adjustment (improvement percentage)
     const raceAdjustment = data.raceToTrainingRatio || 0;
-    // Debug logging to identify the issue
-    console.log('🔍 Enhanced prediction debug:', {
-      targetDistance,
-      enduranceParams,
-      hasData: !!data,
-      racesCount: data?.recentRaces?.length
-    });
     
     // 1. Base prediction from personalized power law with safety checks
     const logTargetDistance = Math.log(targetDistance);
@@ -279,13 +272,6 @@ class EnhancedPredictionService {
     
     const logBasePrediction = enduranceParams.alpha + enduranceParams.exponent * logTargetDistance;
     
-    console.log('📊 Prediction calculation:', {
-      alpha: enduranceParams.alpha,
-      exponent: enduranceParams.exponent,
-      logTargetDistance,
-      logBasePrediction,
-      willPredict: Math.exp(logBasePrediction)
-    });
     
     if (!isFinite(logBasePrediction) || logBasePrediction > 15) { // exp(15) is unreasonably large
       console.warn('⚠️ Invalid log prediction:', logBasePrediction);

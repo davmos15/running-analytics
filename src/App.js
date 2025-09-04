@@ -18,16 +18,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('homepage');
   const { isAuthenticated, isLoading, error, login } = useStrava();
 
-  // Debug function to track state changes
-  const debugSetActiveTab = (newTab) => {
-    console.log('App.js: setActiveTab called with:', newTab);
-    console.log('App.js: Current activeTab:', activeTab);
-    try {
-      setActiveTab(newTab);
-      console.log('App.js: setActiveTab completed successfully');
-    } catch (err) {
-      console.error('App.js: Error setting active tab:', err);
-    }
+  const handleSetActiveTab = (newTab) => {
+    setActiveTab(newTab);
   };
   if (isLoading) {
     return <LoadingSpinner />;
@@ -60,7 +52,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout activeTab={activeTab} setActiveTab={debugSetActiveTab}>
+      <Layout activeTab={activeTab} setActiveTab={handleSetActiveTab}>
         {activeTab === 'homepage' && <HomepageLite />}
         {activeTab === 'personal-bests' && (
           <ErrorBoundary>

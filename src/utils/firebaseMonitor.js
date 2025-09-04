@@ -14,7 +14,6 @@ class FirebaseMonitor {
    */
   trackOperation(operation) {
     this.operationCount++;
-    console.log(`Firebase operation ${this.operationCount}: ${operation}`);
     
     // Warn if approaching common free tier limits
     if (this.operationCount % 1000 === 0) {
@@ -90,11 +89,6 @@ class FirebaseMonitor {
     const estimatedWrites = activityCount * writesPerActivity;
     const totalOperations = estimatedReads + estimatedWrites;
     
-    console.log('📊 Estimated Firebase Usage:');
-    console.log(`Activities to process: ${activityCount}`);
-    console.log(`Estimated reads: ${estimatedReads}`);
-    console.log(`Estimated writes: ${estimatedWrites}`);
-    console.log(`Total operations: ${totalOperations}`);
     
     // Firebase Spark (free) plan limits:
     // - 50,000 reads/day

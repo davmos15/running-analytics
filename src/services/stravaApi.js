@@ -46,12 +46,6 @@ class StravaAPI {
 
   async exchangeToken(code) {
     try {
-      console.log('Exchanging token with:', {
-        client_id: process.env.REACT_APP_STRAVA_CLIENT_ID,
-        redirect_uri: process.env.REACT_APP_STRAVA_REDIRECT_URI,
-        code: code,
-        has_secret: !!process.env.REACT_APP_STRAVA_CLIENT_SECRET
-      });
 
       const response = await axios.post('https://www.strava.com/oauth/token', {
         client_id: process.env.REACT_APP_STRAVA_CLIENT_ID,
@@ -109,7 +103,6 @@ class StravaAPI {
       console.error('Token refresh failed:', error);
       // If refresh fails with 401, the refresh token is invalid (user revoked access)
       if (error.response?.status === 401) {
-        console.log('Refresh token is invalid, user may have revoked access');
       }
       this.logout();
       // Reload the page to show the login screen

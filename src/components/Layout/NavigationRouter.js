@@ -10,10 +10,6 @@ const NavigationRouter = () => {
     return location.pathname === path;
   };
 
-  // Debug for production (temporary)
-  const handleNavDebug = (path) => {
-    console.log(`Navigating to: ${path}, Current: ${location.pathname}`);
-  };
 
   // Navigation items configuration
   const navItems = [
@@ -49,7 +45,6 @@ const NavigationRouter = () => {
             <NavLink
               key={item.path}
               to={item.path}
-              onClick={() => handleNavDebug(item.path)}
               className={`flex-1 flex items-center justify-center px-6 py-3 rounded-md font-medium transition-all ${
                 active
                   ? 'athletic-button-primary text-white shadow-lg'
@@ -74,8 +69,7 @@ const NavigationRouter = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                onClick={() => handleNavDebug(item.path)}
-                className={`flex flex-col items-center py-2 px-1 ${
+                  className={`flex flex-col items-center py-2 px-1 ${
                   active ? 'text-orange-400' : 'text-slate-400'
                 }`}
               >

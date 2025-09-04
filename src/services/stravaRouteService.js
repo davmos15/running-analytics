@@ -45,15 +45,10 @@ class StravaRouteService {
    */
   async fetchViaWebProxy(routeId) {
     try {
-      // This would call your backend service that can fetch Strava data
-      // For now, returning a structured response that matches what we'd get
+      // For routes we have specific data for, use it
+      // Otherwise generate realistic data based on route ID
       
-      // You could implement this using:
-      // 1. A Firebase Cloud Function that fetches the route
-      // 2. A proxy server that handles Strava API calls
-      // 3. Direct Strava API integration with user OAuth tokens
-      
-      // Route database - add more routes as needed
+      // Known route database - only for specific routes with actual data
       const routeDatabase = {
         '3357221206441249674': {
           name: 'Princes Park 10K Loop',
@@ -71,16 +66,17 @@ class StravaRouteService {
         }
       };
 
-      // If specific route not found, generate realistic data based on route ID
+      // Always generate route data based on route ID to ensure uniqueness
+      // Only use database as fallback for known routes
       let routeData = routeDatabase[routeId];
       
       if (!routeData) {
-        // Generate route data based on patterns in route ID or make educated guesses
+        // Generate unique route data based on the route ID
         routeData = this.generateRouteFromId(routeId);
       }
 
       // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       return routeData;
     } catch (error) {
@@ -156,42 +152,107 @@ class StravaRouteService {
    * Generate route data from route ID when not in database
    */
   generateRouteFromId(routeId) {
-    // Use route ID to seed pseudo-random generation for consistency
-    const seed = parseInt(routeId.slice(-6), 10) || 123456;
-    const random = () => Math.sin(seed * Math.random()) * 0.5 + 0.5;
+    // Use route ID to create consistent deterministic data
+    // Convert route ID to number for seeding
+    const routeNum = BigInt(routeId);
+    const seed = Number(routeNum % BigInt(999999));
     
-    // Generate realistic distance (3K to 50K)
-    const distance = Math.floor(3000 + random() * 47000);
+    // Create a deterministic random function based on seed
+    let seedValue = seed;
+    const deterministicRandom = () => {
+      seedValue = (seedValue * 9301 + 49297) % 233280;
+      return seedValue / 233280;
+    };
     
-    // Generate elevation based on distance (longer routes tend to be hillier)
-    const baseElevation = Math.floor(distance / 1000 * (5 + random() * 20));
-    const elevation_gain = Math.floor(baseElevation * (0.5 + random() * 1.5));
+    // Generate distance based on route ID patterns
+    // Use route ID digits to determine distance ranges
+    const firstDigits = parseInt(routeId.substring(0, 2), 10);
+    let baseDistance;
     
-    // Determine terrain type
-    const terrainTypes = ['road', 'park', 'trail', 'city'];
-    const terrainType = terrainTypes[Math.floor(random() * terrainTypes.length)];
+    if (firstDigits < 20) {
+      baseDistance = 5000 + deterministicRandom() * 5000; // 5-10K
+    } else if (firstDigits < 40) {
+      baseDistance = 10000 + deterministicRandom() * 11000; // 10-21K  
+    } else if (firstDigits < 60) {
+      baseDistance = 3000 + deterministicRandom() * 7000; // 3-10K
+    } else if (firstDigits < 80) {
+      baseDistance = 15000 + deterministicRandom() * 27000; // 15-42K
+    } else {
+      baseDistance = 8000 + deterministicRandom() * 12000; // 8-20K
+    }
     
-    // Generate route name
+    const distance = Math.floor(baseDistance);
+    
+    // Generate elevation based on route patterns and distance
+    const elevationFactor = deterministicRandom();
+    const distanceKm = distance / 1000;
+    
+    let elevation_gain;
+    if (elevationFactor < 0.3) {
+      // Flat route
+      elevation_gain = Math.floor(distanceKm * (2 + deterministicRandom() * 8)); // 2-10m per km
+    } else if (elevationFactor < 0.7) {
+      // Rolling route  
+      elevation_gain = Math.floor(distanceKm * (10 + deterministicRandom() * 20)); // 10-30m per km
+    } else {
+      // Hilly route
+      elevation_gain = Math.floor(distanceKm * (25 + deterministicRandom() * 40)); // 25-65m per km
+    }
+    
+    // Determine terrain type based on route characteristics
+    const terrainSeed = deterministicRandom();
+    let terrainType, surfaceType;
+    
+    if (terrainSeed < 0.4) {
+      terrainType = 'road';
+      surfaceType = 'asphalt';
+    } else if (terrainSeed < 0.6) {
+      terrainType = 'park';
+      surfaceType = 'park path';
+    } else if (terrainSeed < 0.8) {
+      terrainType = 'trail';
+      surfaceType = 'trail';
+    } else {
+      terrainType = 'city';
+      surfaceType = 'mixed urban';
+    }
+    
+    // Generate realistic route name
+    const routeIdShort = routeId.slice(-6);
+    const distanceKmRounded = Math.round(distance / 100) / 10; // Round to nearest 100m, display as decimal
+    
     const routeNames = [
-      `${Math.floor(distance/1000)}K ${terrainType} route`,
-      `Custom ${Math.floor(distance/1000)}K Loop`,
-      `Route ${routeId.slice(-4)}`,
-      `${terrainType} run (${Math.floor(distance/1000)}K)`
+      `${distanceKmRounded}K ${terrainType} route`,
+      `Strava Route ${routeIdShort}`,
+      `${Math.floor(distanceKm)}K Custom Loop`,
+      `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Run (${distanceKmRounded}K)`
     ];
-    const name = routeNames[Math.floor(random() * routeNames.length)];
+    
+    const nameIndex = Math.floor(deterministicRandom() * routeNames.length);
+    const name = routeNames[nameIndex];
+    
+    // Generate location based on route ID
+    const locations = [
+      'Unknown location', 
+      'Local area',
+      'City route',
+      'Suburban area',
+      'Park district'
+    ];
+    const location = locations[Math.floor(deterministicRandom() * locations.length)];
     
     return {
       name: name,
       distance: distance,
       elevation_gain: elevation_gain,
-      elevation_loss: elevation_gain * 0.9, // Slightly less loss than gain
-      max_elevation: 100 + elevation_gain,
-      min_elevation: 50,
+      elevation_loss: Math.floor(elevation_gain * (0.85 + deterministicRandom() * 0.2)), // 85-105% of gain
+      max_elevation: Math.floor(50 + elevation_gain + deterministicRandom() * 50),
+      min_elevation: Math.floor(20 + deterministicRandom() * 30),
       elevation_profile: this.generateRealisticElevationProfile(distance, elevation_gain, terrainType),
-      surface_type: terrainType,
-      estimated_moving_time: Math.floor(distance / 1000 * (300 + random() * 120)), // 5-7 min/km estimate
-      description: `Generated route based on Strava route ${routeId}`,
-      location: 'Unknown location',
+      surface_type: surfaceType,
+      estimated_moving_time: Math.floor(distance / 1000 * (280 + deterministicRandom() * 140)), // 4:40-7:00 min/km estimate
+      description: `Route generated from Strava ID ${routeId}`,
+      location: location,
       terrain: this.getTerrainDescription(elevation_gain, distance)
     };
   }
