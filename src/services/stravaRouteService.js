@@ -66,14 +66,15 @@ class StravaRouteService {
         }
       };
 
-      // Always generate route data based on route ID to ensure uniqueness
-      // Only use database as fallback for known routes
-      let routeData = routeDatabase[routeId];
+      // Always generate unique route data based on route ID
+      // This ensures each route URL produces different results
+      const routeData = this.generateRouteFromId(routeId);
       
-      if (!routeData) {
-        // Generate unique route data based on the route ID
-        routeData = this.generateRouteFromId(routeId);
-      }
+      // Optional: Use hardcoded database only for testing specific known routes
+      // Uncomment below to use database for known routes:
+      // if (routeDatabase[routeId]) {
+      //   routeData = routeDatabase[routeId];
+      // }
 
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 500));
