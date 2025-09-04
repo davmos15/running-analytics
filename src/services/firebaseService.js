@@ -1074,15 +1074,6 @@ class FirebaseService {
         distanceMap.get(segment.distance).push(segment);
       });
       
-      
-      // For each distance, ensure PB is identified
-      for (const [distance, segments] of distanceMap) {
-        // Sort segments by time to find the fastest
-        const sortedSegments = segments.sort((a, b) => a.time - b.time);
-        const fastestSegment = sortedSegments[0];
-        
-      }
-      
       return { distancesChecked: distanceMap.size };
     } catch (error) {
       console.error('Error ensuring all distances have PBs:', error);
