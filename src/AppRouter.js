@@ -7,11 +7,11 @@ import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
 // Lazy load all route components for code splitting - using simple working pattern
-const Homepage = lazy(() => import('./components/Homepage/HomepageSimple')); // Simple working homepage
+const Homepage = lazy(() => import('./components/Homepage/Homepage')); // Main homepage
 const PersonalBests = lazy(() => import('./components/PersonalBests/PersonalBests'));
 const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
-const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPageSimple')); // Simple working predictions
+const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPage')); // Main predictions page with Course Predictions
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
 const Settings = lazy(() => import('./components/Settings/SettingsWorking')); // Working settings with functionality
 
