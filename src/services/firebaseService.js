@@ -1861,21 +1861,32 @@ class FirebaseService {
   }
 
   /**
+   * Get user ID for data storage (simplified approach)
+   */
+  getUserId() {
+    // For now, use a simple approach - could be enhanced with actual user auth later
+    let userId = localStorage.getItem('strava_user_id');
+    if (!userId) {
+      // Generate a consistent user ID based on browser/session
+      userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('strava_user_id', userId);
+    }
+    return userId;
+  }
+
+  /**
    * Save course predictions to Firebase
    */
   async saveCourses(courses) {
     try {
-      const userId = await this.getCurrentUserId();
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
+      const userId = this.getUserId();
 
       await setDoc(doc(db, 'users', userId, 'data', 'saved_courses'), {
         courses: courses,
         updatedAt: new Date().toISOString()
       });
 
-      console.log('✅ Courses saved successfully');
+      // Courses saved successfully
     } catch (error) {
       console.error('Error saving courses:', error);
       throw error;
@@ -1887,10 +1898,7 @@ class FirebaseService {
    */
   async getSavedCourses() {
     try {
-      const userId = await this.getCurrentUserId();
-      if (!userId) {
-        return [];
-      }
+      const userId = this.getUserId();
 
       const coursesDoc = await getDoc(doc(db, 'users', userId, 'data', 'saved_courses'));
       if (coursesDoc.exists()) {

@@ -11,7 +11,6 @@ const CoursePrediction = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log('🏃 CoursePrediction component mounted');
     loadSavedCourses();
   }, []);
 

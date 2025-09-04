@@ -24,16 +24,13 @@ class StravaRouteService {
       // For now, we'll use a web fetch approach to get public route data
       // In production, this would ideally use Strava API with proper authentication
       
-      const routeUrl = `https://www.strava.com/routes/${routeId}`;
-      
       // Since we can't directly fetch from Strava due to CORS, we'll need to either:
       // 1. Use a backend proxy
       // 2. Use the Strava API with OAuth
       // 3. Have users manually input some data
       
-      // For now, return mock data structure that would come from Strava
+      // For now, return structured data that would come from Strava
       // This will be replaced with actual API integration
-      console.log('Fetching route:', routeUrl);
       
       // Simulate API call with realistic data structure
       return await this.fetchViaWebProxy(routeId);
