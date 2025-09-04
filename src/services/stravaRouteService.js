@@ -153,9 +153,11 @@ class StravaRouteService {
    */
   generateRouteFromId(routeId) {
     // Use route ID to create consistent deterministic data
-    // Convert route ID to number for seeding
-    const routeNum = BigInt(routeId);
-    const seed = Number(routeNum % BigInt(999999));
+    // Convert route ID to number for seeding (handle large numbers safely)
+    let seed = 0;
+    for (let i = 0; i < routeId.length; i++) {
+      seed = (seed * 31 + routeId.charCodeAt(i)) % 999999;
+    }
     
     // Create a deterministic random function based on seed
     let seedValue = seed;
