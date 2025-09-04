@@ -9,6 +9,12 @@ const CoursePrediction = () => {
   const [newRouteUrl, setNewRouteUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [manualRoute, setManualRoute] = useState({
+    name: '',
+    distance: '',
+    elevationGain: ''
+  });
 
   useEffect(() => {
     loadSavedCourses();
@@ -74,6 +80,62 @@ const CoursePrediction = () => {
     }
   };
 
+  const handleAddManualCourse = async () => {
+    if (!manualRoute.name || !manualRoute.distance) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Create route data from manual input
+      const distance = parseFloat(manualRoute.distance) * 1000; // Convert km to meters
+      const elevationGain = parseFloat(manualRoute.elevationGain) || 0;
+      
+      const routeData = {
+        name: manualRoute.name,
+        distance: distance,
+        elevation_gain: elevationGain,
+        elevation_loss: elevationGain * 0.95,
+        max_elevation: 100 + elevationGain,
+        min_elevation: 50,
+        elevation_profile: [],
+        surface_type: 'mixed',
+        terrain: elevationGain / (distance / 1000) > 30 ? 'hilly' : 
+                 elevationGain / (distance / 1000) > 15 ? 'rolling' : 'flat',
+        location: 'User specified',
+        description: 'Manually entered course'
+      };
+      
+      // Generate prediction
+      const prediction = await predictionServiceEnhanced.generateCoursePrediction(routeData);
+      
+      const newCourse = {
+        id: Date.now().toString(),
+        routeId: 'manual_' + Date.now(),
+        routeType: 'manual',
+        url: 'Manual Entry',
+        name: routeData.name,
+        distance: routeData.distance,
+        elevationGain: routeData.elevation_gain,
+        elevationProfile: routeData.elevation_profile,
+        prediction,
+        addedAt: new Date().toISOString()
+      };
+      
+      const updatedCourses = [...courses, newCourse];
+      setCourses(updatedCourses);
+      await firebaseService.saveCourses(updatedCourses);
+      
+      // Reset form
+      setManualRoute({ name: '', distance: '', elevationGain: '' });
+      setShowManualInput(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleDeleteCourse = async (courseId) => {
     try {
       const updatedCourses = courses.filter(c => c.id !== courseId);
@@ -115,30 +177,94 @@ const CoursePrediction = () => {
 
       {/* Add Course Input */}
       <div className="mb-6">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={newRouteUrl}
-            onChange={(e) => setNewRouteUrl(e.target.value)}
-            placeholder="Paste Strava route or segment URL (e.g., https://www.strava.com/routes/... or /segments/...)"
-            className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-            disabled={isLoading}
-          />
+        {/* Toggle between URL and Manual input */}
+        <div className="flex gap-2 mb-3">
           <button
-            onClick={handleAddCourse}
-            disabled={isLoading || !newRouteUrl}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            onClick={() => setShowManualInput(false)}
+            className={`px-3 py-1 rounded-lg text-sm ${!showManualInput ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
           >
-            {isLoading ? (
-              <>Loading...</>
-            ) : (
-              <>
-                <Plus className="w-4 h-4" />
-                Add Course
-              </>
-            )}
+            From Strava URL
+          </button>
+          <button
+            onClick={() => setShowManualInput(true)}
+            className={`px-3 py-1 rounded-lg text-sm ${showManualInput ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+          >
+            Enter Manually
           </button>
         </div>
+
+        {!showManualInput ? (
+          // URL Input
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newRouteUrl}
+              onChange={(e) => setNewRouteUrl(e.target.value)}
+              placeholder="Paste Strava route or segment URL (e.g., https://www.strava.com/routes/... or /segments/...)"
+              className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleAddCourse}
+              disabled={isLoading || !newRouteUrl}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>Loading...</>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Add Course
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          // Manual Input Form
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={manualRoute.name}
+              onChange={(e) => setManualRoute({...manualRoute, name: e.target.value})}
+              placeholder="Course name (e.g., Puffing Billy Trail)"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              disabled={isLoading}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                step="0.1"
+                value={manualRoute.distance}
+                onChange={(e) => setManualRoute({...manualRoute, distance: e.target.value})}
+                placeholder="Distance (km)"
+                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                disabled={isLoading}
+              />
+              <input
+                type="number"
+                value={manualRoute.elevationGain}
+                onChange={(e) => setManualRoute({...manualRoute, elevationGain: e.target.value})}
+                placeholder="Elevation gain (m)"
+                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                disabled={isLoading}
+              />
+            </div>
+            <button
+              onClick={handleAddManualCourse}
+              disabled={isLoading || !manualRoute.name || !manualRoute.distance}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>Loading...</>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Add Manual Course
+                </>
+              )}
+            </button>
+          </div>
+        )}
         {error && (
           <p className="mt-2 text-sm text-red-400">{error}</p>
         )}
@@ -162,15 +288,19 @@ const CoursePrediction = () => {
                       <Mountain className="w-3 h-3" />
                       {course.elevationGain}m gain
                     </span>
-                    <a
-                      href={course.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
-                    >
-                      View on Strava
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+                    {course.routeType === 'manual' ? (
+                      <span className="text-slate-500">Manual entry</span>
+                    ) : (
+                      <a
+                        href={course.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                      >
+                        View on Strava
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
                 </div>
                 <button
