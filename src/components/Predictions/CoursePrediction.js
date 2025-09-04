@@ -30,26 +30,27 @@ const CoursePrediction = () => {
     setError(null);
     
     try {
-      // Extract route ID from URL
-      const routeId = stravaRouteService.extractRouteId(newRouteUrl);
-      if (!routeId) {
-        throw new Error('Invalid Strava route URL');
+      // Extract route/segment ID from URL
+      const routeInfo = stravaRouteService.extractRouteId(newRouteUrl);
+      if (!routeInfo) {
+        throw new Error('Invalid Strava route or segment URL');
       }
 
       // Check if course already exists
-      if (courses.some(c => c.routeId === routeId)) {
+      if (courses.some(c => c.routeId === routeInfo.id)) {
         throw new Error('This course has already been added');
       }
 
       // Fetch route details from Strava
-      const routeData = await stravaRouteService.fetchRouteDetails(routeId);
+      const routeData = await stravaRouteService.fetchRouteDetails(routeInfo);
       
       // Generate course-specific prediction
       const prediction = await predictionServiceEnhanced.generateCoursePrediction(routeData);
       
       const newCourse = {
         id: Date.now().toString(),
-        routeId,
+        routeId: routeInfo.id,
+        routeType: routeInfo.type,
         url: newRouteUrl,
         name: routeData.name,
         distance: routeData.distance,
@@ -108,7 +109,7 @@ const CoursePrediction = () => {
           Course-Specific Predictions
         </h2>
         <p className="text-sm text-slate-400">
-          Add Strava routes to get predictions tailored to specific course profiles
+          Add Strava routes or segments to get predictions tailored to specific course profiles
         </p>
       </div>
 
@@ -119,7 +120,7 @@ const CoursePrediction = () => {
             type="text"
             value={newRouteUrl}
             onChange={(e) => setNewRouteUrl(e.target.value)}
-            placeholder="Paste Strava route URL (e.g., https://www.strava.com/routes/...)"
+            placeholder="Paste Strava route or segment URL (e.g., https://www.strava.com/routes/... or /segments/...)"
             className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
             disabled={isLoading}
           />

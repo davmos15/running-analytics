@@ -1,39 +1,43 @@
 class StravaRouteService {
   /**
-   * Extract route ID from Strava URL
+   * Extract route or segment ID from Strava URL
    */
   extractRouteId(url) {
     try {
-      // Handle different Strava route URL formats
-      // https://www.strava.com/routes/3357221206441249674
-      // https://www.strava.com/routes/3357221206441249674?...
-      const match = url.match(/strava\.com\/routes\/(\d+)/);
-      return match ? match[1] : null;
+      // Handle different Strava URL formats
+      // Routes: https://www.strava.com/routes/3357221206441249674
+      // Segments: https://www.strava.com/segments/5971450
+      const routeMatch = url.match(/strava\.com\/routes\/(\d+)/);
+      const segmentMatch = url.match(/strava\.com\/segments\/(\d+)/);
+      
+      if (routeMatch) {
+        return { id: routeMatch[1], type: 'route' };
+      } else if (segmentMatch) {
+        return { id: segmentMatch[1], type: 'segment' };
+      }
+      
+      return null;
     } catch (error) {
-      console.error('Error extracting route ID:', error);
+      console.error('Error extracting route/segment ID:', error);
       return null;
     }
   }
 
   /**
-   * Fetch route details from Strava
+   * Fetch route or segment details from Strava
    * Note: This will use web scraping or require Strava API authentication
    */
-  async fetchRouteDetails(routeId) {
+  async fetchRouteDetails(routeInfo) {
     try {
-      // For now, we'll use a web fetch approach to get public route data
-      // In production, this would ideally use Strava API with proper authentication
-      
-      // Since we can't directly fetch from Strava due to CORS, we'll need to either:
-      // 1. Use a backend proxy
-      // 2. Use the Strava API with OAuth
-      // 3. Have users manually input some data
+      // routeInfo is now an object with { id, type } or legacy string
+      const routeId = typeof routeInfo === 'string' ? routeInfo : routeInfo.id;
+      const routeType = typeof routeInfo === 'string' ? 'route' : routeInfo.type;
       
       // For now, return structured data that would come from Strava
       // This will be replaced with actual API integration
       
       // Simulate API call with realistic data structure
-      return await this.fetchViaWebProxy(routeId);
+      return await this.fetchViaWebProxy(routeId, routeType);
     } catch (error) {
       console.error('Error fetching route details:', error);
       throw new Error('Failed to fetch route details. Please check the URL and try again.');
@@ -43,17 +47,11 @@ class StravaRouteService {
   /**
    * Fetch route via web proxy or backend service
    */
-  async fetchViaWebProxy(routeId) {
+  async fetchViaWebProxy(routeId, routeType = 'route') {
     try {
-      // Always generate unique route data based on route ID
-      // This ensures each route URL produces different results
-      const routeData = this.generateRouteFromId(routeId);
-      
-      // Optional: Use hardcoded database only for testing specific known routes
-      // Uncomment below to use database for known routes:
-      // if (routeDatabase[routeId]) {
-      //   routeData = routeDatabase[routeId];
-      // }
+      // Always generate unique route data based on route ID and type
+      // This ensures each route/segment URL produces different results
+      const routeData = this.generateRouteFromId(routeId, routeType);
 
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -131,7 +129,7 @@ class StravaRouteService {
   /**
    * Generate route data from route ID when not in database
    */
-  generateRouteFromId(routeId) {
+  generateRouteFromId(routeId, routeType = 'route') {
     // Use route ID to create consistent deterministic data
     // Convert route ID to number for seeding (handle large numbers safely)
     let seed = 0;
@@ -146,21 +144,35 @@ class StravaRouteService {
       return seedValue / 233280;
     };
     
-    // Generate distance based on route ID patterns
+    // Generate distance based on route ID patterns and type
     // Use route ID digits to determine distance ranges
     const firstDigits = parseInt(routeId.substring(0, 2), 10);
     let baseDistance;
     
-    if (firstDigits < 20) {
-      baseDistance = 5000 + deterministicRandom() * 5000; // 5-10K
-    } else if (firstDigits < 40) {
-      baseDistance = 10000 + deterministicRandom() * 11000; // 10-21K  
-    } else if (firstDigits < 60) {
-      baseDistance = 3000 + deterministicRandom() * 7000; // 3-10K
-    } else if (firstDigits < 80) {
-      baseDistance = 15000 + deterministicRandom() * 27000; // 15-42K
+    if (routeType === 'segment') {
+      // Segments are typically shorter (0.5-10K)
+      if (firstDigits < 25) {
+        baseDistance = 500 + deterministicRandom() * 1500; // 0.5-2K
+      } else if (firstDigits < 50) {
+        baseDistance = 1000 + deterministicRandom() * 3000; // 1-4K
+      } else if (firstDigits < 75) {
+        baseDistance = 2000 + deterministicRandom() * 4000; // 2-6K
+      } else {
+        baseDistance = 3000 + deterministicRandom() * 7000; // 3-10K
+      }
     } else {
-      baseDistance = 8000 + deterministicRandom() * 12000; // 8-20K
+      // Routes are typically longer (3-50K)
+      if (firstDigits < 20) {
+        baseDistance = 5000 + deterministicRandom() * 5000; // 5-10K
+      } else if (firstDigits < 40) {
+        baseDistance = 10000 + deterministicRandom() * 11000; // 10-21K  
+      } else if (firstDigits < 60) {
+        baseDistance = 3000 + deterministicRandom() * 7000; // 3-10K
+      } else if (firstDigits < 80) {
+        baseDistance = 15000 + deterministicRandom() * 27000; // 15-42K
+      } else {
+        baseDistance = 8000 + deterministicRandom() * 12000; // 8-20K
+      }
     }
     
     const distance = Math.floor(baseDistance);
@@ -199,16 +211,26 @@ class StravaRouteService {
       surfaceType = 'mixed urban';
     }
     
-    // Generate realistic route name
+    // Generate realistic route/segment name
     const routeIdShort = routeId.slice(-6);
     const distanceKmRounded = Math.round(distance / 100) / 10; // Round to nearest 100m, display as decimal
     
-    const routeNames = [
-      `${distanceKmRounded}K ${terrainType} route`,
-      `Strava Route ${routeIdShort}`,
-      `${Math.floor(distanceKm)}K Custom Loop`,
-      `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Run (${distanceKmRounded}K)`
-    ];
+    let routeNames;
+    if (routeType === 'segment') {
+      routeNames = [
+        `${distanceKmRounded}K ${terrainType} segment`,
+        `Segment ${routeIdShort}`,
+        `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Climb`,
+        `KOM Hunter (${distanceKmRounded}K)`
+      ];
+    } else {
+      routeNames = [
+        `${distanceKmRounded}K ${terrainType} route`,
+        `Strava Route ${routeIdShort}`,
+        `${Math.floor(distanceKm)}K Custom Loop`,
+        `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Run (${distanceKmRounded}K)`
+      ];
+    }
     
     const nameIndex = Math.floor(deterministicRandom() * routeNames.length);
     const name = routeNames[nameIndex];
