@@ -1,3 +1,5 @@
+import stravaApi from './stravaApi';
+
 class StravaRouteService {
   /**
    * Extract route or segment ID from Strava URL
@@ -49,18 +51,67 @@ class StravaRouteService {
    */
   async fetchViaWebProxy(routeId, routeType = 'route') {
     try {
-      // NOTE: This is currently generating mock data based on the route ID
-      // In production, this would fetch actual route data from Strava API
-      // The route ID is used as a seed to generate consistent mock data
       console.log(`Fetching ${routeType} with ID: ${routeId}`);
       
+      // Check if user is authenticated with Strava
+      if (stravaApi.isAuthenticated()) {
+        try {
+          // Try to fetch real data from Strava API
+          let apiData;
+          if (routeType === 'segment') {
+            apiData = await stravaApi.getSegment(routeId);
+            return {
+              name: apiData.name,
+              distance: apiData.distance,
+              elevation_gain: apiData.total_elevation_gain || 0,
+              elevation_loss: apiData.total_elevation_gain || 0,
+              max_elevation: apiData.maximum_elevation || 100,
+              min_elevation: apiData.minimum_elevation || 50,
+              elevation_profile: this.generateMockElevationProfile(apiData.distance, apiData.total_elevation_gain || 0),
+              surface_type: apiData.surface_type || 'road',
+              estimated_moving_time: apiData.effort_count ? Math.floor(apiData.distance / 200) : null,
+              description: apiData.city ? `${apiData.city}, ${apiData.state || apiData.country}` : 'Strava Segment',
+              location: `${apiData.city || 'Unknown'}, ${apiData.state || apiData.country || 'Unknown'}`,
+              terrain: this.getTerrainDescription(apiData.total_elevation_gain || 0, apiData.distance),
+              routeId: routeId,
+              routeType: 'segment',
+              fromApi: true
+            };
+          } else {
+            apiData = await stravaApi.getRoute(routeId);
+            return {
+              name: apiData.name,
+              distance: apiData.distance,
+              elevation_gain: apiData.elevation_gain || 0,
+              elevation_loss: apiData.elevation_gain || 0,
+              max_elevation: 100 + (apiData.elevation_gain || 0),
+              min_elevation: 50,
+              elevation_profile: this.generateMockElevationProfile(apiData.distance, apiData.elevation_gain || 0),
+              surface_type: apiData.type === 1 ? 'trail' : apiData.type === 2 ? 'road' : 'mixed',
+              estimated_moving_time: apiData.estimated_moving_time,
+              description: apiData.description || 'Strava Route',
+              location: 'Via Strava API',
+              terrain: this.getTerrainDescription(apiData.elevation_gain || 0, apiData.distance),
+              routeId: routeId,
+              routeType: 'route',
+              fromApi: true
+            };
+          }
+        } catch (apiError) {
+          console.warn('Failed to fetch from Strava API, falling back to mock data:', apiError);
+          // Fall through to mock data generation
+        }
+      }
+      
+      // Fall back to mock data if not authenticated or API fails
       const routeData = this.generateRouteFromId(routeId, routeType);
       
       // Add the actual route ID to the data for debugging
       routeData.routeId = routeId;
       routeData.routeType = routeType;
+      routeData.fromApi = false;
 
-      // Simulate network delay
+      // Simulate network delay for mock data
       await new Promise(resolve => setTimeout(resolve, 500));
 
       return routeData;

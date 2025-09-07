@@ -174,17 +174,26 @@ const CoursePrediction = () => {
           Add Strava routes or segments to get predictions tailored to specific course profiles
         </p>
         
-        {/* Mock Data Warning */}
-        <div className="mt-3 p-3 bg-amber-900/20 border border-amber-600/30 rounded-lg">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-amber-400">
-              <strong>Demo Mode:</strong> Currently using simulated data based on route IDs. 
-              The displayed route data (distance, elevation, name) is generated for demonstration purposes 
-              and won't match the actual Strava route. Real Strava API integration would require authentication.
+        {/* API Status Message */}
+        {!firebaseService.getCurrentUser() ? (
+          <div className="mt-3 p-3 bg-amber-900/20 border border-amber-600/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-amber-400">
+                <strong>Demo Mode:</strong> Currently using simulated data. Connect your Strava account to fetch real route data.
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-3 p-3 bg-green-900/20 border border-green-600/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-green-400">
+                <strong>Connected:</strong> Fetching real route data from Strava API when available.
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Course Input */}
@@ -293,7 +302,14 @@ const CoursePrediction = () => {
             <div key={course.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-1">{course.name}</h3>
+                  <h3 className="text-lg font-medium text-white mb-1">
+                    {course.name}
+                    {course.fromApi && (
+                      <span className="ml-2 text-xs px-2 py-1 bg-green-600/20 text-green-400 rounded">
+                        Live Data
+                      </span>
+                    )}
+                  </h3>
                   <div className="flex items-center gap-4 text-sm text-slate-400">
                     <span>{(course.distance / 1000).toFixed(2)} km</span>
                     <span className="flex items-center gap-1">

@@ -162,6 +162,37 @@ class StravaAPI {
     }
   }
 
+  // Route and Segment Methods
+  async getRoute(routeId) {
+    try {
+      const response = await this.api.get(`/routes/${routeId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get route:', error);
+      throw error;
+    }
+  }
+
+  async getSegment(segmentId) {
+    try {
+      const response = await this.api.get(`/segments/${segmentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get segment:', error);
+      throw error;
+    }
+  }
+
+  async getRouteStreams(routeId) {
+    try {
+      const response = await this.api.get(`/routes/${routeId}/streams`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to get route streams:', error);
+      throw error;
+    }
+  }
+
   // Utility Methods
   isAuthenticated() {
     return !!this.accessToken;
