@@ -49,9 +49,16 @@ class StravaRouteService {
    */
   async fetchViaWebProxy(routeId, routeType = 'route') {
     try {
-      // Always generate unique route data based on route ID and type
-      // This ensures each route/segment URL produces different results
+      // NOTE: This is currently generating mock data based on the route ID
+      // In production, this would fetch actual route data from Strava API
+      // The route ID is used as a seed to generate consistent mock data
+      console.log(`Fetching ${routeType} with ID: ${routeId}`);
+      
       const routeData = this.generateRouteFromId(routeId, routeType);
+      
+      // Add the actual route ID to the data for debugging
+      routeData.routeId = routeId;
+      routeData.routeType = routeType;
 
       // Simulate network delay
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -211,29 +218,16 @@ class StravaRouteService {
       surfaceType = 'mixed urban';
     }
     
-    // Generate realistic route/segment name
-    const routeIdShort = routeId.slice(-6);
+    // Generate realistic route/segment name that includes the actual ID
     const distanceKmRounded = Math.round(distance / 100) / 10; // Round to nearest 100m, display as decimal
     
-    let routeNames;
+    // Always include the route ID in the name for clarity
+    let name;
     if (routeType === 'segment') {
-      routeNames = [
-        `${distanceKmRounded}K ${terrainType} segment`,
-        `Segment ${routeIdShort}`,
-        `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Climb`,
-        `KOM Hunter (${distanceKmRounded}K)`
-      ];
+      name = `Segment #${routeId} (${distanceKmRounded}K ${terrainType})`;
     } else {
-      routeNames = [
-        `${distanceKmRounded}K ${terrainType} route`,
-        `Strava Route ${routeIdShort}`,
-        `${Math.floor(distanceKm)}K Custom Loop`,
-        `${terrainType.charAt(0).toUpperCase() + terrainType.slice(1)} Run (${distanceKmRounded}K)`
-      ];
+      name = `Route #${routeId} (${distanceKmRounded}K ${terrainType})`;
     }
-    
-    const nameIndex = Math.floor(deterministicRandom() * routeNames.length);
-    const name = routeNames[nameIndex];
     
     // Generate location based on route ID
     const locations = [
@@ -255,7 +249,7 @@ class StravaRouteService {
       elevation_profile: this.generateRealisticElevationProfile(distance, elevation_gain, terrainType),
       surface_type: surfaceType,
       estimated_moving_time: Math.floor(distance / 1000 * (280 + deterministicRandom() * 140)), // 4:40-7:00 min/km estimate
-      description: `Route generated from Strava ID ${routeId}`,
+      description: `Mock data for ${routeType} ID: ${routeId} (In production, this would fetch real Strava data)`,
       location: location,
       terrain: this.getTerrainDescription(elevation_gain, distance)
     };
