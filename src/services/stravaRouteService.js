@@ -52,14 +52,17 @@ class StravaRouteService {
   async fetchViaWebProxy(routeId, routeType = 'route') {
     try {
       console.log(`Fetching ${routeType} with ID: ${routeId}`);
+      console.log(`Authenticated: ${stravaApi.isAuthenticated()}`);
       
       // Check if user is authenticated with Strava
       if (stravaApi.isAuthenticated()) {
         try {
+          console.log(`Attempting to fetch ${routeType} from Strava API...`);
           // Try to fetch real data from Strava API
           let apiData;
           if (routeType === 'segment') {
             apiData = await stravaApi.getSegment(routeId);
+            console.log('Segment data received from API:', apiData);
             return {
               name: apiData.name,
               distance: apiData.distance,
@@ -75,10 +78,12 @@ class StravaRouteService {
               terrain: this.getTerrainDescription(apiData.total_elevation_gain || 0, apiData.distance),
               routeId: routeId,
               routeType: 'segment',
-              fromApi: true
+              fromApi: true,
+              apiError: null
             };
           } else {
             apiData = await stravaApi.getRoute(routeId);
+            console.log('Route data received from API:', apiData);
             return {
               name: apiData.name,
               distance: apiData.distance,
@@ -94,16 +99,37 @@ class StravaRouteService {
               terrain: this.getTerrainDescription(apiData.elevation_gain || 0, apiData.distance),
               routeId: routeId,
               routeType: 'route',
-              fromApi: true
+              fromApi: true,
+              apiError: null
             };
           }
         } catch (apiError) {
-          console.warn('Failed to fetch from Strava API, falling back to mock data:', apiError);
-          // Fall through to mock data generation
+          console.error('Failed to fetch from Strava API:', apiError);
+          console.error('Error details:', {
+            message: apiError.message,
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data
+          });
+          
+          // Return mock data with error info
+          const routeData = this.generateRouteFromId(routeId, routeType);
+          routeData.routeId = routeId;
+          routeData.routeType = routeType;
+          routeData.fromApi = false;
+          routeData.apiError = apiError.response?.status === 404 ? 
+            'Route not found or private' : 
+            apiError.response?.status === 401 ? 
+            'Authentication expired - please reconnect Strava' :
+            `API Error: ${apiError.message}`;
+          
+          return routeData;
         }
+      } else {
+        console.log('Not authenticated with Strava, using mock data');
       }
       
-      // Fall back to mock data if not authenticated or API fails
+      // Fall back to mock data if not authenticated
       const routeData = this.generateRouteFromId(routeId, routeType);
       
       // Add the actual route ID to the data for debugging

@@ -310,6 +310,11 @@ const CoursePrediction = () => {
                         Live Data
                       </span>
                     )}
+                    {course.apiError && (
+                      <span className="ml-2 text-xs px-2 py-1 bg-red-600/20 text-red-400 rounded">
+                        Mock Data
+                      </span>
+                    )}
                   </h3>
                   <div className="flex items-center gap-4 text-sm text-slate-400">
                     <span>{(course.distance / 1000).toFixed(2)} km</span>
@@ -340,6 +345,13 @@ const CoursePrediction = () => {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* API Error Message */}
+              {course.apiError && (
+                <div className="mb-3 p-2 bg-red-900/20 border border-red-600/30 rounded text-xs text-red-400">
+                  <strong>Note:</strong> {course.apiError}. Using simulated data instead.
+                </div>
+              )}
 
               {/* Prediction Results */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
