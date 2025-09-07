@@ -27,9 +27,9 @@ const Homepage = () => {
       setIsLoading(true);
       
       // Load data in parallel instead of sequential
-      const [activitiesResponse, ...pbResponses] = await Promise.allSettled([
-        // Load total stats (limit to basic info only, not full activities)
-        firebaseService.getActivities(),
+      const [statsResponse, ...pbResponses] = await Promise.allSettled([
+        // Load summary stats (optimized method)
+        firebaseService.getRunningStatsSummary(),
         // Load PBs in parallel
         ...homepageSettings.pbDistances.map(distance => 
           firebaseService.getPersonalBests(distance, 'all-time').catch(error => {
@@ -40,18 +40,8 @@ const Homepage = () => {
       ]);
       
       // Process total stats
-      if (activitiesResponse.status === 'fulfilled') {
-        const activities = activitiesResponse.value;
-        const runActivities = activities.filter(activity => 
-          activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
-        );
-        
-        const stats = {
-          totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
-          totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
-          totalRuns: runActivities.length
-        };
-        setTotalStats(stats);
+      if (statsResponse.status === 'fulfilled') {
+        setTotalStats(statsResponse.value);
       }
       
       // Process PBs
@@ -208,7 +198,7 @@ const Homepage = () => {
                     {pb ? (
                       <div>
                         <div className="text-2xl font-bold text-white mb-1" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-                          {formatTime(pb.time)}
+                          {typeof pb.time === 'string' ? pb.time : formatTime(pb.time)}
                         </div>
                         <div className="text-sm text-slate-400">
                           {new Date(pb.date).toLocaleDateString()}

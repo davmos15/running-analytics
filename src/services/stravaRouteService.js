@@ -51,18 +51,15 @@ class StravaRouteService {
    */
   async fetchViaWebProxy(routeId, routeType = 'route') {
     try {
-      console.log(`Fetching ${routeType} with ID: ${routeId}`);
-      console.log(`Authenticated: ${stravaApi.isAuthenticated()}`);
+      // Only log errors, not every fetch attempt
       
       // Check if user is authenticated with Strava
       if (stravaApi.isAuthenticated()) {
         try {
-          console.log(`Attempting to fetch ${routeType} from Strava API...`);
           // Try to fetch real data from Strava API
           let apiData;
           if (routeType === 'segment') {
             apiData = await stravaApi.getSegment(routeId);
-            console.log('Segment data received from API:', apiData);
             return {
               name: apiData.name,
               distance: apiData.distance,
@@ -83,7 +80,6 @@ class StravaRouteService {
             };
           } else {
             apiData = await stravaApi.getRoute(routeId);
-            console.log('Route data received from API:', apiData);
             return {
               name: apiData.name,
               distance: apiData.distance,
@@ -128,7 +124,6 @@ class StravaRouteService {
           return routeData;
         }
       } else {
-        console.log('Not authenticated with Strava, using mock data');
       }
       
       // Fall back to mock data if not authenticated
