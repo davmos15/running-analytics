@@ -1820,22 +1820,18 @@ class FirebaseService {
    */
   async getRunningStatsSummary() {
     try {
-      const cached = this.getCached('running_stats_summary', 5 * 60 * 1000); // 5 min cache
-      if (cached) return cached;
-      
-      const activities = await this.getActivities();
-      const runActivities = activities.filter(activity => 
-        activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
-      );
-      
-      const stats = {
-        totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
-        totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
-        totalRuns: runActivities.length
-      };
-      
-      this.setCache('running_stats_summary', stats);
-      return stats;
+      return await this.getCachedQuery('running_stats_summary', async () => {
+        const activities = await this.getActivities();
+        const runActivities = activities.filter(activity => 
+          activity.type && ['Run', 'TrailRun', 'VirtualRun'].includes(activity.type)
+        );
+        
+        return {
+          totalDistance: runActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000,
+          totalTime: runActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0),
+          totalRuns: runActivities.length
+        };
+      });
     } catch (error) {
       console.error('Error getting running stats:', error);
       return { totalDistance: 0, totalTime: 0, totalRuns: 0 };
