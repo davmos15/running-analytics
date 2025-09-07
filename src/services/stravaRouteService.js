@@ -137,6 +137,52 @@ class StravaRouteService {
    * Generate route data from route ID when not in database
    */
   generateRouteFromId(routeId, routeType = 'route') {
+    // Sample routes with more realistic data for demonstration
+    const sampleRoutes = {
+      '3392786518229903608': {
+        name: 'Melbourne Marathon Course',
+        distance: 42195,
+        elevation_gain: 265,
+        elevation_loss: 268,
+        description: 'Official Melbourne Marathon route through the city',
+        terrain: 'Mostly flat city streets with some gentle hills'
+      },
+      '3357221206441249674': {
+        name: 'Tan Track Loop',
+        distance: 3827,
+        elevation_gain: 35,
+        elevation_loss: 35,
+        description: 'Popular 3.8km loop around the Royal Botanic Gardens',
+        terrain: 'Flat gravel path with one small hill (Anderson St)'
+      },
+      '2958374629384756': {
+        name: 'Albert Park Lake Circuit',
+        distance: 4900,
+        elevation_gain: 15,
+        elevation_loss: 15,
+        description: 'Flat loop around Albert Park Lake',
+        terrain: 'Completely flat lakeside path'
+      }
+    };
+    
+    // Check if this is a known sample route
+    if (sampleRoutes[routeId]) {
+      const sample = sampleRoutes[routeId];
+      return {
+        name: `${sample.name} (Sample Data)`,
+        distance: sample.distance,
+        elevation_gain: sample.elevation_gain,
+        elevation_loss: sample.elevation_loss,
+        max_elevation: 50 + sample.elevation_gain,
+        min_elevation: 50,
+        elevation_profile: this.generateRealisticElevationProfile(sample.distance, sample.elevation_gain, 'road'),
+        surface_type: 'asphalt',
+        estimated_moving_time: Math.floor(sample.distance / 1000 * 330), // ~5:30 min/km estimate
+        description: sample.description,
+        location: 'Melbourne, Australia',
+        terrain: sample.terrain
+      };
+    }
     // Use route ID to create consistent deterministic data
     // Convert route ID to number for seeding (handle large numbers safely)
     let seed = 0;

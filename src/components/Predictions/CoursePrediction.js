@@ -173,6 +173,18 @@ const CoursePrediction = () => {
         <p className="text-sm text-slate-400">
           Add Strava routes or segments to get predictions tailored to specific course profiles
         </p>
+        
+        {/* Mock Data Warning */}
+        <div className="mt-3 p-3 bg-amber-900/20 border border-amber-600/30 rounded-lg">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-amber-400">
+              <strong>Demo Mode:</strong> Currently using simulated data based on route IDs. 
+              The displayed route data (distance, elevation, name) is generated for demonstration purposes 
+              and won't match the actual Strava route. Real Strava API integration would require authentication.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Add Course Input */}
