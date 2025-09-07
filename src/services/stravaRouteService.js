@@ -118,7 +118,9 @@ class StravaRouteService {
           routeData.routeType = routeType;
           routeData.fromApi = false;
           routeData.apiError = apiError.response?.status === 404 ? 
-            'Route not found or private' : 
+            'Route not found. It may be deleted or the ID is incorrect.' : 
+            apiError.response?.status === 403 ? 
+            'This route is private. Only the creator can access it. Try using a Strava segment URL instead (segments are usually public).' :
             apiError.response?.status === 401 ? 
             'Authentication expired - please reconnect Strava' :
             `API Error: ${apiError.message}`;

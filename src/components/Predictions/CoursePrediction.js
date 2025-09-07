@@ -186,11 +186,22 @@ const CoursePrediction = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-3 p-3 bg-green-900/20 border border-green-600/30 rounded-lg">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-green-400">
-                <strong>Connected:</strong> Fetching real route data from Strava API when available.
+          <div className="mt-3 space-y-2">
+            <div className="p-3 bg-green-900/20 border border-green-600/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-green-400">
+                  <strong>Connected to Strava!</strong> Ready to fetch real data.
+                </div>
+              </div>
+            </div>
+            <div className="p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-blue-400">
+                  <strong>Tip:</strong> Use <strong>segment</strong> URLs (e.g., strava.com/segments/123456) instead of route URLs. 
+                  Segments are usually public, while routes are private to their creators.
+                </div>
               </div>
             </div>
           </div>
@@ -222,7 +233,7 @@ const CoursePrediction = () => {
               type="text"
               value={newRouteUrl}
               onChange={(e) => setNewRouteUrl(e.target.value)}
-              placeholder="Paste Strava route or segment URL (e.g., https://www.strava.com/routes/... or /segments/...)"
+              placeholder="Paste Strava segment URL (e.g., https://www.strava.com/segments/...) - Segments are usually public"
               className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               disabled={isLoading}
             />
