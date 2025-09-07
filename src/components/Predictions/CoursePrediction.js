@@ -3,6 +3,7 @@ import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Info } from '
 import stravaRouteService from '../../services/stravaRouteService';
 import predictionServiceEnhanced from '../../services/predictionServiceEnhanced';
 import firebaseService from '../../services/firebaseService';
+import stravaApi from '../../services/stravaApi';
 
 const CoursePrediction = () => {
   const [courses, setCourses] = useState([]);
@@ -175,7 +176,7 @@ const CoursePrediction = () => {
         </p>
         
         {/* API Status Message */}
-        {!firebaseService.getCurrentUser() ? (
+        {!stravaApi.isAuthenticated() ? (
           <div className="mt-3 p-3 bg-amber-900/20 border border-amber-600/30 rounded-lg">
             <div className="flex items-start gap-2">
               <Info className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
