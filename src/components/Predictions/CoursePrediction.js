@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Info, Upload, FileText } from 'lucide-react';
 import stravaRouteService from '../../services/stravaRouteService';
 import predictionServiceEnhanced from '../../services/predictionServiceEnhanced';
 import firebaseService from '../../services/firebaseService';
 import stravaApi from '../../services/stravaApi';
+import gpxTcxParser from '../../services/gpxTcxParser';
 
 const CoursePrediction = () => {
   const [courses, setCourses] = useState([]);
@@ -11,11 +12,13 @@ const CoursePrediction = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [showFileUpload, setShowFileUpload] = useState(false);
   const [manualRoute, setManualRoute] = useState({
     name: '',
     distance: '',
     elevationGain: ''
   });
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadSavedCourses();
@@ -147,6 +150,50 @@ const CoursePrediction = () => {
     }
   };
 
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Parse the GPX/TCX file
+      const routeData = await gpxTcxParser.parseFile(file);
+      
+      // Generate prediction for the route
+      const prediction = await predictionServiceEnhanced.generateCoursePrediction(routeData);
+      
+      const newCourse = {
+        id: Date.now().toString(),
+        routeId: 'file_' + Date.now(),
+        routeType: 'file',
+        url: `File: ${file.name}`,
+        name: routeData.name,
+        distance: routeData.distance,
+        elevationGain: routeData.elevation_gain,
+        elevationProfile: routeData.elevation_profile,
+        prediction,
+        addedAt: new Date().toISOString(),
+        fileType: routeData.fileType.toUpperCase()
+      };
+      
+      const updatedCourses = [...courses, newCourse];
+      setCourses(updatedCourses);
+      await firebaseService.saveCourses(updatedCourses);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setShowFileUpload(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -186,22 +233,12 @@ const CoursePrediction = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-3 space-y-2">
-            <div className="p-3 bg-green-900/20 border border-green-600/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-green-400">
-                  <strong>Connected to Strava!</strong> Ready to fetch real data.
-                </div>
-              </div>
-            </div>
-            <div className="p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-blue-400">
-                  <strong>Tip:</strong> Use <strong>segment</strong> URLs (e.g., strava.com/segments/123456) instead of route URLs. 
-                  Segments are usually public, while routes are private to their creators.
-                </div>
+          <div className="mt-3 p-3 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-400">
+                <strong>Tip:</strong> Use <strong>segment</strong> URLs (e.g., strava.com/segments/123456) instead of route URLs. 
+                Segments are usually public, while routes are private to their creators.
               </div>
             </div>
           </div>
@@ -210,23 +247,54 @@ const CoursePrediction = () => {
 
       {/* Add Course Input */}
       <div className="mb-6">
-        {/* Toggle between URL and Manual input */}
+        {/* Toggle between URL, Manual, and File input */}
         <div className="flex gap-2 mb-3">
           <button
-            onClick={() => setShowManualInput(false)}
-            className={`px-3 py-1 rounded-lg text-sm ${!showManualInput ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+            onClick={() => {setShowManualInput(false); setShowFileUpload(false);}}
+            className={`px-3 py-1 rounded-lg text-sm ${!showManualInput && !showFileUpload ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
           >
             From Strava URL
           </button>
           <button
-            onClick={() => setShowManualInput(true)}
+            onClick={() => {setShowManualInput(true); setShowFileUpload(false);}}
             className={`px-3 py-1 rounded-lg text-sm ${showManualInput ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
           >
             Enter Manually
           </button>
+          <button
+            onClick={() => {setShowManualInput(false); setShowFileUpload(true);}}
+            className={`px-3 py-1 rounded-lg text-sm ${showFileUpload ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+          >
+            Upload GPX/TCX
+          </button>
         </div>
 
-        {!showManualInput ? (
+        {showFileUpload ? (
+          // File Upload Input
+          <div className="space-y-3">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".gpx,.tcx"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+            >
+              <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-white font-medium mb-1">Click to upload GPX or TCX file</p>
+              <p className="text-xs text-slate-400">Supported formats: .gpx, .tcx</p>
+              <p className="text-xs text-slate-500 mt-2">File will be analyzed locally for elevation and distance</p>
+            </div>
+            {isLoading && (
+              <div className="text-center text-sm text-slate-400">
+                Processing file...
+              </div>
+            )}
+          </div>
+        ) : !showManualInput ? (
           // URL Input
           <div className="flex gap-2">
             <input
@@ -335,6 +403,11 @@ const CoursePrediction = () => {
                     </span>
                     {course.routeType === 'manual' ? (
                       <span className="text-slate-500">Manual entry</span>
+                    ) : course.routeType === 'file' ? (
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <FileText className="w-3 h-3" />
+                        {course.fileType || 'File'} upload
+                      </span>
                     ) : (
                       <a
                         href={course.url}
