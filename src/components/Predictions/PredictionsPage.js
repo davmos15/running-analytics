@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, Plus, X, Mountain, Cloud, Wind } from 'lucide-react';
+import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, X, Mountain, Cloud, Wind } from 'lucide-react';
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
@@ -13,8 +13,6 @@ const PredictionsPage = () => {
   const [tempRaceDate, setTempRaceDate] = useState(new Date().toISOString().split('T')[0]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [customDistances, setCustomDistances] = useState([]);
-  const [newDistance, setNewDistance] = useState('');
-  const [isAddingDistance, setIsAddingDistance] = useState(false);
   const [homepageSettings, setHomepageSettings] = useState({
     pbDistances: ['5K', '10K', '21.1K', '42.2K']
   });
@@ -90,28 +88,6 @@ const PredictionsPage = () => {
     loadPredictionsCallback();
   }, [loadPredictionsCallback]);
 
-  const handleAddDistance = async () => {
-    if (!newDistance || isNaN(parseFloat(newDistance))) {
-      alert('Please enter a valid distance in kilometers');
-      return;
-    }
-    
-    const distanceKm = parseFloat(newDistance);
-    const distanceMeters = distanceKm * 1000;
-    const distanceLabel = distanceKm >= 1 ? `${distanceKm}K` : `${distanceMeters}m`;
-    
-    if (customDistances.some(d => d.meters === distanceMeters)) {
-      alert('This distance already exists');
-      return;
-    }
-    
-    setIsAddingDistance(true);
-    const newDistanceObj = { label: distanceLabel, meters: distanceMeters };
-    const updatedDistances = [...customDistances, newDistanceObj].sort((a, b) => a.meters - b.meters);
-    setCustomDistances(updatedDistances);
-    setNewDistance('');
-    setIsAddingDistance(false);
-  };
 
   const handleRemoveDistance = (distanceToRemove) => {
     setCustomDistances(customDistances.filter(d => d.meters !== distanceToRemove.meters));
