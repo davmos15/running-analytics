@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Mountain, Trash2, Plus, ExternalLink, TrendingUp, Info, Upload, FileText } from 'lucide-react';
+import { MapPin, Mountain, Trash2, Plus, ExternalLink, Info, Upload, FileText } from 'lucide-react';
 import stravaRouteService from '../../services/stravaRouteService';
 import predictionServiceEnhanced from '../../services/predictionServiceEnhanced';
 import firebaseService from '../../services/firebaseService';
 import stravaApi from '../../services/stravaApi';
 import gpxTcxParser from '../../services/gpxTcxParser';
+import ElevationProfileKM from './ElevationProfileKM';
 
 const CoursePrediction = () => {
   const [courses, setCourses] = useState([]);
@@ -470,46 +471,20 @@ const CoursePrediction = () => {
                 </div>
               </div>
 
-              {/* Elevation Profile Mini Chart */}
+              {/* Enhanced KM-based Elevation Profile */}
               {course.elevationProfile && (
-                <div className="mt-3 p-2 bg-slate-900/50 rounded">
-                  <div className="text-xs text-slate-500 mb-2">Elevation Profile</div>
-                  <div className="h-16 flex items-end gap-0.5">
-                    {course.elevationProfile.map((elev, idx) => (
-                      <div
-                        key={idx}
-                        className="flex-1 bg-blue-500/50 rounded-t"
-                        style={{
-                          height: `${(elev / Math.max(...course.elevationProfile)) * 100}%`,
-                          minHeight: '2px'
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-xs text-slate-500 mt-1">
-                    <span>Start</span>
-                    <span>{(course.distance / 1000).toFixed(1)} km</span>
-                  </div>
+                <div className="mt-3">
+                  <ElevationProfileKM 
+                    routeData={{
+                      distance: course.distance,
+                      elevation_gain: course.elevationGain,
+                      elevation_profile: course.elevationProfile
+                    }}
+                    pacingStrategy={course.prediction.pacingStrategy}
+                  />
                 </div>
               )}
 
-              {/* Pacing Strategy */}
-              {course.prediction.pacingStrategy && (
-                <div className="mt-3 p-3 bg-slate-900/50 rounded">
-                  <div className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
-                    Suggested Pacing Strategy
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    {course.prediction.pacingStrategy.map((segment, idx) => (
-                      <div key={idx} className="text-center">
-                        <div className="text-slate-400">{segment.label}</div>
-                        <div className="text-white font-medium">{formatPace(segment.pace)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Key Factors */}
               {course.prediction.factors && (
