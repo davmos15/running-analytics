@@ -69,10 +69,11 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
     return profile;
   }, [routeData]);
 
-  // Calculate max elevation gain for scaling
-  const maxElevationGain = useMemo(() => {
+  // Calculate max absolute change for scaling (can be positive or negative)
+  const maxAbsChange = useMemo(() => {
     if (kmProfile.length === 0) return 10;
-    return Math.max(...kmProfile.map(seg => seg.elevationGain), 10);
+    const allChanges = kmProfile.map(seg => Math.abs(seg.netChange));
+    return Math.max(...allChanges, 10);
   }, [kmProfile]);
 
   // Generate KM-based pacing strategy
@@ -144,32 +145,46 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         </div>
         
         <div className="relative">
-          <div className="h-32 flex items-end gap-1">
+          <div className="h-32 flex items-center gap-1">
             {kmProfile.map((segment, idx) => {
-              const height = (segment.elevationGain / maxElevationGain) * 100;
+              const isUphill = segment.netChange >= 0;
+              const height = (Math.abs(segment.netChange) / maxAbsChange) * 50; // 50% max height for scaling
               
               return (
                 <div
                   key={segment.km}
-                  className="flex-1 relative"
+                  className="flex-1 relative h-full flex items-center"
                   onMouseMove={(e) => handleMouseMove(e, idx)}
                   onMouseLeave={() => setHoveredKm(null)}
                 >
-                  <div
-                    className="w-full bg-slate-600 rounded-t cursor-pointer hover:bg-slate-500 transition-colors"
-                    style={{
-                      height: `${Math.max(height, 5)}%`,
-                      minHeight: '5px'
-                    }}
-                  />
+                  <div className="w-full relative h-full flex items-center justify-center">
+                    {/* Center line */}
+                    <div className="absolute w-full h-px bg-slate-700" style={{ top: '50%' }} />
+                    
+                    {/* Bar - uphill goes up, downhill goes down */}
+                    <div
+                      className="w-full bg-slate-600 cursor-pointer hover:bg-slate-500 transition-colors absolute"
+                      style={{
+                        height: `${Math.max(height, 3)}%`,
+                        minHeight: '3px',
+                        [isUphill ? 'bottom' : 'top']: '50%',
+                        borderRadius: isUphill ? '4px 4px 0 0' : '0 0 4px 4px'
+                      }}
+                    />
+                    
+                    {/* Value label */}
+                    <div 
+                      className="absolute left-1/2 transform -translate-x-1/2 text-xs text-slate-400"
+                      style={{ [isUphill ? 'bottom' : 'top']: `${50 + Math.min(height, 40)}%` }}
+                    >
+                      {segment.netChange >= 0 ? '+' : ''}{Math.round(segment.netChange)}m
+                    </div>
+                  </div>
+                  
+                  {/* KM label */}
                   <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
                     {segment.km}
                   </div>
-                  {segment.elevationGain > 0 && (
-                    <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-400">
-                      +{Math.round(segment.elevationGain)}m
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -235,7 +250,7 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         >
           <div className="text-xs text-white space-y-1">
             <div>KM {kmProfile[hoveredKm].km}</div>
-            <div>Elevation gain: +{Math.round(kmProfile[hoveredKm].elevationGain)}m</div>
+            <div>Net change: {kmProfile[hoveredKm].netChange >= 0 ? '+' : ''}{Math.round(kmProfile[hoveredKm].netChange)}m</div>
             <div>Grade: {formatGrade(kmProfile[hoveredKm].avgGrade)}</div>
           </div>
         </div>
