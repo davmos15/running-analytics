@@ -35,8 +35,18 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         const maxElev = Math.max(...kmElevations);
         const minElev = Math.min(...kmElevations);
         
-        const elevationGain = Math.max(0, endElev - startElev);
-        const elevationLoss = Math.max(0, startElev - endElev);
+        // Calculate total elevation gain for this KM (considering all ups and downs)
+        let totalGain = 0;
+        let totalLoss = 0;
+        for (let i = 1; i < kmElevations.length; i++) {
+          const diff = kmElevations[i] - kmElevations[i-1];
+          if (diff > 0) {
+            totalGain += diff;
+          } else {
+            totalLoss += Math.abs(diff);
+          }
+        }
+        
         const netChange = endElev - startElev;
         const avgGrade = kmDistance > 0 ? (netChange / (kmDistance * 1000)) * 100 : 0;
         
@@ -46,8 +56,8 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
           endElev,
           maxElev,
           minElev,
-          elevationGain,
-          elevationLoss,
+          elevationGain: totalGain,
+          elevationLoss: totalLoss,
           netChange,
           avgGrade,
           distance: kmDistance,
@@ -59,15 +69,10 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
     return profile;
   }, [routeData]);
 
-  // Calculate max elevation for scaling
-  const maxElevation = useMemo(() => {
-    if (kmProfile.length === 0) return 100;
-    return Math.max(...kmProfile.map(seg => seg.maxElev));
-  }, [kmProfile]);
-
-  const minElevation = useMemo(() => {
-    if (kmProfile.length === 0) return 0;
-    return Math.min(...kmProfile.map(seg => seg.minElev));
+  // Calculate max elevation gain for scaling
+  const maxElevationGain = useMemo(() => {
+    if (kmProfile.length === 0) return 10;
+    return Math.max(...kmProfile.map(seg => seg.elevationGain), 10);
   }, [kmProfile]);
 
   // Generate KM-based pacing strategy
@@ -141,7 +146,7 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         <div className="relative">
           <div className="h-32 flex items-end gap-1">
             {kmProfile.map((segment, idx) => {
-              const height = ((segment.endElev - minElevation) / (maxElevation - minElevation)) * 100;
+              const height = (segment.elevationGain / maxElevationGain) * 100;
               
               return (
                 <div
@@ -160,6 +165,11 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
                   <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
                     {segment.km}
                   </div>
+                  {segment.elevationGain > 0 && (
+                    <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-400">
+                      +{Math.round(segment.elevationGain)}m
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -225,8 +235,8 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         >
           <div className="text-xs text-white space-y-1">
             <div>KM {kmProfile[hoveredKm].km}</div>
+            <div>Elevation gain: +{Math.round(kmProfile[hoveredKm].elevationGain)}m</div>
             <div>Grade: {formatGrade(kmProfile[hoveredKm].avgGrade)}</div>
-            <div>Elevation: {Math.round(kmProfile[hoveredKm].endElev)}m</div>
           </div>
         </div>
       )}
