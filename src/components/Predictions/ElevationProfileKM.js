@@ -78,25 +78,42 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
 
   // Generate KM-based pacing strategy
   const kmPacingStrategy = useMemo(() => {
-    if (!pacingStrategy || kmProfile.length === 0) {
-      return kmProfile.map((seg, idx) => ({
-        km: seg.km,
-        pace: 300, // Default 5:00/km if no strategy
-        paceLabel: '5:00'
-      }));
+    if (kmProfile.length === 0) {
+      return [];
     }
 
-    // Base pace from overall strategy
-    const basePace = pacingStrategy.reduce((sum, seg) => sum + seg.pace, 0) / pacingStrategy.length;
+    // Calculate base pace from the route prediction or use default
+    const basePace = pacingStrategy && pacingStrategy.length > 0
+      ? pacingStrategy.reduce((sum, seg) => sum + seg.pace, 0) / pacingStrategy.length
+      : 300; // Default 5:00/km
 
     return kmProfile.map((seg) => {
       let paceFactor = 1.0;
 
-      // Adjust pace based on elevation grade
-      if (seg.avgGrade > 3) {
-        paceFactor = 1.10 + (seg.avgGrade - 3) * 0.02; // Slower on steep uphills
-      } else if (seg.avgGrade < -3) {
-        paceFactor = 0.92 + (Math.abs(seg.avgGrade) - 3) * 0.01; // Controlled on downhills
+      // More aggressive pace adjustments based on grade
+      const grade = seg.avgGrade;
+      
+      if (grade > 6) {
+        // Very steep uphill - much slower
+        paceFactor = 1.20 + (grade - 6) * 0.03;
+      } else if (grade > 3) {
+        // Moderate uphill - slower
+        paceFactor = 1.10 + (grade - 3) * 0.033;
+      } else if (grade > 1) {
+        // Slight uphill - slightly slower
+        paceFactor = 1.02 + (grade - 1) * 0.04;
+      } else if (grade > -1) {
+        // Flat - maintain pace
+        paceFactor = 1.0;
+      } else if (grade > -3) {
+        // Slight downhill - slightly faster
+        paceFactor = 0.97 + (grade + 1) * 0.015;
+      } else if (grade > -6) {
+        // Moderate downhill - faster but controlled
+        paceFactor = 0.93 + (grade + 3) * 0.013;
+      } else {
+        // Steep downhill - controlled pace (not too fast to avoid injury)
+        paceFactor = 0.90;
       }
 
       const adjustedPace = basePace * paceFactor;
@@ -207,11 +224,19 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
             {kmPacingStrategy.map((pace, idx) => {
               // Calculate speed in km/h for better visualization
               const speedKmh = 3600 / pace.pace; // Convert seconds per km to km/h
-              const maxSpeed = Math.max(...kmPacingStrategy.map(p => 3600 / p.pace));
-              const minSpeed = Math.min(...kmPacingStrategy.map(p => 3600 / p.pace));
+              const allSpeeds = kmPacingStrategy.map(p => 3600 / p.pace);
+              const maxSpeed = Math.max(...allSpeeds);
+              const minSpeed = Math.min(...allSpeeds);
               
               // Height based on speed - faster = taller
-              const height = ((speedKmh - minSpeed) / (maxSpeed - minSpeed)) * 70 + 15; // 15-85% range
+              // If all speeds are the same, show them at 50% height
+              let height;
+              if (maxSpeed - minSpeed < 0.1) {
+                // Very little variation - show all at medium height
+                height = 50;
+              } else {
+                height = ((speedKmh - minSpeed) / (maxSpeed - minSpeed)) * 60 + 20; // 20-80% range
+              }
               
               return (
                 <div
