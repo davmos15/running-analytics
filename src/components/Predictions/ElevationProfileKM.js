@@ -205,10 +205,13 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         <div className="relative">
           <div className="h-32 flex items-end gap-1">
             {kmPacingStrategy.map((pace, idx) => {
-              // Scale pace - faster pace = shorter bar
-              const minPace = Math.min(...kmPacingStrategy.map(p => p.pace));
-              const maxPace = Math.max(...kmPacingStrategy.map(p => p.pace));
-              const height = ((maxPace - pace.pace) / (maxPace - minPace)) * 80 + 20; // 20-100% range
+              // Calculate speed in km/h for better visualization
+              const speedKmh = 3600 / pace.pace; // Convert seconds per km to km/h
+              const maxSpeed = Math.max(...kmPacingStrategy.map(p => 3600 / p.pace));
+              const minSpeed = Math.min(...kmPacingStrategy.map(p => 3600 / p.pace));
+              
+              // Height based on speed - faster = taller
+              const height = ((speedKmh - minSpeed) / (maxSpeed - minSpeed)) * 70 + 15; // 15-85% range
               
               return (
                 <div
@@ -252,6 +255,7 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
             <div>KM {kmProfile[hoveredKm].km}</div>
             <div>Net change: {kmProfile[hoveredKm].netChange >= 0 ? '+' : ''}{Math.round(kmProfile[hoveredKm].netChange)}m</div>
             <div>Grade: {formatGrade(kmProfile[hoveredKm].avgGrade)}</div>
+            <div>Pace: {kmPacingStrategy[hoveredKm].paceLabel}/km</div>
           </div>
         </div>
       )}
