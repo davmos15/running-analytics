@@ -221,46 +221,53 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
         
         <div className="relative">
           <div className="h-32 flex items-end gap-1">
-            {kmPacingStrategy.map((pace, idx) => {
-              // Calculate speed in km/h for better visualization
-              const speedKmh = 3600 / pace.pace; // Convert seconds per km to km/h
-              const allSpeeds = kmPacingStrategy.map(p => 3600 / p.pace);
-              const maxSpeed = Math.max(...allSpeeds);
-              const minSpeed = Math.min(...allSpeeds);
+            {(() => {
+              // Calculate min and max pace once outside the map
+              const allPaces = kmPacingStrategy.map(p => p.pace);
+              const minPace = Math.min(...allPaces);
+              const maxPace = Math.max(...allPaces);
+              const paceRange = maxPace - minPace;
               
-              // Height based on speed - faster = taller
-              // If all speeds are the same, show them at 50% height
-              let height;
-              if (maxSpeed - minSpeed < 0.1) {
-                // Very little variation - show all at medium height
-                height = 50;
-              } else {
-                height = ((speedKmh - minSpeed) / (maxSpeed - minSpeed)) * 60 + 20; // 20-80% range
-              }
+              return kmPacingStrategy.map((pace, idx) => {
+                // Calculate height - faster pace (lower seconds) = taller bar
+                let height;
+                if (paceRange < 1) {
+                  // Very little variation - show equal heights with slight differences
+                  height = 50 + (idx % 3 - 1) * 2; // 48%, 50%, 52% alternating pattern
+                } else if (paceRange < 10) {
+                  // Small variation - use smaller range but still show differences
+                  const normalizedPosition = (maxPace - pace.pace) / paceRange;
+                  height = 35 + normalizedPosition * 30; // 35-65% range
+                } else {
+                  // Good variation - use full height range
+                  const normalizedPosition = (maxPace - pace.pace) / paceRange;
+                  height = 20 + normalizedPosition * 60; // 20-80% range
+                }
               
-              return (
-                <div
-                  key={pace.km}
-                  className="flex-1 relative"
-                  onMouseMove={(e) => handleMouseMove(e, idx)}
-                  onMouseLeave={() => setHoveredKm(null)}
-                >
+                return (
                   <div
-                    className="w-full bg-slate-600 rounded-t cursor-pointer hover:bg-slate-500 transition-colors"
-                    style={{
-                      height: `${height}%`,
-                      minHeight: '5px'
-                    }}
-                  />
-                  <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
-                    {pace.km}
+                    key={pace.km}
+                    className="flex-1 relative"
+                    onMouseMove={(e) => handleMouseMove(e, idx)}
+                    onMouseLeave={() => setHoveredKm(null)}
+                  >
+                    <div
+                      className="w-full bg-slate-600 rounded-t cursor-pointer hover:bg-slate-500 transition-colors"
+                      style={{
+                        height: `${height}%`,
+                        minHeight: '5px'
+                      }}
+                    />
+                    <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
+                      {pace.km}
+                    </div>
+                    <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-400">
+                      {pace.paceLabel}
+                    </div>
                   </div>
-                  <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-400">
-                    {pace.paceLabel}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
           <div className="text-xs text-slate-500 text-center mt-6">Kilometer</div>
         </div>
