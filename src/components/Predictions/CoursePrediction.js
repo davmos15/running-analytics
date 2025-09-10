@@ -41,10 +41,14 @@ const CoursePrediction = () => {
     setError(null);
     
     try {
-      // Extract route/segment ID from URL (now async to handle mobile links)
-      const routeInfo = await stravaRouteService.extractRouteId(newRouteUrl);
+      // Extract route/segment ID from URL
+      const routeInfo = stravaRouteService.extractRouteId(newRouteUrl);
       if (!routeInfo) {
-        throw new Error('Invalid Strava route or segment URL. For mobile links, make sure the URL contains the segment/route ID.');
+        if (newRouteUrl.includes('strava.app.link')) {
+          throw new Error('Mobile app links are not fully supported due to browser security restrictions. Please use the desktop URL: Open the segment in your browser at strava.com and copy that URL instead.');
+        } else {
+          throw new Error('Invalid Strava route or segment URL. Please make sure you\'re using a valid Strava URL.');
+        }
       }
 
       // Check if course already exists
@@ -302,7 +306,7 @@ const CoursePrediction = () => {
               type="text"
               value={newRouteUrl}
               onChange={(e) => setNewRouteUrl(e.target.value)}
-              placeholder="Paste Strava segment/route URL (desktop or mobile links supported)"
+              placeholder="Paste Strava segment/route URL (desktop URL preferred: https://www.strava.com/segments/...)"
               className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               disabled={isLoading}
             />
