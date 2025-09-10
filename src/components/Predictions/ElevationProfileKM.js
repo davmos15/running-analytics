@@ -157,6 +157,7 @@ const ElevationProfileKM = ({ routeData }) => {
           </div>
           <div className="text-xs text-slate-500 text-center mt-6">Kilometer</div>
         </div>
+      </div>
 
       {/* Hover Tooltip */}
       {hoveredKm !== null && (
