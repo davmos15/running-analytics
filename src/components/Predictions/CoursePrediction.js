@@ -41,10 +41,10 @@ const CoursePrediction = () => {
     setError(null);
     
     try {
-      // Extract route/segment ID from URL
-      const routeInfo = stravaRouteService.extractRouteId(newRouteUrl);
+      // Extract route/segment ID from URL (now async to handle mobile links)
+      const routeInfo = await stravaRouteService.extractRouteId(newRouteUrl);
       if (!routeInfo) {
-        throw new Error('Invalid Strava route or segment URL');
+        throw new Error('Invalid Strava route or segment URL. For mobile links, make sure the URL contains the segment/route ID.');
       }
 
       // Check if course already exists
@@ -302,7 +302,7 @@ const CoursePrediction = () => {
               type="text"
               value={newRouteUrl}
               onChange={(e) => setNewRouteUrl(e.target.value)}
-              placeholder="Paste Strava segment URL (e.g., https://www.strava.com/segments/...) - Segments are usually public"
+              placeholder="Paste Strava segment/route URL (desktop or mobile links supported)"
               className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               disabled={isLoading}
             />
@@ -480,7 +480,6 @@ const CoursePrediction = () => {
                       elevation_gain: course.elevationGain,
                       elevation_profile: course.elevationProfile
                     }}
-                    pacingStrategy={course.prediction.pacingStrategy}
                   />
                 </div>
               )}

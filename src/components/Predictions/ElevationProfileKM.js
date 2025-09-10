@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Mountain, TrendingUp } from 'lucide-react';
+import { Mountain } from 'lucide-react';
 
-const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
+const ElevationProfileKM = ({ routeData }) => {
   const [hoveredKm, setHoveredKm] = useState(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
@@ -76,72 +76,6 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
     return Math.max(...allChanges, 10);
   }, [kmProfile]);
 
-  // Generate KM-based pacing strategy
-  const kmPacingStrategy = useMemo(() => {
-    if (kmProfile.length === 0) {
-      return [];
-    }
-
-    // Check if pacingStrategy is already per-kilometer (has km property)
-    if (pacingStrategy && pacingStrategy.length > 0 && pacingStrategy[0].km) {
-      // Already per-KM pacing from the service - just format labels
-      return pacingStrategy.map(seg => {
-        const minutes = Math.floor(seg.pace / 60);
-        const seconds = Math.floor(seg.pace % 60);
-        return {
-          km: seg.km,
-          pace: seg.pace,
-          paceLabel: `${minutes}:${seconds.toString().padStart(2, '0')}`
-        };
-      });
-    }
-
-    // Fallback: Generate pacing based on elevation profile if no pacing strategy provided
-    // Calculate base pace from the route prediction or use default
-    const basePace = pacingStrategy && pacingStrategy.length > 0
-      ? pacingStrategy.reduce((sum, seg) => sum + seg.pace, 0) / pacingStrategy.length
-      : 300; // Default 5:00/km
-
-    return kmProfile.map((seg) => {
-      let paceFactor = 1.0;
-
-      // More aggressive pace adjustments based on grade
-      const grade = seg.avgGrade;
-      
-      if (grade > 6) {
-        // Very steep uphill - much slower
-        paceFactor = 1.20 + (grade - 6) * 0.03;
-      } else if (grade > 3) {
-        // Moderate uphill - slower
-        paceFactor = 1.10 + (grade - 3) * 0.033;
-      } else if (grade > 1) {
-        // Slight uphill - slightly slower
-        paceFactor = 1.02 + (grade - 1) * 0.04;
-      } else if (grade > -1) {
-        // Flat - maintain pace
-        paceFactor = 1.0;
-      } else if (grade > -3) {
-        // Slight downhill - slightly faster
-        paceFactor = 0.97 + (grade + 1) * 0.015;
-      } else if (grade > -6) {
-        // Moderate downhill - faster but controlled
-        paceFactor = 0.93 + (grade + 3) * 0.013;
-      } else {
-        // Steep downhill - controlled pace (not too fast to avoid injury)
-        paceFactor = 0.90;
-      }
-
-      const adjustedPace = basePace * paceFactor;
-      const minutes = Math.floor(adjustedPace / 60);
-      const seconds = Math.floor(adjustedPace % 60);
-
-      return {
-        km: seg.km,
-        pace: adjustedPace,
-        paceLabel: `${minutes}:${seconds.toString().padStart(2, '0')}`
-      };
-    });
-  }, [pacingStrategy, kmProfile]);
 
   const formatGrade = (grade) => {
     const sign = grade >= 0 ? '+' : '';
@@ -223,70 +157,6 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
           </div>
           <div className="text-xs text-slate-500 text-center mt-6">Kilometer</div>
         </div>
-      </div>
-
-      {/* Pacing Strategy */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-slate-400" />
-            Pacing Strategy
-          </h3>
-        </div>
-        
-        <div className="relative">
-          <div className="h-32 flex items-end gap-1">
-            {(() => {
-              // Calculate min and max pace once outside the map
-              const allPaces = kmPacingStrategy.map(p => p.pace);
-              const minPace = Math.min(...allPaces);
-              const maxPace = Math.max(...allPaces);
-              const paceRange = maxPace - minPace;
-              
-              return kmPacingStrategy.map((pace, idx) => {
-                // Calculate height - faster pace (lower seconds) = taller bar
-                let height;
-                if (paceRange < 1) {
-                  // Very little variation - show equal heights with slight differences
-                  height = 50 + (idx % 3 - 1) * 2; // 48%, 50%, 52% alternating pattern
-                } else if (paceRange < 10) {
-                  // Small variation - use smaller range but still show differences
-                  const normalizedPosition = (maxPace - pace.pace) / paceRange;
-                  height = 35 + normalizedPosition * 30; // 35-65% range
-                } else {
-                  // Good variation - use full height range
-                  const normalizedPosition = (maxPace - pace.pace) / paceRange;
-                  height = 20 + normalizedPosition * 60; // 20-80% range
-                }
-              
-                return (
-                  <div
-                    key={pace.km}
-                    className="flex-1 relative"
-                    onMouseMove={(e) => handleMouseMove(e, idx)}
-                    onMouseLeave={() => setHoveredKm(null)}
-                  >
-                    <div
-                      className="w-full bg-slate-600 rounded-t cursor-pointer hover:bg-slate-500 transition-colors"
-                      style={{
-                        height: `${height}%`,
-                        minHeight: '5px'
-                      }}
-                    />
-                    <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
-                      {pace.km}
-                    </div>
-                    <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-400">
-                      {pace.paceLabel}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-          <div className="text-xs text-slate-500 text-center mt-6">Kilometer</div>
-        </div>
-      </div>
 
       {/* Hover Tooltip */}
       {hoveredKm !== null && (
@@ -302,7 +172,6 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
             <div>KM {kmProfile[hoveredKm].km}</div>
             <div>Net change: {kmProfile[hoveredKm].netChange >= 0 ? '+' : ''}{Math.round(kmProfile[hoveredKm].netChange)}m</div>
             <div>Grade: {formatGrade(kmProfile[hoveredKm].avgGrade)}</div>
-            <div>Pace: {kmPacingStrategy[hoveredKm].paceLabel}/km</div>
           </div>
         </div>
       )}

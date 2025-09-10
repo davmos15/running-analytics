@@ -2,15 +2,86 @@ import stravaApi from './stravaApi';
 
 class StravaRouteService {
   /**
+   * Resolve mobile app link to get the actual URL
+   */
+  async resolveMobileLink(url) {
+    try {
+      // Try to fetch the URL to get redirect information
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'manual'
+      });
+      
+      // Check for redirect location
+      const location = response.headers.get('location');
+      if (location) {
+        return location;
+      }
+      
+      // If no redirect in headers, try to fetch and parse
+      const fullResponse = await fetch(url);
+      const text = await fullResponse.text();
+      
+      // Look for meta refresh or JavaScript redirect
+      const metaRefresh = text.match(/url=([^"]+)"/);
+      if (metaRefresh) {
+        return metaRefresh[1];
+      }
+      
+      // Look for segment/route ID in the response
+      const segmentMatch = text.match(/segments\/(\d+)/);
+      const routeMatch = text.match(/routes\/(\d+)/);
+      
+      if (segmentMatch) {
+        return `https://www.strava.com/segments/${segmentMatch[1]}`;
+      } else if (routeMatch) {
+        return `https://www.strava.com/routes/${routeMatch[1]}`;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error resolving mobile link:', error);
+      return null;
+    }
+  }
+
+  /**
    * Extract route or segment ID from Strava URL
    */
-  extractRouteId(url) {
+  async extractRouteId(url) {
     try {
       // Handle different Strava URL formats
       // Routes: https://www.strava.com/routes/3357221206441249674
       // Segments: https://www.strava.com/segments/5971450
-      const routeMatch = url.match(/strava\.com\/routes\/(\d+)/);
-      const segmentMatch = url.match(/strava\.com\/segments\/(\d+)/);
+      // Mobile app links: https://strava.app.link/LucTgwtyvWb
+      
+      let processUrl = url;
+      
+      // Check if it's a mobile app link that needs to be resolved
+      if (url.includes('strava.app.link')) {
+        // Try to resolve the mobile link to get the actual URL
+        const resolvedUrl = await this.resolveMobileLink(url);
+        if (resolvedUrl) {
+          processUrl = resolvedUrl;
+        } else {
+          // If resolution fails, try to extract from the original URL
+          const mobileSegmentMatch = url.match(/segments\/(\d+)/);
+          const mobileRouteMatch = url.match(/routes\/(\d+)/);
+          
+          if (mobileSegmentMatch) {
+            return { id: mobileSegmentMatch[1], type: 'segment' };
+          } else if (mobileRouteMatch) {
+            return { id: mobileRouteMatch[1], type: 'route' };
+          }
+          
+          console.warn('Could not resolve mobile app link. Please try using the desktop URL.');
+          return null;
+        }
+      }
+      
+      // Standard desktop URL patterns
+      const routeMatch = processUrl.match(/strava\.com\/routes\/(\d+)/);
+      const segmentMatch = processUrl.match(/strava\.com\/segments\/(\d+)/);
       
       if (routeMatch) {
         return { id: routeMatch[1], type: 'route' };
