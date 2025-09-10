@@ -18,9 +18,10 @@ const Homepage = () => {
     showGraphs: true,
     showTotals: true,
     showPBs: true,
-    selectedGraphs: ['avg-speed', 'total-distance'],
+    selectedGraphs: ['total-distance'],
     pbDistances: ['5K', '10K', '21.1K', '42.2K']
   });
+  const [distanceGraphPeriod, setDistanceGraphPeriod] = useState('monthly');
 
   const loadData = useCallback(async () => {
     try {
@@ -201,7 +202,7 @@ const Homepage = () => {
                           {typeof pb.time === 'string' ? pb.time : formatTime(pb.time)}
                         </div>
                         <div className="text-sm text-slate-400">
-                          {new Date(pb.date).toLocaleDateString()}
+                          {pb.date && pb.date !== 'Invalid Date' ? new Date(pb.date).toLocaleDateString() : 'Date not available'}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {pb.pace}/km
@@ -229,28 +230,32 @@ const Homepage = () => {
               Performance Overview
             </h2>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {homepageSettings.selectedGraphs.includes('avg-speed') && (
-              <div className="athletic-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Average Speed</h3>
-                <BarGraph
-                  metric="speed"
-                  period="monthly"
-                  color="#8B5CF6"
-                  timeFilter="last-12-months"
-                  speedUnit="kph"
-                />
-              </div>
-            )}
-            
+          <div className="grid grid-cols-1 gap-6">
             {homepageSettings.selectedGraphs.includes('total-distance') && (
               <div className="athletic-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Monthly Distance</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">
+                    {distanceGraphPeriod === 'weekly' ? 'Weekly' : 
+                     distanceGraphPeriod === 'monthly' ? 'Monthly' : 
+                     'Yearly'} Distance
+                  </h3>
+                  <select
+                    value={distanceGraphPeriod}
+                    onChange={(e) => setDistanceGraphPeriod(e.target.value)}
+                    className="px-3 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-orange-400"
+                  >
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
                 <BarGraph
                   metric="distance"
-                  period="monthly"
+                  period={distanceGraphPeriod}
                   color="#F59E0B"
-                  timeFilter="last-12-months"
+                  timeFilter={distanceGraphPeriod === 'weekly' ? 'last-12-weeks' : 
+                              distanceGraphPeriod === 'monthly' ? 'last-12-months' : 
+                              'last-5-years'}
                   isTotal={true}
                 />
               </div>
