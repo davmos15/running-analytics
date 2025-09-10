@@ -202,7 +202,12 @@ const Homepage = () => {
                           {typeof pb.time === 'string' ? pb.time : formatTime(pb.time)}
                         </div>
                         <div className="text-sm text-slate-400">
-                          {pb.date && pb.date !== 'Invalid Date' ? new Date(pb.date).toLocaleDateString() : 'Date not available'}
+                          {(() => {
+                            if (!pb.date) return 'Date not available';
+                            const date = new Date(pb.date);
+                            const isValidDate = !isNaN(date.getTime()) && date.toString() !== 'Invalid Date';
+                            return isValidDate ? date.toLocaleDateString() : 'Date not available';
+                          })()}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {pb.pace}/km
