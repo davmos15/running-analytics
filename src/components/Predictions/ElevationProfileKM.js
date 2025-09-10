@@ -82,6 +82,21 @@ const ElevationProfileKM = ({ routeData, pacingStrategy }) => {
       return [];
     }
 
+    // Check if pacingStrategy is already per-kilometer (has km property)
+    if (pacingStrategy && pacingStrategy.length > 0 && pacingStrategy[0].km) {
+      // Already per-KM pacing from the service - just format labels
+      return pacingStrategy.map(seg => {
+        const minutes = Math.floor(seg.pace / 60);
+        const seconds = Math.floor(seg.pace % 60);
+        return {
+          km: seg.km,
+          pace: seg.pace,
+          paceLabel: `${minutes}:${seconds.toString().padStart(2, '0')}`
+        };
+      });
+    }
+
+    // Fallback: Generate pacing based on elevation profile if no pacing strategy provided
     // Calculate base pace from the route prediction or use default
     const basePace = pacingStrategy && pacingStrategy.length > 0
       ? pacingStrategy.reduce((sum, seg) => sum + seg.pace, 0) / pacingStrategy.length

@@ -1304,47 +1304,103 @@ class EnhancedPredictionService {
   generateCoursePacingStrategy(routeData, avgPace) {
     const profile = routeData.elevation_profile || [];
     const sections = [];
+    const distance = routeData.distance / 1000; // Convert to KM
+    const kmCount = Math.ceil(distance);
     
     if (profile.length > 0) {
-      // Divide course into thirds
-      const third = Math.floor(profile.length / 3);
-      
-      for (let i = 0; i < 3; i++) {
-        const start = i * third;
-        const end = i === 2 ? profile.length : (i + 1) * third;
-        const sectionProfile = profile.slice(start, end);
+      // Generate per-kilometer pacing based on elevation profile
+      for (let km = 0; km < kmCount; km++) {
+        const isLastKm = km === kmCount - 1;
+        const kmDistance = isLastKm ? distance - km : 1;
         
-        // Calculate average elevation change for this section
-        let elevationChange = 0;
-        if (sectionProfile.length > 1) {
-          for (let j = 1; j < sectionProfile.length; j++) {
-            elevationChange += sectionProfile[j] - sectionProfile[j-1];
+        // Get elevation data for this kilometer
+        const startIdx = Math.floor((km / distance) * profile.length);
+        const endIdx = isLastKm ? 
+          profile.length - 1 : 
+          Math.floor(((km + 1) / distance) * profile.length);
+        
+        const kmElevations = profile.slice(startIdx, endIdx + 1);
+        
+        if (kmElevations.length > 1) {
+          // Calculate net elevation change and grade for this KM
+          const startElev = kmElevations[0];
+          const endElev = kmElevations[kmElevations.length - 1];
+          const netChange = endElev - startElev;
+          const avgGrade = kmDistance > 0 ? (netChange / (kmDistance * 1000)) * 100 : 0;
+          
+          // Adjust pace based on grade (more aggressive adjustments)
+          let paceFactor = 1.0;
+          
+          if (avgGrade > 6) {
+            // Very steep uphill
+            paceFactor = 1.20 + (avgGrade - 6) * 0.025;
+          } else if (avgGrade > 3) {
+            // Moderate uphill
+            paceFactor = 1.10 + (avgGrade - 3) * 0.033;
+          } else if (avgGrade > 1) {
+            // Slight uphill
+            paceFactor = 1.02 + (avgGrade - 1) * 0.04;
+          } else if (avgGrade > -1) {
+            // Flat
+            paceFactor = 1.0;
+          } else if (avgGrade > -3) {
+            // Slight downhill
+            paceFactor = 0.97 + (avgGrade + 1) * 0.015;
+          } else if (avgGrade > -6) {
+            // Moderate downhill
+            paceFactor = 0.93 + (avgGrade + 3) * 0.013;
+          } else {
+            // Steep downhill
+            paceFactor = 0.90;
           }
+          
+          sections.push({
+            km: km + 1,
+            pace: avgPace * paceFactor,
+            grade: avgGrade,
+            netChange: netChange,
+            description: avgGrade > 3 ? 'Uphill' : 
+                        avgGrade < -3 ? 'Downhill' : 
+                        'Flat/Rolling'
+          });
+        } else {
+          // No elevation data for this KM - use average pace
+          sections.push({
+            km: km + 1,
+            pace: avgPace,
+            grade: 0,
+            netChange: 0,
+            description: 'Flat'
+          });
         }
-        
-        // Adjust pace based on elevation profile
+      }
+    } else {
+      // No elevation data - generate basic per-KM pacing with slight variations
+      for (let km = 0; km < kmCount; km++) {
         let paceFactor = 1.0;
-        if (elevationChange > 5) {
-          paceFactor = 1.05; // 5% slower on uphill
-        } else if (elevationChange < -5) {
-          paceFactor = 0.95; // 5% faster on downhill
+        
+        // Start conservatively, pick up middle, finish strong
+        if (km < kmCount * 0.2) {
+          // First 20% - conservative
+          paceFactor = 1.02;
+        } else if (km < kmCount * 0.8) {
+          // Middle 60% - on pace with slight variations
+          paceFactor = 0.98 + (Math.random() * 0.04);
+        } else {
+          // Last 20% - strong finish
+          paceFactor = 0.96 + (km - kmCount * 0.8) * 0.02;
         }
         
         sections.push({
-          label: i === 0 ? 'Start' : i === 1 ? 'Middle' : 'Finish',
+          km: km + 1,
           pace: avgPace * paceFactor,
-          description: elevationChange > 5 ? 'Uphill section' : 
-                      elevationChange < -5 ? 'Downhill section' : 
-                      'Flat section'
+          grade: 0,
+          netChange: 0,
+          description: km < kmCount * 0.2 ? 'Warm-up' :
+                      km < kmCount * 0.8 ? 'Steady' : 
+                      'Finish'
         });
       }
-    } else {
-      // No elevation data - use standard pacing
-      sections.push(
-        { label: 'Start', pace: avgPace * 1.02, description: 'Conservative start' },
-        { label: 'Middle', pace: avgPace * 0.98, description: 'Settle into rhythm' },
-        { label: 'Finish', pace: avgPace * 1.00, description: 'Strong finish' }
-      );
     }
     
     return sections;
