@@ -204,7 +204,8 @@ const Homepage = () => {
                         <div className="text-sm text-slate-400">
                           {(() => {
                             if (!pb.date) return 'Date not available';
-                            const date = new Date(pb.date);
+                            // Handle Firestore Timestamp objects
+                            const date = pb.date?.toDate ? pb.date.toDate() : new Date(pb.date);
                             const isValidDate = !isNaN(date.getTime()) && date.toString() !== 'Invalid Date';
                             return isValidDate ? date.toLocaleDateString() : 'Date not available';
                           })()}
