@@ -69,12 +69,6 @@ const ElevationProfileKM = ({ routeData }) => {
     return profile;
   }, [routeData]);
 
-  // Calculate max absolute change for scaling (can be positive or negative)
-  const maxAbsChange = useMemo(() => {
-    if (kmProfile.length === 0) return 10;
-    const allChanges = kmProfile.map(seg => Math.abs(seg.netChange));
-    return Math.max(...allChanges, 10);
-  }, [kmProfile]);
 
 
   const formatGrade = (grade) => {
