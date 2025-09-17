@@ -111,51 +111,152 @@ const ElevationProfileKM = ({ routeData }) => {
         </div>
         
         <div className="relative">
-          <div className="h-32 flex items-center gap-1">
+          <svg className="w-full h-32" viewBox="0 0 400 128" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="elevationGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.1" />
+              </linearGradient>
+            </defs>
+            
+            {/* Area chart */}
+            <path
+              d={(() => {
+                if (kmProfile.length === 0) return '';
+                
+                const width = 400;
+                const height = 128;
+                const padding = 10;
+                const chartWidth = width - (padding * 2);
+                const chartHeight = height - (padding * 2);
+                
+                // Get min and max elevations for proper scaling
+                const allElevations = kmProfile.flatMap(seg => seg.elevations);
+                const minElev = Math.min(...allElevations);
+                const maxElev = Math.max(...allElevations);
+                const elevRange = maxElev - minElev || 1;
+                
+                // Create path points
+                const points = [];
+                kmProfile.forEach((segment, segIdx) => {
+                  const segmentElevations = segment.elevations;
+                  const segmentWidth = chartWidth / kmProfile.length;
+                  const segmentStartX = padding + (segIdx * segmentWidth);
+                  
+                  segmentElevations.forEach((elev, elevIdx) => {
+                    const x = segmentStartX + (elevIdx / (segmentElevations.length - 1)) * segmentWidth;
+                    const y = padding + chartHeight - ((elev - minElev) / elevRange) * chartHeight;
+                    points.push({ x, y });
+                  });
+                });
+                
+                // Build path string
+                let pathString = `M ${points[0].x} ${points[0].y}`;
+                for (let i = 1; i < points.length; i++) {
+                  pathString += ` L ${points[i].x} ${points[i].y}`;
+                }
+                
+                // Close the area to the bottom
+                pathString += ` L ${points[points.length - 1].x} ${height - padding}`;
+                pathString += ` L ${points[0].x} ${height - padding}`;
+                pathString += ' Z';
+                
+                return pathString;
+              })()}
+              fill="url(#elevationGradient)"
+              className="opacity-80"
+            />
+            
+            {/* Line chart */}
+            <path
+              d={(() => {
+                if (kmProfile.length === 0) return '';
+                
+                const width = 400;
+                const height = 128;
+                const padding = 10;
+                const chartWidth = width - (padding * 2);
+                const chartHeight = height - (padding * 2);
+                
+                // Get min and max elevations for proper scaling
+                const allElevations = kmProfile.flatMap(seg => seg.elevations);
+                const minElev = Math.min(...allElevations);
+                const maxElev = Math.max(...allElevations);
+                const elevRange = maxElev - minElev || 1;
+                
+                // Create path points
+                const points = [];
+                kmProfile.forEach((segment, segIdx) => {
+                  const segmentElevations = segment.elevations;
+                  const segmentWidth = chartWidth / kmProfile.length;
+                  const segmentStartX = padding + (segIdx * segmentWidth);
+                  
+                  segmentElevations.forEach((elev, elevIdx) => {
+                    const x = segmentStartX + (elevIdx / (segmentElevations.length - 1)) * segmentWidth;
+                    const y = padding + chartHeight - ((elev - minElev) / elevRange) * chartHeight;
+                    points.push({ x, y });
+                  });
+                });
+                
+                // Build path string
+                let pathString = `M ${points[0].x} ${points[0].y}`;
+                for (let i = 1; i < points.length; i++) {
+                  pathString += ` L ${points[i].x} ${points[i].y}`;
+                }
+                
+                return pathString;
+              })()}
+              fill="none"
+              stroke="#3B82F6"
+              strokeWidth="2"
+              className="opacity-90"
+            />
+            
+            {/* KM markers and hover areas */}
             {kmProfile.map((segment, idx) => {
-              const isUphill = segment.netChange >= 0;
-              const height = (Math.abs(segment.netChange) / maxAbsChange) * 50; // 50% max height for scaling
+              const width = 400;
+              const padding = 10;
+              const chartWidth = width - (padding * 2);
+              const x = padding + (idx * chartWidth / kmProfile.length) + (chartWidth / kmProfile.length / 2);
               
               return (
-                <div
-                  key={segment.km}
-                  className="flex-1 relative h-full flex items-center"
-                  onMouseMove={(e) => handleMouseMove(e, idx)}
-                  onMouseLeave={() => setHoveredKm(null)}
-                >
-                  <div className="w-full relative h-full flex items-center justify-center">
-                    {/* Center line */}
-                    <div className="absolute w-full h-px bg-slate-700" style={{ top: '50%' }} />
-                    
-                    {/* Bar - uphill goes up, downhill goes down */}
-                    <div
-                      className="w-full bg-slate-600 cursor-pointer hover:bg-slate-500 transition-colors absolute"
-                      style={{
-                        height: `${Math.max(height, 3)}%`,
-                        minHeight: '3px',
-                        [isUphill ? 'bottom' : 'top']: '50%',
-                        borderRadius: isUphill ? '4px 4px 0 0' : '0 0 4px 4px'
-                      }}
-                    />
-                    
-                    {/* Value label */}
-                    <div 
-                      className="absolute left-1/2 transform -translate-x-1/2 text-xs text-slate-400"
-                      style={{ [isUphill ? 'bottom' : 'top']: `${50 + Math.min(height, 40)}%` }}
-                    >
-                      {segment.netChange >= 0 ? '+' : ''}{Math.round(segment.netChange)}m
-                    </div>
-                  </div>
+                <g key={segment.km}>
+                  {/* Vertical line at each KM */}
+                  <line
+                    x1={x}
+                    y1={padding}
+                    x2={x}
+                    y2={128 - padding}
+                    stroke="#475569"
+                    strokeWidth="1"
+                    opacity="0.3"
+                  />
                   
-                  {/* KM label */}
-                  <div className="absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-xs text-slate-500">
-                    {segment.km}
-                  </div>
-                </div>
+                  {/* Invisible hover area */}
+                  <rect
+                    x={padding + (idx * chartWidth / kmProfile.length)}
+                    y={0}
+                    width={chartWidth / kmProfile.length}
+                    height={128}
+                    fill="transparent"
+                    className="cursor-pointer"
+                    onMouseMove={(e) => handleMouseMove(e, idx)}
+                    onMouseLeave={() => setHoveredKm(null)}
+                  />
+                </g>
               );
             })}
+          </svg>
+          
+          {/* X-axis labels */}
+          <div className="flex justify-between mt-2 px-2">
+            {kmProfile.map((segment) => (
+              <div key={segment.km} className="text-xs text-slate-500 flex-1 text-center">
+                {segment.km}
+              </div>
+            ))}
           </div>
-          <div className="text-xs text-slate-500 text-center mt-6">Kilometer</div>
+          <div className="text-xs text-slate-500 text-center mt-1">Kilometer</div>
         </div>
       </div>
 
