@@ -10,8 +10,8 @@ const FixSeptember25Run = () => {
     setStatus('Starting to reprocess September 25th run...');
 
     try {
-      // Reprocess the "lunch 800s" activity from September 25th, 2024
-      const count = await firebaseService.reprocessActivityByNameAndDate('lunch 800s', '2024-09-25');
+      // Reprocess the "lunch 800s" activity from September 25th, 2025
+      const count = await firebaseService.reprocessActivityByNameAndDate('lunch 800s', '2025-09-25');
 
       if (count > 0) {
         setStatus(`Successfully reprocessed ${count} activity(ies) from September 25th`);
@@ -20,7 +20,7 @@ const FixSeptember25Run = () => {
         const personalBests = await firebaseService.getPersonalBests('10K', 'all-time');
         const sep25PB = personalBests.find(pb => {
           const pbDate = pb.date?.toDate ? pb.date.toDate() : new Date(pb.date);
-          return pbDate.getMonth() === 8 && pbDate.getDate() === 25 && pbDate.getFullYear() === 2024;
+          return pbDate.getMonth() === 8 && pbDate.getDate() === 25 && pbDate.getFullYear() === 2025;
         });
 
         if (sep25PB) {
@@ -33,7 +33,7 @@ const FixSeptember25Run = () => {
           const sep25Activities = activities.filter(activity => {
             const activityDate = new Date(activity.start_date);
             const nameMatch = activity.name?.toLowerCase().includes('lunch 800');
-            const dateMatch = activityDate.getMonth() === 8 && activityDate.getDate() === 25 && activityDate.getFullYear() === 2024;
+            const dateMatch = activityDate.getMonth() === 8 && activityDate.getDate() === 25 && activityDate.getFullYear() === 2025;
             return nameMatch || dateMatch;
           });
 
@@ -43,7 +43,7 @@ const FixSeptember25Run = () => {
           }
         }
       } else {
-        setStatus('No activities found matching "lunch 800s" on September 25th, 2024');
+        setStatus('No activities found matching "lunch 800s" on September 25th, 2025');
       }
     } catch (error) {
       setStatus(`Error: ${error.message}`);

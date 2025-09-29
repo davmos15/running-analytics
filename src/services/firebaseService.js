@@ -305,27 +305,6 @@ class FirebaseService {
       // Sort by time
       allSegments.sort((a, b) => a.data.time - b.data.time);
 
-      // Debug logging for September 25th "lunch 800s" run
-      const sep25Segments = allSegments.filter(segment => {
-        const date = segment.data.date?.toDate ? segment.data.date.toDate() : new Date(segment.data.date);
-        const isSep25 = date.getMonth() === 8 && date.getDate() === 25 && date.getFullYear() === 2024;
-        const isLunch800s = segment.data.activityName?.toLowerCase().includes('lunch 800');
-        return isSep25 || isLunch800s;
-      });
-
-      if (sep25Segments.length > 0 && queryDistance === '10K') {
-        console.log(`Found ${sep25Segments.length} segments for Sept 25/lunch 800s for 10K:`,
-          sep25Segments.map(s => ({
-            name: s.data.activityName,
-            date: s.data.date?.toDate ? s.data.date.toDate() : new Date(s.data.date),
-            time: s.data.time,
-            activityId: s.data.activityId,
-            pace: s.data.pace,
-            distance: s.data.distance,
-            distanceMeters: s.data.distanceMeters
-          }))
-        );
-      }
       
       // Filter out overlapping segments from the same activity
       const nonOverlappingSegments = [];
@@ -373,20 +352,6 @@ class FirebaseService {
         // Stop if we have 10 segments
         if (nonOverlappingSegments.length >= 10) {
           break;
-        }
-      }
-
-      // Debug: Check if September 25 segment made it through filtering
-      if (queryDistance === '10K' && sep25Segments.length > 0) {
-        const sep25InResults = nonOverlappingSegments.filter(segment => {
-          const date = segment.data.date?.toDate ? segment.data.date.toDate() : new Date(segment.data.date);
-          const isSep25 = date.getMonth() === 8 && date.getDate() === 25 && date.getFullYear() === 2024;
-          return isSep25 || segment.data.activityName?.toLowerCase().includes('lunch 800');
-        });
-
-        console.log(`September 25 segments after filtering: ${sep25InResults.length} out of ${nonOverlappingSegments.length} total segments`);
-        if (sep25InResults.length === 0 && sep25Segments.length > 0) {
-          console.log('WARNING: September 25 segment was filtered out!');
         }
       }
 
