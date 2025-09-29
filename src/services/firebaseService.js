@@ -304,39 +304,72 @@ class FirebaseService {
       
       // Sort by time
       allSegments.sort((a, b) => a.data.time - b.data.time);
+
+      // Debug logging for September 25th "lunch 800s" run
+      const sep25Segments = allSegments.filter(segment => {
+        const date = segment.data.date?.toDate ? segment.data.date.toDate() : new Date(segment.data.date);
+        const isSep25 = date.getMonth() === 8 && date.getDate() === 25 && date.getFullYear() === 2024;
+        const isLunch800s = segment.data.activityName?.toLowerCase().includes('lunch 800');
+        return isSep25 || isLunch800s;
+      });
+
+      if (sep25Segments.length > 0 && queryDistance === '10K') {
+        console.log(`Found ${sep25Segments.length} segments for Sept 25/lunch 800s for 10K:`,
+          sep25Segments.map(s => ({
+            name: s.data.activityName,
+            date: s.data.date?.toDate ? s.data.date.toDate() : new Date(s.data.date),
+            time: s.data.time,
+            activityId: s.data.activityId
+          }))
+        );
+      }
       
       // Filter out overlapping segments from the same activity
       const nonOverlappingSegments = [];
       const usedRanges = new Map(); // activityId -> array of used ranges
-      
+      const seenActivities = new Set(); // Track activities we've already included
+
       for (const segment of allSegments) {
         const activityId = segment.data.activityId;
         const segmentStart = segment.data.segmentStart || 0;
         const segmentEnd = segment.data.segmentEnd || segment.data.distanceMeters;
-        
-        // Check if this segment overlaps with any already selected from the same activity
-        if (!usedRanges.has(activityId)) {
-          usedRanges.set(activityId, []);
-        }
-        
-        const activityRanges = usedRanges.get(activityId);
-        let overlaps = false;
-        
-        for (const range of activityRanges) {
-          if (segmentStart < range.end && segmentEnd > range.start) {
-            overlaps = true;
-            break;
+
+        // For full runs (no segment range specified), only allow one per activity
+        const isFullRun = !segment.data.segmentStart && !segment.data.segmentEnd;
+
+        if (isFullRun) {
+          // Skip if we already have a segment from this activity
+          if (seenActivities.has(activityId)) {
+            continue;
           }
-        }
-        
-        if (!overlaps) {
           nonOverlappingSegments.push(segment);
-          activityRanges.push({ start: segmentStart, end: segmentEnd });
-          
-          // Stop if we have 10 segments
-          if (nonOverlappingSegments.length >= 10) {
-            break;
+          seenActivities.add(activityId);
+        } else {
+          // Check if this segment overlaps with any already selected from the same activity
+          if (!usedRanges.has(activityId)) {
+            usedRanges.set(activityId, []);
           }
+
+          const activityRanges = usedRanges.get(activityId);
+          let overlaps = false;
+
+          for (const range of activityRanges) {
+            if (segmentStart < range.end && segmentEnd > range.start) {
+              overlaps = true;
+              break;
+            }
+          }
+
+          if (!overlaps) {
+            nonOverlappingSegments.push(segment);
+            activityRanges.push({ start: segmentStart, end: segmentEnd });
+            seenActivities.add(activityId);
+          }
+        }
+
+        // Stop if we have 10 segments
+        if (nonOverlappingSegments.length >= 10) {
+          break;
         }
       }
       
@@ -1886,6 +1919,40 @@ class FirebaseService {
     } catch (error) {
       console.error('Error getting saved courses:', error);
       return [];
+    }
+  }
+
+  /**
+   * Helper method to fix specific activities by name or date
+   */
+  async reprocessActivityByNameAndDate(activityName, targetDate = null) {
+    try {
+      const activities = await this.getActivities();
+      const matchingActivities = activities.filter(activity => {
+        const nameMatches = activity.name?.toLowerCase().includes(activityName.toLowerCase());
+
+        if (!nameMatches) return false;
+
+        if (targetDate) {
+          const activityDate = new Date(activity.start_date);
+          const target = new Date(targetDate);
+          return activityDate.toDateString() === target.toDateString();
+        }
+
+        return true;
+      });
+
+      console.log(`Found ${matchingActivities.length} activities matching "${activityName}"${targetDate ? ` on ${targetDate}` : ''}`);
+
+      for (const activity of matchingActivities) {
+        console.log(`Reprocessing activity: ${activity.name} (${activity.id}) from ${activity.start_date}`);
+        await this.processActivityForSegments(activity);
+      }
+
+      return matchingActivities.length;
+    } catch (error) {
+      console.error('Error reprocessing activity by name:', error);
+      throw error;
     }
   }
 }
