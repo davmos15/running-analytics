@@ -5,6 +5,7 @@ import syncService from '../../services/syncService';
 import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
 import FirebaseQuotaChecker from './FirebaseQuotaChecker';
 import CacheManager from './CacheManager';
+import FixSeptember25Run from '../FixSeptember25Run';
 
 const Settings = () => {
   const [dateFormat, setDateFormat] = useState('DD MMM YYYY');
@@ -518,6 +519,11 @@ const Settings = () => {
           <div className="mt-6">
             <CacheManager />
           </div>
+        </div>
+
+        {/* Debug Tool for September 25 Run */}
+        <div className="border-t border-blue-500/20 pt-6">
+          <FixSeptember25Run />
         </div>
 
         {/* Data Management */}

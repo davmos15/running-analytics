@@ -319,7 +319,10 @@ class FirebaseService {
             name: s.data.activityName,
             date: s.data.date?.toDate ? s.data.date.toDate() : new Date(s.data.date),
             time: s.data.time,
-            activityId: s.data.activityId
+            activityId: s.data.activityId,
+            pace: s.data.pace,
+            distance: s.data.distance,
+            distanceMeters: s.data.distanceMeters
           }))
         );
       }
@@ -372,7 +375,21 @@ class FirebaseService {
           break;
         }
       }
-      
+
+      // Debug: Check if September 25 segment made it through filtering
+      if (queryDistance === '10K' && sep25Segments.length > 0) {
+        const sep25InResults = nonOverlappingSegments.filter(segment => {
+          const date = segment.data.date?.toDate ? segment.data.date.toDate() : new Date(segment.data.date);
+          const isSep25 = date.getMonth() === 8 && date.getDate() === 25 && date.getFullYear() === 2024;
+          return isSep25 || segment.data.activityName?.toLowerCase().includes('lunch 800');
+        });
+
+        console.log(`September 25 segments after filtering: ${sep25InResults.length} out of ${nonOverlappingSegments.length} total segments`);
+        if (sep25InResults.length === 0 && sep25Segments.length > 0) {
+          console.log('WARNING: September 25 segment was filtered out!');
+        }
+      }
+
       const topSegments = nonOverlappingSegments;
       let results = await Promise.all(topSegments.map(async (segment, index) => {
         const doc = segment.doc;
@@ -1958,4 +1975,10 @@ class FirebaseService {
 }
 
 const firebaseService = new FirebaseService();
+
+// Make firebaseService available globally for debugging
+if (typeof window !== 'undefined') {
+  window.firebaseService = firebaseService;
+}
+
 export default firebaseService;
