@@ -129,12 +129,13 @@ const PersonalBests = () => {
     let currentBest = Infinity;
 
     sortedByDate.forEach((pb, index) => {
-      if (index < 3) {
-        console.log(`Segment ${index}:`, {
+      if (index === 0) {
+        console.log('Full first segment object:', pb);
+        console.log('Available numeric fields:', {
           time: pb.time,
-          date: pb.date,
-          name: pb.runName,
-          currentBest
+          timeInSeconds: pb.timeInSeconds,
+          movingTime: pb.moving_time,
+          elapsedTime: pb.elapsed_time
         });
       }
       if (pb.time < currentBest) {
