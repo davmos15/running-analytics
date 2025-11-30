@@ -110,7 +110,12 @@ const PersonalBests = () => {
 
   // Calculate progression data from personalBests
   const getProgressionData = () => {
-    if (!personalBests || personalBests.length === 0) return [];
+    if (!personalBests || personalBests.length === 0) {
+      console.log('Progression: No personal bests data');
+      return [];
+    }
+
+    console.log('Progression: Processing', personalBests.length, 'segments');
 
     // Sort by date (oldest first)
     const sortedByDate = [...personalBests].sort((a, b) => {
@@ -133,10 +138,13 @@ const PersonalBests = () => {
       }
     });
 
+    console.log('Progression: Found', progression.length, 'PB improvements');
     return progression;
   };
 
   const displayData = viewMode === 'progression' ? getProgressionData() : personalBests;
+
+  console.log('View mode:', viewMode, 'Display data count:', displayData?.length);
 
   // Filter distances based on settings unless Show All is active
   const getVisibleDistances = () => {
