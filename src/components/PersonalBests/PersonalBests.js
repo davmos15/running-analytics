@@ -108,14 +108,26 @@ const PersonalBests = () => {
     limit: viewMode === 'progression' ? 0 : 10
   });
 
+  // Helper function to convert time string (MM:SS or HH:MM:SS) to seconds
+  const parseTimeToSeconds = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return Infinity;
+
+    const parts = timeStr.split(':');
+    if (parts.length === 2) {
+      // MM:SS format
+      return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    } else if (parts.length === 3) {
+      // HH:MM:SS format
+      return parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60 + parseInt(parts[2], 10);
+    }
+    return Infinity;
+  };
+
   // Calculate progression data from personalBests
   const getProgressionData = () => {
     if (!personalBests || personalBests.length === 0) {
-      console.log('Progression: No personal bests data');
       return [];
     }
-
-    console.log('Progression: Processing', personalBests.length, 'segments');
 
     // Sort by date (oldest first)
     const sortedByDate = [...personalBests].sort((a, b) => {
@@ -128,33 +140,21 @@ const PersonalBests = () => {
     const progression = [];
     let currentBest = Infinity;
 
-    sortedByDate.forEach((pb, index) => {
-      if (index === 0) {
-        console.log('Full first segment object:', pb);
-        console.log('Available numeric fields:', {
-          time: pb.time,
-          timeInSeconds: pb.timeInSeconds,
-          movingTime: pb.moving_time,
-          elapsedTime: pb.elapsed_time
-        });
-      }
-      if (pb.time < currentBest) {
+    sortedByDate.forEach((pb) => {
+      const pbTimeSeconds = parseTimeToSeconds(pb.time);
+      if (pbTimeSeconds < currentBest) {
         progression.push({
           ...pb,
           rank: progression.length + 1
         });
-        currentBest = pb.time;
+        currentBest = pbTimeSeconds;
       }
     });
 
-    console.log('Progression: Found', progression.length, 'PB improvements');
-    console.log('First progression entry:', progression[0]);
     return progression;
   };
 
   const displayData = viewMode === 'progression' ? getProgressionData() : personalBests;
-
-  console.log('View mode:', viewMode, 'Display data count:', displayData?.length);
 
   // Filter distances based on settings unless Show All is active
   const getVisibleDistances = () => {
