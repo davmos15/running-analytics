@@ -129,6 +129,14 @@ const PersonalBests = () => {
     let currentBest = Infinity;
 
     sortedByDate.forEach((pb, index) => {
+      if (index < 3) {
+        console.log(`Segment ${index}:`, {
+          time: pb.time,
+          date: pb.date,
+          name: pb.runName,
+          currentBest
+        });
+      }
       if (pb.time < currentBest) {
         progression.push({
           ...pb,
@@ -139,6 +147,7 @@ const PersonalBests = () => {
     });
 
     console.log('Progression: Found', progression.length, 'PB improvements');
+    console.log('First progression entry:', progression[0]);
     return progression;
   };
 
