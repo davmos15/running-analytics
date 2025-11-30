@@ -104,7 +104,8 @@ const PersonalBests = () => {
     distance: selectedDistance,
     timeFilter,
     customDateFrom,
-    customDateTo
+    customDateTo,
+    limit: viewMode === 'progression' ? 0 : 10
   });
 
   // Calculate progression data from personalBests

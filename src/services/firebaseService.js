@@ -283,7 +283,7 @@ class FirebaseService {
     }
   }
 
-  async getPersonalBests(distance, timeFilter, customDateFrom, customDateTo) {
+  async getPersonalBests(distance, timeFilter, customDateFrom, customDateTo, limit = 10) {
     try {
       // Handle custom distance parsing
       let queryDistance = distance;
@@ -380,8 +380,8 @@ class FirebaseService {
           }
         }
 
-        // Stop if we have 10 segments
-        if (nonOverlappingSegments.length >= 10) {
+        // Stop if we have reached the limit (0 means no limit)
+        if (limit > 0 && nonOverlappingSegments.length >= limit) {
           break;
         }
       }

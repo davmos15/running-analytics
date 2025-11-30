@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import firebaseService from '../services/firebaseService';
 
-export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customDateTo }) => {
+export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customDateTo, limit = 10 }) => {
   const [personalBests, setPersonalBests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,10 +17,11 @@ export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customD
     try {
       setIsLoading(true);
       const bests = await firebaseService.getPersonalBests(
-        distance, 
-        timeFilter, 
-        customDateFrom, 
-        customDateTo
+        distance,
+        timeFilter,
+        customDateFrom,
+        customDateTo,
+        limit
       );
       setPersonalBests(bests);
       setError(null);
@@ -30,7 +31,7 @@ export const usePersonalBests = ({ distance, timeFilter, customDateFrom, customD
     } finally {
       setIsLoading(false);
     }
-  }, [distance, timeFilter, customDateFrom, customDateTo]);
+  }, [distance, timeFilter, customDateFrom, customDateTo, limit]);
 
   useEffect(() => {
     fetchPersonalBests();
