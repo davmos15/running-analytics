@@ -296,8 +296,8 @@ class FirebaseService {
         }
       }
 
-      // Create cache key
-      const cacheKey = `segments_${queryDistance}_${timeFilter}_${customDateFrom}_${customDateTo}`;
+      // Create cache key (include limit to prevent cached top10 from being used for progression)
+      const cacheKey = `segments_${queryDistance}_${timeFilter}_${customDateFrom}_${customDateTo}_${limit}`;
       
       // Use cached query to prevent duplicate Firebase reads
       const querySnapshot = await this.getCachedQuery(cacheKey, async () => {
