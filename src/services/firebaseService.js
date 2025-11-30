@@ -125,10 +125,10 @@ class FirebaseService {
     try {
       const docSnap = await getDoc(doc(db, 'activities', activityId.toString()));
       if (!docSnap.exists()) return null;
-      
+
       const data = docSnap.data();
       const activity = { ...data };
-      
+
       // Handle heart rate field naming inconsistency
       if (data.average_heartrate && !data.averageHeartRate) {
         activity.averageHeartRate = data.average_heartrate;
@@ -139,10 +139,41 @@ class FirebaseService {
       if (data.average_cadence && !data.averageCadence) {
         activity.averageCadence = data.average_cadence;
       }
-      
+
       return activity;
     } catch (error) {
       console.error('Error getting activity:', error);
+      throw error;
+    }
+  }
+
+  async deleteActivity(activityId) {
+    try {
+      // Delete the activity document
+      await deleteDoc(doc(db, 'activities', activityId.toString()));
+
+      // Delete all associated segments
+      const segmentsQuery = query(
+        collection(db, 'segments'),
+        where('activityId', '==', activityId.toString())
+      );
+      const segmentsSnapshot = await getDocs(segmentsQuery);
+
+      const deletePromises = segmentsSnapshot.docs.map(segmentDoc =>
+        deleteDoc(doc(db, 'segments', segmentDoc.id))
+      );
+
+      await Promise.all(deletePromises);
+
+      // Clear cache
+      this.queryCache.clear();
+
+      return {
+        success: true,
+        deletedSegments: deletePromises.length
+      };
+    } catch (error) {
+      console.error('Error deleting activity:', error);
       throw error;
     }
   }
@@ -256,7 +287,7 @@ class FirebaseService {
     try {
       // Handle custom distance parsing
       let queryDistance = distance;
-      if (distance && !['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
+      if (distance && !['100m', '200m', '400m', '800m', '1K', 'Mile', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
         const parsed = this.parseCustomDistance(distance);
         if (parsed) {
           queryDistance = parsed.name;
@@ -493,7 +524,7 @@ class FirebaseService {
     try {
       // Handle custom distance parsing
       let queryDistance = distance;
-      if (distance && !['100m', '200m', '400m', '800m', '1K', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
+      if (distance && !['100m', '200m', '400m', '800m', '1K', 'Mile', '1.5K', '2K', '3K', '5K', '10K', '15K', '21.1K', '42.2K'].includes(distance)) {
         const parsed = this.parseCustomDistance(distance);
         if (parsed) {
           queryDistance = parsed.name;

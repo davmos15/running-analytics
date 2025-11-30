@@ -22,13 +22,12 @@ ChartJS.register(
   Legend
 );
 
-const DistanceThresholdGraph = ({ 
-  color = '#f97316', 
-  timePeriod = 'all', 
-  customDateFrom, 
+const DistanceThresholdGraph = ({
+  color = '#f97316',
+  timePeriod = 'all',
+  customDateFrom,
   customDateTo,
-  chartType = 'bar',
-  visibleDistances = null 
+  chartType = 'bar'
 }) => {
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,9 +92,9 @@ const DistanceThresholdGraph = ({
     loadDistanceData();
   }, [loadDistanceData]);
 
-  const filteredData = visibleDistances 
-    ? data.filter(([distance]) => visibleDistances.includes(distance))
-    : data;
+  // Always filter to show only key distances: 5K, 10K, HM, Full
+  const keyDistances = ['5K', '10K', '21.1K', '42.2K'];
+  const filteredData = data.filter(([distance]) => keyDistances.includes(distance));
 
   const chartData = {
     labels: filteredData.map(([distance]) => distance),

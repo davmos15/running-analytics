@@ -1,24 +1,27 @@
 import React from 'react';
-import { Filter, Columns, Eye, EyeOff } from 'lucide-react';
+import { Filter, Columns, Eye, EyeOff, Trophy, TrendingUp } from 'lucide-react';
 
-const DistanceSelector = ({ 
-  selectedDistance, 
-  setSelectedDistance, 
-  distances, 
-  isFilterOpen, 
+const DistanceSelector = ({
+  selectedDistance,
+  setSelectedDistance,
+  distances,
+  isFilterOpen,
   setIsFilterOpen,
   isColumnSelectorOpen,
   setIsColumnSelectorOpen,
   visibleColumns,
   setVisibleColumns,
   showAllDistances,
-  setShowAllDistances
+  setShowAllDistances,
+  viewMode,
+  setViewMode
 }) => {
   return (
     <div className="athletic-card-gradient p-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>PBs</h2>
-        <div className="flex items-center gap-2 sm:gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>PBs</h2>
+          <div className="flex items-center gap-2 sm:gap-4">
           <select 
             value={selectedDistance}
             onChange={(e) => setSelectedDistance(e.target.value)}
@@ -55,6 +58,33 @@ const DistanceSelector = ({
           >
             <Columns className="w-4 h-4" />
             <span className="text-sm font-medium hidden sm:inline">Columns</span>
+          </button>
+        </div>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('top10')}
+            className={`flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              viewMode === 'top10'
+                ? 'athletic-button-primary text-white'
+                : 'athletic-button-secondary text-slate-300'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            <span className="text-sm font-medium">Top 10</span>
+          </button>
+          <button
+            onClick={() => setViewMode('progression')}
+            className={`flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              viewMode === 'progression'
+                ? 'athletic-button-primary text-white'
+                : 'athletic-button-secondary text-slate-300'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span className="text-sm font-medium">Progression</span>
           </button>
         </div>
       </div>

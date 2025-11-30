@@ -17,6 +17,7 @@ const PersonalBests = () => {
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [allDistances, setAllDistances] = useState(DISTANCES);
   const [showAllDistances, setShowAllDistances] = useState(false);
+  const [viewMode, setViewMode] = useState('top10'); // 'top10' or 'progression'
   const [homepageSettings, setHomepageSettings] = useState({
     pbDistances: ['5K', '10K', '21.1K', '42.2K']
   });
@@ -106,6 +107,36 @@ const PersonalBests = () => {
     customDateTo
   });
 
+  // Calculate progression data from personalBests
+  const getProgressionData = () => {
+    if (!personalBests || personalBests.length === 0) return [];
+
+    // Sort by date (oldest first)
+    const sortedByDate = [...personalBests].sort((a, b) => {
+      const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+      const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+      return dateA - dateB;
+    });
+
+    // Filter to show only records that were PBs at the time
+    const progression = [];
+    let currentBest = Infinity;
+
+    sortedByDate.forEach((pb, index) => {
+      if (pb.time < currentBest) {
+        progression.push({
+          ...pb,
+          rank: progression.length + 1
+        });
+        currentBest = pb.time;
+      }
+    });
+
+    return progression;
+  };
+
+  const displayData = viewMode === 'progression' ? getProgressionData() : personalBests;
+
   // Filter distances based on settings unless Show All is active
   const getVisibleDistances = () => {
     if (showAllDistances) {
@@ -150,6 +181,8 @@ const PersonalBests = () => {
         setVisibleColumns={setVisibleColumns}
         showAllDistances={showAllDistances}
         setShowAllDistances={setShowAllDistances}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
       />
 
       {isFilterOpen && (
@@ -311,7 +344,7 @@ const PersonalBests = () => {
         </div>
       )}
 
-      {personalBests.length === 0 ? (
+      {displayData.length === 0 ? (
         <div className="athletic-card-gradient p-8 text-center">
           <div className="text-slate-400 mb-4">
             <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -327,12 +360,12 @@ const PersonalBests = () => {
         <>
           {/* Mobile Cards */}
           <div className="md:hidden">
-            <ResultsCards personalBests={personalBests} visibleColumns={visibleColumns} />
+            <ResultsCards personalBests={displayData} visibleColumns={visibleColumns} />
           </div>
 
           {/* Desktop Table */}
           <div className="hidden md:block">
-            <ResultsTable personalBests={personalBests} visibleColumns={visibleColumns} />
+            <ResultsTable personalBests={displayData} visibleColumns={visibleColumns} />
           </div>
         </>
       )}

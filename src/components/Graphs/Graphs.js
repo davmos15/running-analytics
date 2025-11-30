@@ -349,7 +349,6 @@ const Graphs = () => {
               customDateFrom={customDateFrom}
               customDateTo={customDateTo}
               chartType={graph.settings.chartType}
-              visibleDistances={graph.settings.visibleDistances}
             />
           ) : (
             <BarGraph

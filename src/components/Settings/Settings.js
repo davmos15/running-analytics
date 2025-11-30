@@ -17,6 +17,8 @@ const Settings = () => {
   const [isImportingRuns, setIsImportingRuns] = useState(false);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [isSearchingOldRuns, setIsSearchingOldRuns] = useState(false);
+  const [oldRuns, setOldRuns] = useState([]);
   const [homepageSettings, setHomepageSettings] = useState({
     showGraphs: true,
     showTotals: true,
@@ -164,6 +166,44 @@ const Settings = () => {
         alert('Error importing recent runs: ' + error.message);
       } finally {
         setIsImportingRuns(false);
+      }
+    }
+  };
+
+  const handleFindOldRuns = async () => {
+    setIsSearchingOldRuns(true);
+    try {
+      const activities = await firebaseService.getActivities();
+      const runningActivities = activities.filter(activity =>
+        activity.type && ['Run', 'TrailRun'].includes(activity.type)
+      );
+
+      // Find runs from 2013 or earlier
+      const old = runningActivities.filter(activity => {
+        const date = activity.start_date?.toDate ? activity.start_date.toDate() : new Date(activity.start_date);
+        return date.getFullYear() <= 2013;
+      });
+
+      setOldRuns(old);
+      if (old.length === 0) {
+        alert('No runs from 2013 or earlier found.');
+      }
+    } catch (error) {
+      alert('Error finding old runs: ' + error.message);
+    } finally {
+      setIsSearchingOldRuns(false);
+    }
+  };
+
+  const handleDeleteRun = async (activityId, activityName) => {
+    if (window.confirm(`Are you sure you want to delete "${activityName}"? This will also delete all associated segments.`)) {
+      try {
+        const result = await firebaseService.deleteActivity(activityId);
+        alert(`Activity deleted successfully! Removed ${result.deletedSegments} associated segments.`);
+        // Refresh the list
+        setOldRuns(oldRuns.filter(run => run.id !== activityId));
+      } catch (error) {
+        alert('Error deleting activity: ' + error.message);
       }
     }
   };
@@ -413,46 +453,6 @@ const Settings = () => {
               </div>
             )}
             
-            {/* PB Distance Selection */}
-            {homepageSettings.showPBs && (
-              <div>
-                <h4 className="text-sm font-medium text-white mb-2">Personal Best Distances</h4>
-                <div className="space-y-2">
-                  {[
-                    { id: '5K', label: '5K' },
-                    { id: '10K', label: '10K' },
-                    { id: '21.1K', label: 'Half Marathon' },
-                    { id: '42.2K', label: 'Marathon' }
-                  ].map(distance => (
-                    <label key={distance.id} className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={homepageSettings.pbDistances.includes(distance.id)}
-                        onChange={(e) => {
-                          let newDistances;
-                          if (e.target.checked) {
-                            newDistances = [...homepageSettings.pbDistances, distance.id];
-                          } else {
-                            newDistances = homepageSettings.pbDistances.filter(d => d !== distance.id);
-                          }
-                          const newSettings = { ...homepageSettings, pbDistances: newDistances };
-                          setHomepageSettings(newSettings);
-                          localStorage.setItem('homepageSettings', JSON.stringify(newSettings));
-                        }}
-                        className="h-4 w-4 text-orange-500 focus:ring-orange-500 border-slate-600 bg-slate-700 rounded"
-                      />
-                      <span className="text-sm text-white">{distance.label}</span>
-                    </label>
-                  ))}
-                </div>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  Save & Refresh
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -561,6 +561,47 @@ const Settings = () => {
               >
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
               </button>
+            </div>
+
+            <div className="border-t border-blue-500/20 pt-4">
+              <h4 className="text-sm font-medium text-white mb-2">
+                Find and Delete Old Activities
+              </h4>
+              <p className="text-sm text-slate-300 mb-3">
+                Find activities from 2013 or earlier and delete them if needed.
+              </p>
+              <button
+                onClick={handleFindOldRuns}
+                disabled={isSearchingOldRuns}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+              >
+                {isSearchingOldRuns ? 'Searching...' : 'Find Old Runs'}
+              </button>
+
+              {oldRuns.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-white">Found {oldRuns.length} old run(s):</p>
+                  {oldRuns.map(run => {
+                    const date = run.start_date?.toDate ? run.start_date.toDate() : new Date(run.start_date);
+                    return (
+                      <div key={run.id} className="flex items-center justify-between p-3 athletic-card rounded-lg">
+                        <div>
+                          <p className="font-medium text-white">{run.name || 'Unnamed Run'}</p>
+                          <p className="text-sm text-slate-400">
+                            {date.toLocaleDateString()} - {(run.distance / 1000).toFixed(2)}km
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteRun(run.id, run.name || 'Unnamed Run')}
+                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
