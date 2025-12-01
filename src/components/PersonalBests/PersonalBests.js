@@ -143,15 +143,16 @@ const PersonalBests = () => {
     sortedByDate.forEach((pb) => {
       const pbTimeSeconds = parseTimeToSeconds(pb.time);
       if (pbTimeSeconds < currentBest) {
-        progression.push({
-          ...pb,
-          rank: progression.length + 1
-        });
+        progression.push(pb);
         currentBest = pbTimeSeconds;
       }
     });
 
-    return progression;
+    // Reverse so most recent PB is first, then re-rank
+    return progression.reverse().map((pb, index) => ({
+      ...pb,
+      rank: index + 1
+    }));
   };
 
   const displayData = viewMode === 'progression' ? getProgressionData() : personalBests;
