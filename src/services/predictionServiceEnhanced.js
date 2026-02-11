@@ -1,4 +1,5 @@
 import firebaseService from './firebaseService';
+import trainingMetricsService from './trainingMetricsService';
 
 class EnhancedPredictionService {
   constructor() {
@@ -30,6 +31,57 @@ class EnhancedPredictionService {
   }
 
   /**
+   * Estimate VDOT from a single performance using Jack Daniels formula
+   */
+  estimateVDOTFromPerformance(distanceMeters, timeSeconds) {
+    const timeMinutes = timeSeconds / 60;
+    const velocity = distanceMeters / timeMinutes; // meters per minute
+    const vo2 = -4.60 + 0.182258 * velocity + 0.000104 * velocity * velocity;
+    const fractionVO2max = 0.8 + 0.1894393 * Math.exp(-0.012778 * timeMinutes)
+      + 0.2989558 * Math.exp(-0.1932605 * timeMinutes);
+    if (fractionVO2max <= 0) return null;
+    const vdot = vo2 / fractionVO2max;
+    if (vdot < 15 || vdot > 85) return null;
+    return vdot;
+  }
+
+  /**
+   * Predict race time for a target distance given VDOT using binary search.
+   * Provides an independent prediction based on VO2max estimation (Jack Daniels).
+   */
+  predictTimeFromVDOT(targetDistance, vdot) {
+    if (!vdot || vdot < 15 || vdot > 85) return null;
+    // Search bounds: 2:00/km to 10:00/km pace
+    let lowTime = (targetDistance / 1000) * 120;
+    let highTime = (targetDistance / 1000) * 600;
+    for (let i = 0; i < 50; i++) {
+      const midTime = (lowTime + highTime) / 2;
+      const estimated = this.estimateVDOTFromPerformance(targetDistance, midTime);
+      if (!estimated) break;
+      if (Math.abs(estimated - vdot) < 0.05) break; // Converged
+      if (estimated > vdot) {
+        lowTime = midTime; // Time too fast, increase lower bound
+      } else {
+        highTime = midTime; // Time too slow, decrease upper bound
+      }
+    }
+    const result = (lowTime + highTime) / 2;
+    return isFinite(result) ? result : null;
+  }
+
+  /**
+   * Fetch training metrics (CTL/ATL/TSB, VDOT, etc.) with error handling
+   */
+  async fetchTrainingMetrics() {
+    try {
+      return await trainingMetricsService.getTrainingMetrics();
+    } catch (error) {
+      console.warn('Could not fetch training metrics for predictions:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Generate race predictions for a specific race date
    */
   async generatePredictionsForRaceDate(raceDate, customDistances = [], raceConditions = {}) {
@@ -55,7 +107,10 @@ class EnhancedPredictionService {
 
       // Calculate personalized endurance parameters
       const enduranceParams = this.calculatePersonalEnduranceParameters(predictionData);
-      
+
+      // Fetch training metrics (VDOT, CTL/ATL/TSB) for enhanced prediction features
+      const trainingMetrics = await this.fetchTrainingMetrics();
+
       // Combine distances
       const allDistances = { ...this.defaultDistances };
       customDistances.forEach(dist => {
@@ -72,7 +127,8 @@ class EnhancedPredictionService {
           enduranceParams,
           daysUntilRace,
           raceConditions,
-          weeksBack
+          weeksBack,
+          trainingMetrics
         );
       }
 
@@ -245,7 +301,7 @@ class EnhancedPredictionService {
   /**
    * Enhanced prediction using log-space modeling
    */
-  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}, weeksBack = 52) {
+  async predictDistanceEnhanced(targetDistance, data, enduranceParams, daysUntilRace, raceConditions = {}, weeksBack = 52, trainingMetrics = null) {
     // Apply race to training adjustment (improvement percentage)
     const raceAdjustment = data.raceToTrainingRatio || 0;
     
@@ -309,47 +365,76 @@ class EnhancedPredictionService {
       csPrediction = (targetDistance - enduranceParams.anaerobic) / enduranceParams.criticalSpeed;
     }
 
+    // 2b. VDOT-based prediction (independent model from VO2max estimation)
+    let vdotPrediction = null;
+    let vdotLogPrediction = null;
+    if (trainingMetrics?.vdot?.vdot && trainingMetrics.vdot.confidence > 0.3) {
+      vdotPrediction = this.predictTimeFromVDOT(targetDistance, trainingMetrics.vdot.vdot);
+      if (vdotPrediction && isFinite(vdotPrediction)) {
+        vdotLogPrediction = Math.log(vdotPrediction);
+      }
+    }
+
     // 3. Weighted combination of recent race predictions (in log space)
     const riegelPredictions = this.getWeightedRacePredictions(targetDistance, data, enduranceParams);
 
-    // 4. Combine predictions with safety checks
-    let combinedLogPrediction;
-    if (riegelPredictions.logPrediction && isFinite(riegelPredictions.logPrediction) && csPrediction && isFinite(csPrediction)) {
-      // Weighted average of all three methods
+    // 4. Combine predictions using normalized weight blending
+    //    Each model contributes a base weight; weights are normalized to sum to 1.0
+    const modelInputs = [
+      { logPred: logBasePrediction, weight: 0.35, name: 'powerLaw' }
+    ];
+    if (riegelPredictions.logPrediction && isFinite(riegelPredictions.logPrediction)) {
+      modelInputs.push({ logPred: riegelPredictions.logPrediction, weight: 0.35, name: 'weightedRaces' });
+    }
+    if (vdotLogPrediction && isFinite(vdotLogPrediction)) {
+      // Scale VDOT weight by its confidence (0.3-1.0 → weight 0.10-0.20)
+      const vdotWeight = 0.10 + (trainingMetrics.vdot.confidence * 0.10);
+      modelInputs.push({ logPred: vdotLogPrediction, weight: vdotWeight, name: 'vdot' });
+    }
+    if (csPrediction && isFinite(csPrediction)) {
       const logCS = Math.log(csPrediction);
       if (isFinite(logCS)) {
-        combinedLogPrediction = 
-          0.4 * logBasePrediction + 
-          0.4 * riegelPredictions.logPrediction + 
-          0.2 * logCS;
-      } else {
-        combinedLogPrediction = 
-          0.5 * logBasePrediction + 
-          0.5 * riegelPredictions.logPrediction;
+        modelInputs.push({ logPred: logCS, weight: 0.15, name: 'criticalSpeed' });
       }
-    } else if (riegelPredictions.logPrediction && isFinite(riegelPredictions.logPrediction)) {
-      // Use power law and recent races
-      combinedLogPrediction = 
-        0.3 * logBasePrediction + 
-        0.7 * riegelPredictions.logPrediction;
-    } else {
-      // Fall back to power law only
-      combinedLogPrediction = logBasePrediction;
     }
-    
+
+    // Normalize weights and compute weighted average in log space
+    const totalModelWeight = modelInputs.reduce((sum, m) => sum + m.weight, 0);
+    let combinedLogPrediction = modelInputs.reduce(
+      (sum, m) => sum + m.logPred * (m.weight / totalModelWeight), 0
+    );
+
     // Verify combined prediction is valid
     if (!isFinite(combinedLogPrediction)) {
       combinedLogPrediction = logBasePrediction;
     }
 
     // 5. Apply feature-based adjustments in log space
-    const featureAdjustment = this.calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack);
+    const featureAdjustment = this.calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack, trainingMetrics);
     combinedLogPrediction += featureAdjustment;
 
     // 6. Apply training/taper adjustment if race date provided
     if (daysUntilRace !== null) {
       const taperAdjustment = this.calculateTaperAdjustment(daysUntilRace, data, raceConditions);
       combinedLogPrediction += Math.log(1 + taperAdjustment);
+    }
+
+    // 6b. Apply current form (TSB) adjustment for near-term predictions
+    //     Positive TSB = fresh = faster; Negative TSB = fatigued = slower
+    if (trainingMetrics?.fitness) {
+      const tsb = trainingMetrics.fitness.tsb;
+      const applyTSB = daysUntilRace === null || daysUntilRace <= 14;
+      const partialTSB = daysUntilRace !== null && daysUntilRace > 14 && daysUntilRace <= 28;
+      if (applyTSB && tsb !== 0) {
+        // TSB ranges roughly -30 to +30. Normalize and apply bounded adjustment.
+        const tsbNormalized = Math.max(-1, Math.min(1, tsb / 30));
+        combinedLogPrediction += tsbNormalized * -0.01; // Max ±1% adjustment
+      } else if (partialTSB && tsb !== 0) {
+        // Diminishing TSB effect for 2-4 weeks out (form will change)
+        const tsbNormalized = Math.max(-1, Math.min(1, tsb / 30));
+        const proximity = 1 - (daysUntilRace - 14) / 14;
+        combinedLogPrediction += tsbNormalized * -0.01 * proximity;
+      }
     }
 
     // 7. Apply race conditions adjustments (weather, elevation, etc.)
@@ -380,7 +465,9 @@ class EnhancedPredictionService {
       csPrediction,
       riegelPredictions,
       data,
-      targetDistance
+      targetDistance,
+      vdotPrediction,
+      trainingMetrics
     );
 
     // 11. Calculate uncertainty intervals using residual analysis with improved margins
@@ -401,9 +488,10 @@ class EnhancedPredictionService {
       models: {
         powerLaw: Math.round(basePrediction),
         criticalSpeed: csPrediction ? Math.round(csPrediction) : null,
-        weightedRaces: Math.round(Math.exp(riegelPredictions.logPrediction || logBasePrediction))
+        weightedRaces: Math.round(Math.exp(riegelPredictions.logPrediction || logBasePrediction)),
+        vdot: vdotPrediction ? Math.round(vdotPrediction) : null
       },
-      factors: this.identifyPredictionFactors(targetDistance, data),
+      factors: this.identifyPredictionFactors(targetDistance, data, trainingMetrics),
       thirtyDayChange,
       enduranceProfile: {
         personalExponent: enduranceParams.exponent,
@@ -414,7 +502,13 @@ class EnhancedPredictionService {
       dataSource: data.runClassification ? 
         `${data.runClassification.usedForPredictions || data.recentRaces.length} runs used from ${data.runClassification.totalRuns} total (${data.runClassification.races} races, ${data.runClassification.hardEfforts} hard efforts, ${data.runClassification.trainingRuns} training)` :
         `${data.recentRaces.length} performances`,
-      raceTrainingAdjustment: raceAdjustment
+      raceTrainingAdjustment: raceAdjustment,
+      trainingMetricsUsed: trainingMetrics ? {
+        vdot: trainingMetrics.vdot?.vdot || null,
+        ctl: trainingMetrics.fitness?.ctl || null,
+        tsb: trainingMetrics.fitness?.tsb || null,
+        formStatus: trainingMetrics.fitness?.formStatus || null
+      } : null
     };
   }
 
@@ -485,9 +579,9 @@ class EnhancedPredictionService {
   /**
    * Calculate feature adjustments in log space
    */
-  calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack = 52) {
-    const features = this.extractEnhancedFeatures(targetDistance, data, weeksBack);
-    
+  calculateLogSpaceFeatureAdjustment(targetDistance, data, weeksBack = 52, trainingMetrics = null) {
+    const features = this.extractEnhancedFeatures(targetDistance, data, weeksBack, trainingMetrics);
+
     if (!features.isValid) return 0;
 
     let logAdjustment = 0;
@@ -511,13 +605,28 @@ class EnhancedPredictionService {
       logAdjustment += features.longRunPreparation * -0.02;
     }
 
+    // CTL-based fitness level (how fit relative to recent average)
+    if (features.fitnessLevel !== undefined && features.fitnessLevel !== null) {
+      logAdjustment += features.fitnessLevel * -0.015; // Max ~1.5% faster if significantly fitter
+    }
+
+    // Power efficiency trend (improving watts/speed ratio)
+    if (features.powerEfficiency !== undefined && features.powerEfficiency !== null) {
+      logAdjustment += features.powerEfficiency * -0.01; // Max ~1% from efficiency gains
+    }
+
+    // Stride efficiency trend
+    if (features.strideEfficiency !== undefined && features.strideEfficiency !== null) {
+      logAdjustment += features.strideEfficiency * -0.005; // Max ~0.5%, conservative
+    }
+
     return logAdjustment;
   }
 
   /**
    * Enhanced feature extraction
    */
-  extractEnhancedFeatures(targetDistance, data, weeksBack = 52) {
+  extractEnhancedFeatures(targetDistance, data, weeksBack = 52, trainingMetrics = null) {
     const now = new Date();
     const features = {};
 
@@ -549,6 +658,38 @@ class EnhancedPredictionService {
     // Long run preparation (for half marathon and marathon)
     if (targetDistance >= 21100) {
       features.longRunPreparation = this.calculateLongRunPreparation(targetDistance, recentActivities);
+    }
+
+    // CTL-based fitness level from training metrics
+    // Compares current fitness (CTL) to recent average to detect fitness gains/losses
+    if (trainingMetrics?.fitness?.tsbData?.length > 14) {
+      const tsbData = trainingMetrics.fitness.tsbData;
+      const currentCTL = trainingMetrics.fitness.ctl;
+      const avgCTL = tsbData.reduce((sum, d) => sum + d.ctl, 0) / tsbData.length;
+      if (avgCTL > 5) { // Only meaningful with substantial training load
+        const fitnessLevel = (currentCTL - avgCTL) / avgCTL;
+        features.fitnessLevel = Math.max(-0.5, Math.min(1.0, fitnessLevel));
+      }
+    }
+
+    // Power efficiency trend (watts per m/s of speed)
+    // Improving efficiency means less power needed for same speed → faster predictions
+    const powerActivities = recentActivities
+      .filter(a => (a.average_watts || a.average_watts_calculated) > 0
+        && (a.distanceMeters || a.distance) > 0
+        && (a.time || a.moving_time) > 0)
+      .sort((a, b) => new Date(a.start_date || a.date) - new Date(b.start_date || b.date));
+    if (powerActivities.length >= 6) {
+      features.powerEfficiency = this.calculatePowerEfficiency(powerActivities);
+    }
+
+    // Stride length efficiency trend
+    // Increasing stride at similar effort levels suggests biomechanical efficiency gains
+    const strideActivities = recentActivities
+      .filter(a => a.average_stride_length > 0)
+      .sort((a, b) => new Date(a.start_date || a.date) - new Date(b.start_date || b.date));
+    if (strideActivities.length >= 6) {
+      features.strideEfficiency = this.calculateStrideEfficiency(strideActivities);
     }
 
     features.isValid = true;
@@ -788,25 +929,27 @@ class EnhancedPredictionService {
   /**
    * Enhanced confidence calculation
    */
-  calculateEnhancedConfidence(finalPrediction, powerLawPred, csPred, riegelPreds, data, targetDistance) {
+  calculateEnhancedConfidence(finalPrediction, powerLawPred, csPred, riegelPreds, data, targetDistance, vdotPred = null, trainingMetrics = null) {
     let confidence = 0;
 
     // Base confidence from data quantity and quality
     const dataConfidence = Math.min(0.3, data.recentRaces.length / 10);
     confidence += dataConfidence;
 
-    // Model agreement
+    // Model agreement (include VDOT if available)
     const models = [powerLawPred];
     if (csPred) models.push(csPred);
     if (riegelPreds.logPrediction) models.push(Math.exp(riegelPreds.logPrediction));
+    if (vdotPred && isFinite(vdotPred)) models.push(vdotPred);
 
     if (models.length > 1) {
       const mean = models.reduce((sum, p) => sum + p, 0) / models.length;
       const variance = models.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / models.length;
       const cv = Math.sqrt(variance) / mean;
-      
-      // Lower coefficient of variation = higher agreement
-      const agreementConfidence = Math.max(0, 0.3 * (1 - cv * 2));
+
+      // Lower CV = higher agreement; more models agreeing = slightly higher ceiling
+      const modelCountBonus = Math.min(0.05, (models.length - 2) * 0.025);
+      const agreementConfidence = Math.max(0, (0.3 + modelCountBonus) * (1 - cv * 2));
       confidence += agreementConfidence;
     }
 
@@ -821,7 +964,15 @@ class EnhancedPredictionService {
     const consistencyScore = this.calculateVolumeConsistency(data.activities);
     confidence += consistencyScore * 0.2;
 
-    return Math.min(0.85, Math.max(0.4, confidence));
+    // Bonus confidence from training metrics availability
+    if (trainingMetrics) {
+      let metricsBonus = 0;
+      if (trainingMetrics.vdot?.vdot) metricsBonus += 0.02; // VDOT cross-validation available
+      if (trainingMetrics.fitness?.ctl > 0) metricsBonus += 0.02; // Fitness tracking data available
+      confidence += metricsBonus;
+    }
+
+    return Math.min(0.88, Math.max(0.4, confidence));
   }
 
   /**
@@ -1003,6 +1154,49 @@ class EnhancedPredictionService {
     return Math.max(0, Math.min(1, (recentAvg - olderAvg) / olderAvg));
   }
 
+  /**
+   * Calculate power efficiency trend (watts per m/s of speed).
+   * Lower ratio = more efficient (less power needed for same speed).
+   * Returns positive value if efficiency is improving.
+   */
+  calculatePowerEfficiency(powerActivities) {
+    const ratios = powerActivities.map(a => {
+      const watts = a.average_watts || a.average_watts_calculated;
+      const distance = a.distanceMeters || a.distance;
+      const time = a.time || a.moving_time;
+      const speed = distance / time; // m/s
+      return watts / speed; // watts per m/s — lower = more efficient
+    });
+
+    const midpoint = Math.floor(ratios.length / 2);
+    const recentAvg = ratios.slice(midpoint).reduce((s, r) => s + r, 0) / (ratios.length - midpoint);
+    const olderAvg = ratios.slice(0, midpoint).reduce((s, r) => s + r, 0) / midpoint;
+
+    if (olderAvg === 0 || !isFinite(olderAvg) || !isFinite(recentAvg)) return 0;
+
+    // Positive = improvement (older ratio was higher / less efficient)
+    const improvement = (olderAvg - recentAvg) / olderAvg;
+    return Math.max(-0.3, Math.min(0.3, improvement));
+  }
+
+  /**
+   * Calculate stride length efficiency trend.
+   * Returns positive value if stride length is increasing (potential efficiency gain).
+   */
+  calculateStrideEfficiency(strideActivities) {
+    const midpoint = Math.floor(strideActivities.length / 2);
+    const recentAvg = strideActivities.slice(midpoint)
+      .reduce((s, a) => s + a.average_stride_length, 0) / (strideActivities.length - midpoint);
+    const olderAvg = strideActivities.slice(0, midpoint)
+      .reduce((s, a) => s + a.average_stride_length, 0) / midpoint;
+
+    if (olderAvg === 0 || !isFinite(olderAvg) || !isFinite(recentAvg)) return 0;
+
+    // Positive = increasing stride length
+    const trend = (recentAvg - olderAvg) / olderAvg;
+    return Math.max(-0.2, Math.min(0.2, trend));
+  }
+
   assessDataQuality(data) {
     let score = 0;
     let maxScore = 0;
@@ -1053,7 +1247,7 @@ class EnhancedPredictionService {
     return recommendations;
   }
 
-  identifyPredictionFactors(targetDistance, data) {
+  identifyPredictionFactors(targetDistance, data, trainingMetrics = null) {
     const factors = [];
     
     // Race data quality
@@ -1136,15 +1330,65 @@ class EnhancedPredictionService {
         percentage: 6 // 6% improvement
       });
     } else if (similarRaces === 0) {
-      factors.push({ 
-        factor: 'No recent distance experience', 
-        impact: 'negative', 
+      factors.push({
+        factor: 'No recent distance experience',
+        impact: 'negative',
         strength: 'medium',
         value: 'Extrapolating from other distances',
         percentage: -8 // 8% uncertainty
       });
     }
-    
+
+    // Training metrics-based factors
+    if (trainingMetrics) {
+      // VDOT indicator
+      if (trainingMetrics.vdot?.vdot) {
+        factors.push({
+          factor: 'VO2max estimation',
+          impact: 'positive',
+          strength: 'medium',
+          value: `VDOT ${trainingMetrics.vdot.vdot}`,
+          percentage: 5
+        });
+      }
+
+      // Fitness/form status (CTL + TSB)
+      if (trainingMetrics.fitness?.ctl > 0) {
+        const formStatus = trainingMetrics.fitness.formStatus;
+        if (formStatus === 'fresh' || formStatus === 'optimal') {
+          factors.push({
+            factor: `Training form: ${formStatus}`,
+            impact: 'positive',
+            strength: formStatus === 'fresh' ? 'medium' : 'low',
+            value: `TSB: ${trainingMetrics.fitness.tsb > 0 ? '+' : ''}${trainingMetrics.fitness.tsb}`,
+            percentage: formStatus === 'fresh' ? 3 : 1
+          });
+        } else if (formStatus === 'tired' || formStatus === 'fatigued') {
+          factors.push({
+            factor: `Training form: ${formStatus}`,
+            impact: 'negative',
+            strength: formStatus === 'fatigued' ? 'high' : 'medium',
+            value: `TSB: ${trainingMetrics.fitness.tsb}`,
+            percentage: formStatus === 'fatigued' ? -5 : -3
+          });
+        }
+      }
+    }
+
+    // Power data availability
+    const powerRuns = data.activities.filter(a =>
+      a.average_watts || a.average_watts_calculated
+    ).length;
+    if (powerRuns >= 5) {
+      factors.push({
+        factor: 'Running power data',
+        impact: 'positive',
+        strength: 'low',
+        value: `${powerRuns} runs with power`,
+        percentage: 2
+      });
+    }
+
     return factors;
   }
 

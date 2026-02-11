@@ -2,27 +2,33 @@ import stravaApi from './stravaApi';
 
 class StravaRouteService {
   /**
-   * Parse segment/route ID from mobile link path
-   * Mobile links often follow patterns like:
-   * - https://strava.app.link/XXX (where XXX encodes the segment/route)
-   * - The link ID sometimes contains the segment ID encoded within
+   * Check if a URL is a Strava mobile app link
    */
-  parseMobileLinkId(url) {
-    // Common patterns for Strava mobile links
-    // Sometimes the segment ID is embedded in the link code
-    const linkCode = url.split('/').pop();
-    
-    // Try to decode if it looks like base64 or similar encoding
-    if (linkCode) {
-      // Check if the code contains numbers that might be a segment ID
-      // Strava segment IDs are typically 7-8 digits
-      const numbers = linkCode.match(/\d{5,}/);
-      if (numbers) {
-        return { id: numbers[0], type: 'segment' };
+  isMobileLink(url) {
+    return url && url.includes('strava.app.link');
+  }
+
+  /**
+   * Attempt to resolve a strava.app.link URL to a full Strava URL.
+   * Due to CORS restrictions, this will usually fail in the browser.
+   * Returns { resolved: true, url, routeInfo } or { resolved: false }.
+   */
+  async resolveMobileLink(url) {
+    try {
+      const response = await fetch(url, {
+        method: 'HEAD',
+        redirect: 'follow'
+      });
+      if (response.url && response.url.includes('strava.com')) {
+        const routeInfo = this.extractRouteId(response.url);
+        if (routeInfo && routeInfo.type !== 'mobile_link') {
+          return { resolved: true, url: response.url, routeInfo };
+        }
       }
+    } catch (e) {
+      // Expected CORS error
     }
-    
-    return null;
+    return { resolved: false };
   }
 
   /**
@@ -30,43 +36,24 @@ class StravaRouteService {
    */
   extractRouteId(url) {
     try {
-      // Handle different Strava URL formats
-      // Routes: https://www.strava.com/routes/3357221206441249674
-      // Segments: https://www.strava.com/segments/5971450
-      // Mobile app links: https://strava.app.link/LucTgwtyvWb
-      
-      // Check if it's a mobile app link
-      if (url.includes('strava.app.link')) {
-        // Try to parse segment ID from the link pattern first
-        const parsedFromLink = this.parseMobileLinkId(url);
-        if (parsedFromLink) {
-          return parsedFromLink;
-        }
-        
-        // If we can't parse from the link, try to extract from any embedded patterns
-        const mobileSegmentMatch = url.match(/segments?\/(\d+)/);
-        const mobileRouteMatch = url.match(/routes?\/(\d+)/);
-        
-        if (mobileSegmentMatch) {
-          return { id: mobileSegmentMatch[1], type: 'segment' };
-        } else if (mobileRouteMatch) {
-          return { id: mobileRouteMatch[1], type: 'route' };
-        }
-        
-        // For mobile links, we need to provide better guidance to users
-        return null;
+      // Mobile app links need special resolution — return a marker
+      if (this.isMobileLink(url)) {
+        return { type: 'mobile_link', url: url };
       }
-      
+
       // Standard desktop URL patterns
-      const routeMatch = url.match(/strava\.com\/routes\/(\d+)/);
       const segmentMatch = url.match(/strava\.com\/segments\/(\d+)/);
-      
-      if (routeMatch) {
-        return { id: routeMatch[1], type: 'route' };
-      } else if (segmentMatch) {
+      const routeMatch = url.match(/strava\.com\/routes\/(\d+)/);
+      const activityMatch = url.match(/strava\.com\/activities\/(\d+)/);
+
+      if (segmentMatch) {
         return { id: segmentMatch[1], type: 'segment' };
+      } else if (routeMatch) {
+        return { id: routeMatch[1], type: 'route' };
+      } else if (activityMatch) {
+        return { id: activityMatch[1], type: 'activity' };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error extracting route/segment ID:', error);

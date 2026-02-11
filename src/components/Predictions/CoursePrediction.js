@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Mountain, Trash2, Plus, ExternalLink, Info, Upload, FileText } from 'lucide-react';
+import { MapPin, Mountain, Trash2, Plus, ExternalLink, Info, Upload, FileText, Link2 } from 'lucide-react';
 import stravaRouteService from '../../services/stravaRouteService';
 import predictionServiceEnhanced from '../../services/predictionServiceEnhanced';
 import firebaseService from '../../services/firebaseService';
@@ -14,6 +14,7 @@ const CoursePrediction = () => {
   const [error, setError] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [mobileLink, setMobileLink] = useState(null); // { originalUrl, resolvedUrl }
   const [manualRoute, setManualRoute] = useState({
     name: '',
     distance: '',
@@ -34,54 +35,84 @@ const CoursePrediction = () => {
     }
   };
 
+  const addCourseFromRouteInfo = async (routeInfo, url) => {
+    // Check if course already exists
+    if (courses.some(c => c.routeId === routeInfo.id)) {
+      throw new Error('This course has already been added');
+    }
+
+    // Fetch route details from Strava
+    const routeData = await stravaRouteService.fetchRouteDetails(routeInfo);
+
+    // Generate course-specific prediction
+    const prediction = await predictionServiceEnhanced.generateCoursePrediction(routeData);
+
+    const newCourse = {
+      id: Date.now().toString(),
+      routeId: routeInfo.id,
+      routeType: routeInfo.type,
+      url: url,
+      name: routeData.name,
+      distance: routeData.distance,
+      elevationGain: routeData.elevation_gain,
+      elevationProfile: routeData.elevation_profile,
+      prediction,
+      addedAt: new Date().toISOString()
+    };
+
+    const updatedCourses = [...courses, newCourse];
+    setCourses(updatedCourses);
+    await firebaseService.saveCourses(updatedCourses);
+  };
+
   const handleAddCourse = async () => {
     if (!newRouteUrl) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Extract route/segment ID from URL
       const routeInfo = stravaRouteService.extractRouteId(newRouteUrl);
+
       if (!routeInfo) {
-        if (newRouteUrl.includes('strava.app.link')) {
-          throw new Error('Mobile app links are not fully supported due to browser security restrictions. Please use the desktop URL: Open the segment in your browser at strava.com and copy that URL instead.');
+        throw new Error('Invalid Strava URL. Please use a strava.com/segments/... or strava.com/routes/... URL.');
+      }
+
+      // Handle mobile links — try auto-resolve, then show helper
+      if (routeInfo.type === 'mobile_link') {
+        const result = await stravaRouteService.resolveMobileLink(newRouteUrl);
+        if (result.resolved && result.routeInfo) {
+          // Auto-resolved! Process directly
+          await addCourseFromRouteInfo(result.routeInfo, result.url);
+          setNewRouteUrl('');
+          setMobileLink(null);
         } else {
-          throw new Error('Invalid Strava route or segment URL. Please make sure you\'re using a valid Strava URL.');
+          // Can't auto-resolve — show the helper UI
+          setMobileLink({ originalUrl: newRouteUrl });
+          setNewRouteUrl('');
         }
+        return;
       }
 
-      // Check if course already exists
-      if (courses.some(c => c.routeId === routeInfo.id)) {
-        throw new Error('This course has already been added');
-      }
-
-      // Fetch route details from Strava
-      const routeData = await stravaRouteService.fetchRouteDetails(routeInfo);
-      
-      // Generate course-specific prediction
-      const prediction = await predictionServiceEnhanced.generateCoursePrediction(routeData);
-      
-      const newCourse = {
-        id: Date.now().toString(),
-        routeId: routeInfo.id,
-        routeType: routeInfo.type,
-        url: newRouteUrl,
-        name: routeData.name,
-        distance: routeData.distance,
-        elevationGain: routeData.elevation_gain,
-        elevationProfile: routeData.elevation_profile,
-        prediction,
-        addedAt: new Date().toISOString()
-      };
-
-      const updatedCourses = [...courses, newCourse];
-      setCourses(updatedCourses);
-      
-      // Save to Firebase
-      await firebaseService.saveCourses(updatedCourses);
-      
+      await addCourseFromRouteInfo(routeInfo, newRouteUrl);
       setNewRouteUrl('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResolvedUrl = async (resolvedUrl) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const routeInfo = stravaRouteService.extractRouteId(resolvedUrl);
+      if (!routeInfo || routeInfo.type === 'mobile_link') {
+        throw new Error('That doesn\'t look like a full Strava URL. It should look like: strava.com/segments/12345');
+      }
+      await addCourseFromRouteInfo(routeInfo, resolvedUrl);
+      setMobileLink(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -369,6 +400,54 @@ const CoursePrediction = () => {
                 </>
               )}
             </button>
+          </div>
+        )}
+        {/* Mobile Link Resolution Helper */}
+        {mobileLink && (
+          <div className="mt-3 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+            <div className="flex items-start gap-3 mb-3">
+              <Link2 className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-white mb-1">Mobile link detected</h4>
+                <p className="text-xs text-slate-400">
+                  Mobile share links (strava.app.link) can't be read directly by browsers.
+                  Click the button below to open it — then copy the full URL from your browser's address bar and paste it here.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={() => window.open(mobileLink.originalUrl, '_blank')}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open Link in Browser
+              </button>
+              <input
+                type="text"
+                placeholder="Paste the full strava.com URL here..."
+                className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 text-sm"
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData('text');
+                  if (pasted && pasted.includes('strava.com')) {
+                    e.preventDefault();
+                    handleResolvedUrl(pasted.trim());
+                  }
+                }}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  if (val.includes('strava.com/')) {
+                    handleResolvedUrl(val);
+                  }
+                }}
+              />
+              <button
+                onClick={() => setMobileLink(null)}
+                className="px-3 py-2 text-slate-400 hover:text-white text-sm"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
         {error && (
