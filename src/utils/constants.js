@@ -66,7 +66,9 @@ export const AVAILABLE_COLUMNS = [
   { key: 'heartRate', label: 'Avg Heart Rate', default: false, description: 'Average heart rate during segment', category: 'performance', enabled: true },
   { key: 'maxHeartRate', label: 'Max Heart Rate', default: false, description: 'Maximum heart rate during segment', category: 'performance', enabled: true },
   { key: 'cadence', label: 'Avg Cadence', default: false, description: 'Average steps per minute', category: 'performance', enabled: true },
-  { key: 'strideLength', label: 'Stride Length', default: false, description: 'Average stride length', category: 'performance', enabled: false },
+  { key: 'strideLength', label: 'Stride Length', default: false, description: 'Average stride length in meters', category: 'performance', enabled: true },
+  { key: 'avgPower', label: 'Avg Power', default: false, description: 'Average running power (watts)', category: 'performance', enabled: true },
+  { key: 'maxPower', label: 'Max Power', default: false, description: 'Maximum running power (watts)', category: 'performance', enabled: true },
   // Weather columns
   { key: 'temperature', label: 'Temperature', default: false, description: 'Temperature during run', category: 'conditions', enabled: false },
   { key: 'weather', label: 'Weather', default: false, description: 'Weather conditions', category: 'conditions', enabled: false },

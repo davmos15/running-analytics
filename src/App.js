@@ -7,6 +7,7 @@ import Settings from './components/Settings/Settings';
 import Graphs from './components/Graphs/Graphs';
 import PredictionsPage from './components/Predictions/PredictionsPage';
 import TrainingPlanPage from './components/TrainingPlan/TrainingPlanPage';
+import FitnessDashboard from './components/Fitness/FitnessDashboard';
 import PredictionDebug from './components/Debug/PredictionDebug';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ErrorMessage from './components/common/ErrorMessage';
@@ -72,6 +73,11 @@ function App() {
         {activeTab === 'predictions' && (
           <ErrorBoundary>
             <PredictionsPage />
+          </ErrorBoundary>
+        )}
+        {activeTab === 'fitness' && (
+          <ErrorBoundary>
+            <FitnessDashboard />
           </ErrorBoundary>
         )}
         {activeTab === 'training-plan' && (

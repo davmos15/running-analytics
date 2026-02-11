@@ -120,12 +120,14 @@ const GraphSettings = ({
                       <option value="time">Total Time</option>
                       <option value="runs">Total Number of Runs</option>
                       <option value="elevation">Total Elevation Gain</option>
+                      <option value="power">Average Power (W)</option>
                     </>
                   ) : (
                     <>
                       <option value="speed">Average Speed</option>
                       <option value="distance">Average Distance</option>
                       <option value="time">Average Time</option>
+                      <option value="power">Average Power (W)</option>
                       <option value="totalDistance">Total Distance</option>
                       <option value="totalTime">Total Time</option>
                       <option value="totalRuns">Total Number of Runs</option>

@@ -104,10 +104,29 @@ A comprehensive running performance analyzer with AI-powered race predictions, a
 - **🔗 Direct Strava Integration**: Quick access to view activities directly in Strava
 - **📅 Enhanced Date Formatting**: Multiple date format options in Settings
 
+### 💪 Fitness & Training Load Dashboard
+- **📈 VO2 Max Estimation (VDOT)**: Jack Daniels formula estimates from your best race performances
+- **💪 Fitness Tracking (CTL)**: 42-day chronic training load showing your overall fitness trend
+- **🔥 Fatigue Monitoring (ATL)**: 7-day acute training load tracking recent training stress
+- **⚖️ Form/Freshness (TSB)**: Training stress balance indicating readiness to perform
+- **❤️ TRIMP Calculation**: Training impulse from heart rate zones and duration per activity
+- **🔄 Recovery Estimation**: Estimated recovery time based on last activity intensity and fitness level
+- **📊 Interactive Charts**: CTL/ATL/TSB trend lines with 30/60/90 day time range selector
+- **⚙️ Configurable Settings**: Set resting HR, max HR, and gender for accurate training load calculations
+
+### ⚡ Running Power & Stride Analytics
+- **⚡ Running Power**: Capture and display watts from Strava power data (Stryd, Garmin, COROS)
+- **📏 Stride Length**: Calculated from cadence and velocity streams, per-activity and per-segment
+- **📊 Power Graphs**: Average power over time available as a graph metric
+- **🔄 Backfill Support**: Enrich existing activities with power and stride data from Settings
+- **🏅 PB Columns**: Power and stride length available as optional columns in Personal Bests tables
+
 ### 💪 Enhanced Data Collection
 - **❤️ Heart Rate Analysis**: Average and maximum HR per segment, HR efficiency trends
 - **🦵 Cadence Tracking**: Steps per minute analysis with consistency scoring
 - **⛰️ Elevation Analytics**: Gain/loss during segments, climbing performance analysis
+- **⚡ Power Metrics**: Average and max watts per segment from power meter data
+- **📏 Stride Analysis**: Per-segment stride length from cadence and velocity streams
 - **🎯 GPS Stream Processing**: Advanced segment detection using time and distance streams
 - **📊 Training Volume Metrics**: Weekly consistency, form trends, preparation analysis
 
@@ -200,16 +219,20 @@ src/
 │   │   └── ConfidenceIndicator.js  # Prediction confidence display
 │   ├── TrainingPlan/   # AI-powered training plan creator with persistence
 │   │   └── TrainingPlanPage.js     # Plan configuration, display, and export
+│   ├── Fitness/        # Training load & fitness dashboard
+│   │   └── FitnessDashboard.js     # VDOT, CTL/ATL/TSB charts, recovery status
 │   ├── Settings/       # Configuration and data management with homepage customization
 │   ├── SyncButton/     # Strava data synchronization
 │   └── common/         # Shared UI components
 ├── services/           # Core services
 │   ├── stravaApi.js           # Strava API integration
 │   ├── firebaseService.js     # Database operations with fixed PB algorithm
-│   ├── syncService.js         # Data synchronization logic
-│   ├── predictionService.js   # Race date-based ML prediction algorithms
-│   └── trainingPlanService.js # AI training plan generation with PDF/CSV export
+│   ├── syncService.js              # Data synchronization logic
+│   ├── predictionService.js        # Race date-based ML prediction algorithms
+│   ├── trainingPlanService.js      # AI training plan generation with PDF/CSV export
+│   └── trainingMetricsService.js   # TRIMP, CTL/ATL/TSB, VDOT, recovery calculations
 ├── hooks/              # Custom React hooks
+│   └── useTrainingMetrics.js  # Training metrics data hook
 ├── utils/              # Utility functions and constants
 └── styles/             # CSS styling and themes
 ```
@@ -225,9 +248,9 @@ src/
 
 ### Data Collection & Processing
 1. **Authentication**: Secure OAuth connection with Strava
-2. **Enhanced Data Sync**: Fetch activities with GPS streams, heart rate, cadence, and elevation data
+2. **Enhanced Data Sync**: Fetch activities with GPS streams, heart rate, cadence, elevation, power, and velocity data
 3. **Advanced Segment Analysis**: Use sliding window algorithm to find fastest segments anywhere in runs
-4. **Comprehensive Metrics**: Calculate HR zones, cadence patterns, and elevation profiles
+4. **Comprehensive Metrics**: Calculate HR zones, cadence patterns, elevation profiles, running power, and stride length
 5. **Firebase Storage**: Store processed data with enhanced metrics for fast access
 
 ### AI Race Predictions
@@ -249,6 +272,14 @@ src/
 7. **Enhanced Export Options**:
    - **Detailed CSV**: Complete workout breakdowns with time splits and estimated durations
    - **Professional PDF**: Comprehensive training plans with weekly schedules and phase analysis
+
+### Fitness & Training Metrics
+1. **TRIMP Calculation**: Training impulse from heart rate data using Banister model with configurable resting/max HR
+2. **Chronic Training Load (CTL)**: 42-day exponential moving average showing fitness trend
+3. **Acute Training Load (ATL)**: 7-day exponential moving average showing recent fatigue
+4. **Training Stress Balance (TSB)**: CTL minus ATL indicating form and readiness
+5. **VDOT Estimation**: VO2 max estimates using Jack Daniels formula from best performances
+6. **Recovery Tracking**: Estimated recovery based on last activity intensity and current fitness
 
 ### User Experience
 1. **Customizable Homepage**: Personalized landing page with toggleable stats, PBs, and graphs sections

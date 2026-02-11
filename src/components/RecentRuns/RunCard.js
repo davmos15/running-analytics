@@ -48,12 +48,24 @@ const RunCard = ({ run }) => {
               </a>
             )}
           </div>
-          <div className="flex items-center space-x-4 text-sm text-slate-300">
+          <div className="flex items-center space-x-4 text-sm text-slate-300 flex-wrap">
             <span>{formatDate(run.start_date)}</span>
             <span>•</span>
             <span>{formatDistance(run.distance)}</span>
             <span>•</span>
             <span>{formatPace(run.average_speed)}/km avg</span>
+            {(run.average_watts || run.average_watts_calculated) && (
+              <>
+                <span>•</span>
+                <span>{run.average_watts || run.average_watts_calculated}W</span>
+              </>
+            )}
+            {run.average_stride_length && (
+              <>
+                <span>•</span>
+                <span>{run.average_stride_length}m stride</span>
+              </>
+            )}
           </div>
         </div>
         <div className="text-right">

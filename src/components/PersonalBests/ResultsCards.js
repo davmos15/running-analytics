@@ -97,6 +97,39 @@ const ResultsCards = ({ personalBests, visibleColumns }) => {
           </div>
         );
         
+      case 'strideLength': {
+        const stride = run.strideLength || run.average_stride_length;
+        if (!stride) return null;
+        return (
+          <div className="text-sm">
+            <span className="text-slate-400">{column.label}:</span>
+            <span className="text-white ml-2">{stride}m</span>
+          </div>
+        );
+      }
+
+      case 'avgPower': {
+        const avgPwr = run.averagePower || run.average_watts || run.average_watts_calculated;
+        if (!avgPwr) return null;
+        return (
+          <div className="text-sm">
+            <span className="text-slate-400">{column.label}:</span>
+            <span className="text-white ml-2">{avgPwr}W</span>
+          </div>
+        );
+      }
+
+      case 'maxPower': {
+        const maxPwr = run.maxPower || run.max_watts || run.max_watts_calculated;
+        if (!maxPwr) return null;
+        return (
+          <div className="text-sm">
+            <span className="text-slate-400">{column.label}:</span>
+            <span className="text-white ml-2">{maxPwr}W</span>
+          </div>
+        );
+      }
+
       case 'activityType':
         if (!run.activityType) return null;
         return (
@@ -214,6 +247,12 @@ const ResultsCards = ({ personalBests, visibleColumns }) => {
                   )}
                   {run.elevationGain !== undefined && run.elevationGain > 0 && (
                     <span>⛰️ {run.elevationGain}m</span>
+                  )}
+                  {(run.averagePower || run.average_watts) && (
+                    <span>⚡ {run.averagePower || run.average_watts}W</span>
+                  )}
+                  {(run.strideLength || run.average_stride_length) && (
+                    <span>📏 {run.strideLength || run.average_stride_length}m stride</span>
                   )}
                 </div>
                 

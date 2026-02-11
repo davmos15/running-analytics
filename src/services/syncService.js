@@ -102,7 +102,7 @@ class SyncService {
           let streams = null;
           try {
             streams = await stravaApi.getActivityStreams(activity.id, [
-              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+              'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
             ]);
           } catch (streamError) {
             console.log(`Could not fetch streams for activity ${activity.id}, using basic extraction`);
@@ -170,7 +170,7 @@ class SyncService {
           let streams = null;
           try {
             streams = await stravaApi.getActivityStreams(activity.id, [
-              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+              'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
             ]);
           } catch (streamError) {
             console.log(`Could not fetch streams for activity ${activity.id}, using basic processing`);
@@ -268,7 +268,7 @@ class SyncService {
           try {
             // Try to get streams for this activity
             const streams = await stravaApi.getActivityStreams(activity.id, [
-              'time', 'distance', 'heartrate', 'cadence', 'altitude'
+              'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
             ]);
 
             if (streams && (streams.heartrate || streams.cadence || streams.altitude)) {
@@ -386,6 +386,100 @@ class SyncService {
         progressCallback({
           stage: 'error',
           message: `Fix failed: ${error.message}`
+        });
+      }
+      throw error;
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  async backfillPowerAndStrideData(progressCallback = null) {
+    if (this.isSyncing) {
+      console.log('Sync already in progress');
+      return;
+    }
+
+    try {
+      this.isSyncing = true;
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'analyzing',
+          message: 'Finding activities missing power or stride data...'
+        });
+      }
+
+      const allActivities = await firebaseService.getActivities();
+      const activitiesNeedingData = allActivities.filter(activity => {
+        if (!activity.type || !['Run', 'TrailRun'].includes(activity.type)) return false;
+        const hasPowerData = !!(activity.average_watts || activity.average_watts_calculated);
+        const hasStrideData = !!activity.average_stride_length;
+        return !hasPowerData || !hasStrideData;
+      });
+
+      if (activitiesNeedingData.length === 0) {
+        if (progressCallback) {
+          progressCallback({
+            stage: 'complete',
+            message: 'All activities already have power and stride data!'
+          });
+        }
+        return { success: true, updatedCount: 0 };
+      }
+
+      let processedCount = 0;
+      let updatedCount = 0;
+      const batchSize = 5;
+
+      for (let i = 0; i < activitiesNeedingData.length; i += batchSize) {
+        const batch = activitiesNeedingData.slice(i, i + batchSize);
+
+        for (const activity of batch) {
+          if (progressCallback) {
+            progressCallback({
+              stage: 'processing',
+              message: `Fetching power/stride data for activity ${processedCount + 1}/${activitiesNeedingData.length}`,
+              progress: (processedCount / activitiesNeedingData.length) * 100
+            });
+          }
+
+          try {
+            const streams = await stravaApi.getActivityStreams(activity.id, [
+              'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
+            ]);
+
+            if (streams && (streams.watts || streams.velocity_smooth || streams.cadence)) {
+              await firebaseService.saveActivity(activity.id, activity, streams);
+              await firebaseService.processActivityForSegments(activity, streams);
+              updatedCount++;
+            }
+          } catch (streamError) {
+            console.log(`Could not fetch streams for activity ${activity.id}:`, streamError.message);
+          }
+
+          processedCount++;
+          await this.delay(200);
+        }
+
+        await this.delay(1000);
+      }
+
+      if (progressCallback) {
+        progressCallback({
+          stage: 'complete',
+          message: `Backfill complete! Enhanced ${updatedCount} activities with power and stride data.`
+        });
+      }
+
+      return { success: true, updatedCount };
+
+    } catch (error) {
+      console.error('Power/stride backfill failed:', error);
+      if (progressCallback) {
+        progressCallback({
+          stage: 'error',
+          message: `Backfill failed: ${error.message}`
         });
       }
       throw error;

@@ -96,6 +96,30 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
             {run.elevationGain !== undefined ? `${run.elevationGain}m` : 'N/A'}
           </div>
         );
+      case 'strideLength': {
+        const stride = run.strideLength || run.average_stride_length;
+        return (
+          <div className="text-sm text-slate-300">
+            {stride ? `${stride}m` : 'N/A'}
+          </div>
+        );
+      }
+      case 'avgPower': {
+        const avgPower = run.averagePower || run.average_watts || run.average_watts_calculated;
+        return (
+          <div className="text-sm text-slate-300">
+            {avgPower ? `${avgPower}W` : 'N/A'}
+          </div>
+        );
+      }
+      case 'maxPower': {
+        const maxPower = run.maxPower || run.max_watts || run.max_watts_calculated;
+        return (
+          <div className="text-sm text-slate-300">
+            {maxPower ? `${maxPower}W` : 'N/A'}
+          </div>
+        );
+      }
       default:
         return <div className="text-sm text-slate-300">{run[columnKey] || 'N/A'}</div>;
     }

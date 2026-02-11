@@ -101,6 +101,13 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
             case 'elevation':
               value = activities.reduce((sum, act) => sum + (act.total_elevation_gain || 0), 0); // total elevation in meters
               break;
+            case 'power': {
+              const actsWithPower = activities.filter(act => act.average_watts || act.average_watts_calculated);
+              value = actsWithPower.length > 0
+                ? actsWithPower.reduce((sum, act) => sum + (act.average_watts || act.average_watts_calculated || 0), 0)
+                : 0;
+              break;
+            }
             default:
               value = 0;
           }
@@ -131,6 +138,13 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
             case 'totalRuns':
               value = activities.length; // total number of runs
               break;
+            case 'power': {
+              const actsWithPower = activities.filter(act => act.average_watts || act.average_watts_calculated);
+              value = actsWithPower.length > 0
+                ? actsWithPower.reduce((sum, act) => sum + (act.average_watts || act.average_watts_calculated || 0), 0) / actsWithPower.length
+                : 0;
+              break;
+            }
             default:
               value = 0;
           }
@@ -191,6 +205,8 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
           return 'Total Number of Runs';
         case 'elevation':
           return 'Total Elevation Gain (m)';
+        case 'power':
+          return 'Average Power (W)';
         default:
           return 'Total';
       }
@@ -208,6 +224,8 @@ const BarGraph = ({ metric = 'distance', period = 'monthly', color = '#10B981', 
           return 'Total Time (minutes)';
         case 'totalRuns':
           return 'Total Number of Runs';
+        case 'power':
+          return 'Average Power (W)';
         default:
           return 'Average';
       }

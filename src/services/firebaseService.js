@@ -117,7 +117,39 @@ class FirebaseService {
         metrics.end_elevation = Math.round(altData[altData.length - 1]);
       }
     }
-    
+
+    // Power metrics from watts stream
+    if (streams.watts?.data) {
+      const wattsData = streams.watts.data.filter(w => w && w > 0);
+      if (wattsData.length > 0) {
+        metrics.average_watts_calculated = Math.round(
+          wattsData.reduce((sum, w) => sum + w, 0) / wattsData.length
+        );
+        metrics.max_watts_calculated = Math.max(...wattsData);
+      }
+    }
+
+    // Stride length from cadence + velocity
+    if (streams.cadence?.data && streams.velocity_smooth?.data) {
+      const strideLengths = [];
+      for (let i = 0; i < streams.cadence.data.length; i++) {
+        const cad = streams.cadence.data[i]; // steps per minute (one leg)
+        const speed = streams.velocity_smooth.data[i]; // m/s
+        if (cad && cad > 0 && speed && speed > 0) {
+          // Strava running cadence is per leg; full stride = speed / (cadence/60)
+          const strideLen = (speed * 60) / cad;
+          if (strideLen > 0.5 && strideLen < 4.0) {
+            strideLengths.push(strideLen);
+          }
+        }
+      }
+      if (strideLengths.length > 0) {
+        metrics.average_stride_length = parseFloat(
+          (strideLengths.reduce((s, l) => s + l, 0) / strideLengths.length).toFixed(2)
+        );
+      }
+    }
+
     return metrics;
   }
 
@@ -800,6 +832,8 @@ class FirebaseService {
     const heartRateStream = streams.heartrate?.data || null;
     const cadenceStream = streams.cadence?.data || null;
     const altitudeStream = streams.altitude?.data || null;
+    const wattsStream = streams.watts?.data || null;
+    const velocityStream = streams.velocity_smooth?.data || null;
     
     // Define common distances to track (in meters)
     const distances = [
@@ -852,7 +886,9 @@ class FirebaseService {
             bestSegment,
             heartRateStream,
             cadenceStream,
-            altitudeStream
+            altitudeStream,
+            wattsStream,
+            velocityStream
           );
           
           segments.push({
@@ -881,32 +917,32 @@ class FirebaseService {
   }
 
   // Calculate enhanced metrics for a segment from stream data
-  calculateSegmentMetrics(segment, heartRateStream, cadenceStream, altitudeStream) {
+  calculateSegmentMetrics(segment, heartRateStream, cadenceStream, altitudeStream, wattsStream = null, velocityStream = null) {
     const metrics = {};
-    
+
     if (heartRateStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
       const hrSlice = heartRateStream.slice(segment.startIndex, segment.endIndex + 1);
       const validHR = hrSlice.filter(hr => hr && hr > 0);
-      
+
       if (validHR.length > 0) {
         metrics.averageHeartRate = Math.round(validHR.reduce((sum, hr) => sum + hr, 0) / validHR.length);
         metrics.maxHeartRate = Math.max(...validHR);
       }
     }
-    
+
     if (cadenceStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
       const cadenceSlice = cadenceStream.slice(segment.startIndex, segment.endIndex + 1);
       const validCadence = cadenceSlice.filter(cad => cad && cad > 0);
-      
+
       if (validCadence.length > 0) {
         metrics.averageCadence = Math.round(validCadence.reduce((sum, cad) => sum + cad, 0) / validCadence.length);
       }
     }
-    
+
     if (altitudeStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
       const altSlice = altitudeStream.slice(segment.startIndex, segment.endIndex + 1);
       const validAltitude = altSlice.filter(alt => alt !== null && alt !== undefined);
-      
+
       if (validAltitude.length > 1) {
         // Calculate elevation gain during the segment
         let elevationGain = 0;
@@ -917,13 +953,41 @@ class FirebaseService {
           }
         }
         metrics.elevationGain = Math.round(elevationGain);
-        
+
         // Also store start and end elevation
         metrics.startElevation = Math.round(validAltitude[0]);
         metrics.endElevation = Math.round(validAltitude[validAltitude.length - 1]);
       }
     }
-    
+
+    // Power metrics per segment
+    if (wattsStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
+      const wattsSlice = wattsStream.slice(segment.startIndex, segment.endIndex + 1);
+      const validWatts = wattsSlice.filter(w => w && w > 0);
+      if (validWatts.length > 0) {
+        metrics.averagePower = Math.round(validWatts.reduce((sum, w) => sum + w, 0) / validWatts.length);
+        metrics.maxPower = Math.max(...validWatts);
+      }
+    }
+
+    // Stride length per segment
+    if (cadenceStream && velocityStream && segment.startIndex !== undefined && segment.endIndex !== undefined) {
+      const cadSlice = cadenceStream.slice(segment.startIndex, segment.endIndex + 1);
+      const velSlice = velocityStream.slice(segment.startIndex, segment.endIndex + 1);
+      const strideLengths = [];
+      for (let i = 0; i < cadSlice.length; i++) {
+        if (cadSlice[i] > 0 && velSlice[i] > 0) {
+          const sl = (velSlice[i] * 60) / cadSlice[i];
+          if (sl > 0.5 && sl < 4.0) strideLengths.push(sl);
+        }
+      }
+      if (strideLengths.length > 0) {
+        metrics.strideLength = parseFloat(
+          (strideLengths.reduce((s, l) => s + l, 0) / strideLengths.length).toFixed(2)
+        );
+      }
+    }
+
     return metrics;
   }
 
@@ -1136,7 +1200,7 @@ class FirebaseService {
     try {
       const stravaApi = await import('./stravaApi');
       const streams = await stravaApi.default.getActivityStreams(activityId, [
-        'time', 'distance', 'heartrate', 'cadence', 'altitude'
+        'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
       ]);
       return streams;
     } catch (error) {

@@ -19,6 +19,7 @@ const Settings = () => {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [isSearchingOldRuns, setIsSearchingOldRuns] = useState(false);
   const [oldRuns, setOldRuns] = useState([]);
+  const [isBackfillingPower, setIsBackfillingPower] = useState(false);
   const [homepageSettings, setHomepageSettings] = useState({
     showGraphs: true,
     showTotals: true,
@@ -82,6 +83,22 @@ const Settings = () => {
         alert('Error reprocessing activities: ' + error.message);
       } finally {
         setIsReprocessing(false);
+      }
+    }
+  };
+
+  const handleBackfillPowerData = async () => {
+    if (window.confirm('This will re-fetch stream data for activities missing power or stride length data. This may take a while for large histories. Continue?')) {
+      setIsBackfillingPower(true);
+      try {
+        const result = await syncService.backfillPowerAndStrideData((progress) => {
+          // Could update a progress indicator here
+        });
+        alert(`Backfill complete! Enhanced ${result.updatedCount} activities with power and stride data.`);
+      } catch (error) {
+        alert('Error backfilling power data: ' + error.message);
+      } finally {
+        setIsBackfillingPower(false);
       }
     }
   };
@@ -505,6 +522,71 @@ const Settings = () => {
           </div>
         </div>
 
+        {/* Training Metrics Settings */}
+        <div className="border-t border-blue-500/20 pt-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <SettingsIcon className="w-4 h-4 text-orange-400" />
+            <h3 className="text-md font-medium text-white">Training Metrics</h3>
+          </div>
+          <p className="text-sm text-slate-300 mb-4">
+            Configure your heart rate zones for accurate training load calculations (TRIMP, Fitness/Fatigue).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Resting HR (bpm)</label>
+              <input
+                type="number"
+                value={(() => {
+                  const s = localStorage.getItem('trainingMetricsSettings');
+                  return s ? JSON.parse(s).restingHR : 60;
+                })()}
+                onChange={(e) => {
+                  const current = JSON.parse(localStorage.getItem('trainingMetricsSettings') || '{"restingHR":60,"maxHR":190,"gender":"male"}');
+                  current.restingHR = parseInt(e.target.value) || 60;
+                  localStorage.setItem('trainingMetricsSettings', JSON.stringify(current));
+                }}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-orange-400"
+                min="30" max="100"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Max HR (bpm)</label>
+              <input
+                type="number"
+                value={(() => {
+                  const s = localStorage.getItem('trainingMetricsSettings');
+                  return s ? JSON.parse(s).maxHR : 190;
+                })()}
+                onChange={(e) => {
+                  const current = JSON.parse(localStorage.getItem('trainingMetricsSettings') || '{"restingHR":60,"maxHR":190,"gender":"male"}');
+                  current.maxHR = parseInt(e.target.value) || 190;
+                  localStorage.setItem('trainingMetricsSettings', JSON.stringify(current));
+                }}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-orange-400"
+                min="140" max="220"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Gender</label>
+              <select
+                value={(() => {
+                  const s = localStorage.getItem('trainingMetricsSettings');
+                  return s ? JSON.parse(s).gender : 'male';
+                })()}
+                onChange={(e) => {
+                  const current = JSON.parse(localStorage.getItem('trainingMetricsSettings') || '{"restingHR":60,"maxHR":190,"gender":"male"}');
+                  current.gender = e.target.value;
+                  localStorage.setItem('trainingMetricsSettings', JSON.stringify(current));
+                }}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-orange-400"
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* Firebase Status */}
         <div className="border-t border-blue-500/20 pt-6">
           <div className="flex items-center space-x-2 mb-3">
@@ -560,6 +642,23 @@ const Settings = () => {
                 className="px-4 py-2 athletic-button-primary text-white rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
               >
                 {isReprocessing ? 'Processing...' : 'Reprocess All Activities'}
+              </button>
+            </div>
+
+            <div className="border-t border-blue-500/20 pt-4">
+              <h4 className="text-sm font-medium text-white mb-2">
+                Backfill Power & Stride Data
+              </h4>
+              <p className="text-sm text-slate-300 mb-3">
+                Re-fetch stream data to capture running power (watts) and calculate stride length
+                for existing activities. Only processes activities missing this data.
+              </p>
+              <button
+                onClick={handleBackfillPowerData}
+                disabled={isBackfillingPower}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm"
+              >
+                {isBackfillingPower ? 'Backfilling...' : 'Backfill Power & Stride Data'}
               </button>
             </div>
 
