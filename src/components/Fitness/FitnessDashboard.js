@@ -77,8 +77,13 @@ const FitnessDashboard = () => {
   };
   const recoveryStyle = recoveryColors[recovery.level] || recoveryColors.moderate;
 
-  // Prepare chart data
-  const chartData = fitness.tsbData.slice(-chartRange);
+  // Prepare chart data — sanitize to prevent NaN in SVG paths
+  const chartData = (fitness.tsbData || []).slice(-chartRange).map(d => ({
+    ...d,
+    ctl: (d.ctl != null && !isNaN(d.ctl)) ? d.ctl : 0,
+    atl: (d.atl != null && !isNaN(d.atl)) ? d.atl : 0,
+    tsb: (d.tsb != null && !isNaN(d.tsb)) ? d.tsb : 0
+  }));
   const fitnessChartConfig = {
     labels: chartData.map(d => {
       const date = new Date(d.date);
@@ -92,7 +97,8 @@ const FitnessDashboard = () => {
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         tension: 0.3,
         pointRadius: 0,
-        borderWidth: 2
+        borderWidth: 2,
+        spanGaps: true
       },
       {
         label: 'Fatigue (ATL)',
@@ -101,7 +107,8 @@ const FitnessDashboard = () => {
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.3,
         pointRadius: 0,
-        borderWidth: 2
+        borderWidth: 2,
+        spanGaps: true
       },
       {
         label: 'Form (TSB)',
@@ -118,7 +125,8 @@ const FitnessDashboard = () => {
         fill: true,
         tension: 0.3,
         pointRadius: 0,
-        borderWidth: 2
+        borderWidth: 2,
+        spanGaps: true
       }
     ]
   };

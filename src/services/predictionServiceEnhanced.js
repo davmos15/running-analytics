@@ -1164,12 +1164,17 @@ class EnhancedPredictionService {
       const watts = a.average_watts || a.average_watts_calculated;
       const distance = a.distanceMeters || a.distance;
       const time = a.time || a.moving_time;
+      if (!distance || !time || time === 0) return null;
       const speed = distance / time; // m/s
+      if (speed === 0 || !isFinite(speed)) return null;
       return watts / speed; // watts per m/s — lower = more efficient
-    });
+    }).filter(r => r !== null && isFinite(r));
+
+    if (ratios.length < 2) return 0;
 
     const midpoint = Math.floor(ratios.length / 2);
-    const recentAvg = ratios.slice(midpoint).reduce((s, r) => s + r, 0) / (ratios.length - midpoint);
+    const recentCount = ratios.length - midpoint;
+    const recentAvg = ratios.slice(midpoint).reduce((s, r) => s + r, 0) / recentCount;
     const olderAvg = ratios.slice(0, midpoint).reduce((s, r) => s + r, 0) / midpoint;
 
     if (olderAvg === 0 || !isFinite(olderAvg) || !isFinite(recentAvg)) return 0;
@@ -1184,11 +1189,14 @@ class EnhancedPredictionService {
    * Returns positive value if stride length is increasing (potential efficiency gain).
    */
   calculateStrideEfficiency(strideActivities) {
+    if (strideActivities.length < 2) return 0;
     const midpoint = Math.floor(strideActivities.length / 2);
+    if (midpoint === 0) return 0;
+    const recentCount = strideActivities.length - midpoint;
     const recentAvg = strideActivities.slice(midpoint)
-      .reduce((s, a) => s + a.average_stride_length, 0) / (strideActivities.length - midpoint);
+      .reduce((s, a) => s + (a.average_stride_length || 0), 0) / recentCount;
     const olderAvg = strideActivities.slice(0, midpoint)
-      .reduce((s, a) => s + a.average_stride_length, 0) / midpoint;
+      .reduce((s, a) => s + (a.average_stride_length || 0), 0) / midpoint;
 
     if (olderAvg === 0 || !isFinite(olderAvg) || !isFinite(recentAvg)) return 0;
 

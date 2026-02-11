@@ -11,9 +11,13 @@ class TrainingMetricsService {
    * Get user training metrics settings from localStorage
    */
   getSettings() {
-    const saved = localStorage.getItem('trainingMetricsSettings');
-    if (saved) {
-      return JSON.parse(saved);
+    try {
+      const saved = localStorage.getItem('trainingMetricsSettings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Invalid training metrics settings in localStorage, using defaults');
     }
     return {
       restingHR: 60,
@@ -32,13 +36,16 @@ class TrainingMetricsService {
     const avgHR = activity.average_heartrate || activity.averageHeartRate;
     const duration = activity.moving_time; // seconds
 
-    if (!avgHR || !duration) return 0;
+    if (!avgHR || !duration || isNaN(avgHR) || isNaN(duration)) return 0;
 
     const durationMin = duration / 60;
-    const hrRatio = (avgHR - settings.restingHR) / (settings.maxHR - settings.restingHR);
+    const hrRange = (settings.maxHR || 190) - (settings.restingHR || 60);
+    if (hrRange <= 0) return 0;
+    const hrRatio = (avgHR - (settings.restingHR || 60)) / hrRange;
 
     // Clamp HR ratio to valid range
     const clampedHR = Math.max(0, Math.min(1, hrRatio));
+    if (isNaN(clampedHR)) return 0;
 
     // Gender-specific multiplier (Banister 1991)
     let trimp;
@@ -48,7 +55,7 @@ class TrainingMetricsService {
       trimp = durationMin * clampedHR * 0.64 * Math.exp(1.92 * clampedHR);
     }
 
-    return Math.round(trimp * 10) / 10;
+    return isNaN(trimp) ? 0 : Math.round(trimp * 10) / 10;
   }
 
   /**
@@ -64,6 +71,7 @@ class TrainingMetricsService {
       if (trimp <= 0) return;
 
       const date = new Date(activity.start_date);
+      if (isNaN(date.getTime())) return;
       const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
       if (!dailyMap[dateKey]) {
@@ -99,7 +107,9 @@ class TrainingMetricsService {
     const decay = 42;
     let ctl = 0;
     return dailyTRIMP.map(day => {
-      ctl = ctl + (day.trimp - ctl) / decay;
+      const trimp = isNaN(day.trimp) ? 0 : day.trimp;
+      ctl = ctl + (trimp - ctl) / decay;
+      if (isNaN(ctl)) ctl = 0;
       return { date: day.date, ctl: Math.round(ctl * 10) / 10 };
     });
   }
@@ -112,7 +122,9 @@ class TrainingMetricsService {
     const decay = 7;
     let atl = 0;
     return dailyTRIMP.map(day => {
-      atl = atl + (day.trimp - atl) / decay;
+      const trimp = isNaN(day.trimp) ? 0 : day.trimp;
+      atl = atl + (trimp - atl) / decay;
+      if (isNaN(atl)) atl = 0;
       return { date: day.date, atl: Math.round(atl * 10) / 10 };
     });
   }
@@ -123,12 +135,17 @@ class TrainingMetricsService {
    * Positive = fresh, Negative = fatigued
    */
   calculateTSB(ctlData, atlData) {
-    return ctlData.map((ctlDay, i) => ({
-      date: ctlDay.date,
-      tsb: Math.round((ctlDay.ctl - atlData[i].atl) * 10) / 10,
-      ctl: ctlDay.ctl,
-      atl: atlData[i].atl
-    }));
+    return ctlData.map((ctlDay, i) => {
+      const atl = atlData[i]?.atl || 0;
+      const ctl = ctlDay.ctl || 0;
+      const tsb = Math.round((ctl - atl) * 10) / 10;
+      return {
+        date: ctlDay.date,
+        tsb: isNaN(tsb) ? 0 : tsb,
+        ctl: isNaN(ctl) ? 0 : ctl,
+        atl: isNaN(atl) ? 0 : atl
+      };
+    });
   }
 
   /**
