@@ -13,6 +13,7 @@ const RecentRuns = lazy(() => import('./components/RecentRuns/RecentRuns'));
 const Graphs = lazy(() => import('./components/Graphs/Graphs'));
 const PredictionsPage = lazy(() => import('./components/Predictions/PredictionsPage')); // Main predictions page with Course Predictions
 const TrainingPlanPage = lazy(() => import('./components/TrainingPlan/TrainingPlanPage'));
+const RoadCoverage = lazy(() => import('./components/RoadCoverage/RoadCoverage'));
 const Settings = lazy(() => import('./components/Settings/SettingsWorking')); // Working settings with functionality
 
 // Ultra-fast loading component for lazy loaded routes
@@ -117,7 +118,14 @@ function AppRouter() {
                   <TrainingPlanPage />
                 </ErrorBoundary>
               } />
-              
+
+              {/* Road Coverage route */}
+              <Route path="/road-coverage" element={
+                <ErrorBoundary>
+                  <RoadCoverage />
+                </ErrorBoundary>
+              } />
+
               {/* Settings route */}
               <Route path="/settings" element={
                 <ErrorBoundary>

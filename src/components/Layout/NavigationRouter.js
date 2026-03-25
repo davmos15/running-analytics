@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Star, Timer, Settings, BarChart3, TrendingUp, Calendar } from 'lucide-react';
+import { Home, Star, Timer, Settings, BarChart3, TrendingUp, Calendar, Map } from 'lucide-react';
 
 const NavigationRouter = () => {
   const location = useLocation();
@@ -19,6 +19,7 @@ const NavigationRouter = () => {
     { path: '/graphs', label: 'Graphs', icon: BarChart3 },
     { path: '/predictions', label: 'Predictions', icon: TrendingUp },
     { path: '/training-plan', label: 'Plan', icon: Calendar },
+    { path: '/road-coverage', label: 'Roads', icon: Map },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -30,6 +31,7 @@ const NavigationRouter = () => {
     { path: '/graphs', label: 'Graphs', icon: BarChart3 },
     { path: '/predictions', label: 'Predict', icon: TrendingUp },
     { path: '/training-plan', label: 'Plan', icon: Calendar },
+    { path: '/road-coverage', label: 'Roads', icon: Map },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -60,7 +62,7 @@ const NavigationRouter = () => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 athletic-card-gradient border-t border-blue-500/20 z-50">
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-8">
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
