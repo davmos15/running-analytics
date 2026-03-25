@@ -314,6 +314,7 @@ const RoadCoverage = () => {
 
   // Track if auto-detection has run
   const autoDetectRan = useRef(false);
+  const [autoDetectedSuburbs, setAutoDetectedSuburbs] = useState(new Set());
 
   // ── Load run routes from Firestore ──────────────────────────────────────
 
@@ -433,6 +434,7 @@ const RoadCoverage = () => {
       // Auto-add top suburbs
       const newSuburbs = topNames.map((name) => suburbInfo[name]);
       setSelectedSuburbs(newSuburbs);
+      setAutoDetectedSuburbs(new Set(topNames));
 
       // Load roads for each suburb sequentially
       for (const suburb of newSuburbs) {
@@ -815,13 +817,13 @@ const RoadCoverage = () => {
               </div>
             )}
 
-            {/* Selected suburbs */}
-            {selectedSuburbs.length > 0 && (
+            {/* Manually added suburbs (not auto-detected) */}
+            {selectedSuburbs.filter((s) => !autoDetectedSuburbs.has(s.name)).length > 0 && (
               <div className="mt-3 space-y-1">
                 <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-                  Selected
+                  Added
                 </div>
-                {selectedSuburbs.map((suburb) => (
+                {selectedSuburbs.filter((s) => !autoDetectedSuburbs.has(s.name)).map((suburb) => (
                   <div
                     key={suburb.name}
                     className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
@@ -980,9 +982,8 @@ const RoadCoverage = () => {
                     positions={road.coords}
                     pathOptions={{
                       color: unrunColor,
-                      weight: 2,
-                      opacity: 0.4,
-                      dashArray: '4 6',
+                      weight: 3.5,
+                      opacity: 0.9,
                     }}
                   />
                 ))}
@@ -1001,19 +1002,18 @@ const RoadCoverage = () => {
                   />
                 ))}
 
-              {/* Run route traces when no suburb selected */}
-              {selectedSuburbs.length === 0 &&
-                runRoutes.map((route) => (
-                  <Polyline
-                    key={`route-${route.id}`}
-                    positions={route.coords}
-                    pathOptions={{
-                      color: '#f97316',
-                      weight: 2.5,
-                      opacity: 0.7,
-                    }}
-                  />
-                ))}
+              {/* Run route traces (always visible as subtle background) */}
+              {runRoutes.map((route) => (
+                <Polyline
+                  key={`route-${route.id}`}
+                  positions={route.coords}
+                  pathOptions={{
+                    color: '#f97316',
+                    weight: 2,
+                    opacity: selectedSuburbs.length > 0 ? 0.25 : 0.7,
+                  }}
+                />
+              ))}
             </MapContainer>
           </div>
 
