@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Polygon, useMap } from 'react-leaflet';
 import polyline from '@mapbox/polyline';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
 import DateFilter from '../PersonalBests/DateFilter';
-import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy } from 'lucide-react';
+import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff } from 'lucide-react';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 const MELBOURNE_CENTER = [-37.8136, 144.9631];
 const DEFAULT_ZOOM = 13;
-const ROAD_MATCH_TOLERANCE = 25; // metres – how close a GPS point must be to "cover" a road segment
+const ROAD_MATCH_TOLERANCE = 25;
 
 function haversineDistance([lat1, lon1], [lat2, lon2]) {
   const R = 6371000;
@@ -23,7 +24,6 @@ function haversineDistance([lat1, lon1], [lat2, lon2]) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Build a spatial grid for fast proximity lookups
 function buildSpatialGrid(points, cellSize = 0.002) {
   const grid = {};
   for (const pt of points) {
@@ -38,7 +38,6 @@ function hasNearbyPoint(spatialGrid, lat, lon, tolerance) {
   const { grid, cellSize } = spatialGrid;
   const cx = Math.floor(lat / cellSize);
   const cy = Math.floor(lon / cellSize);
-  // Check 3x3 neighborhood
   for (let dx = -1; dx <= 1; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
       const key = `${cx + dx},${cy + dy}`;
@@ -52,7 +51,6 @@ function hasNearbyPoint(spatialGrid, lat, lon, tolerance) {
   return false;
 }
 
-// Interpolate extra points along a polyline to fill gaps in GPS data
 function interpolatePoints(coords, maxGapMetres = 15) {
   const result = [];
   for (let i = 0; i < coords.length; i++) {
@@ -74,11 +72,43 @@ function interpolatePoints(coords, maxGapMetres = 15) {
   return result;
 }
 
-// ── Overpass API: fetch suburb roads ─────────────────────────────────────────
+// ── Reverse geocode a point to suburb name ──────────────────────────────────
 
-async function fetchSuburbRoads(suburbName) {
+async function reverseGeocodeToSuburb(lat, lon) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=16`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'RunningAnalytics/1.0' },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const suburb =
+      data.address?.suburb ||
+      data.address?.town ||
+      data.address?.city_district ||
+      data.address?.neighbourhood;
+    if (!suburb) return null;
+    return {
+      name: suburb,
+      lat: parseFloat(data.lat),
+      lon: parseFloat(data.lon),
+      state: data.address?.state || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ── Overpass API: fetch suburb roads with retry ──────────────────────────────
+
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+async function fetchSuburbRoads(suburbName, retries = 2) {
   const query = `
-    [out:json][timeout:30];
+    [out:json][timeout:45];
     area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]->.suburb;
     (
       way["highway"~"^(residential|tertiary|secondary|primary|trunk|unclassified|living_street)$"](area.suburb);
@@ -88,37 +118,90 @@ async function fetchSuburbRoads(suburbName) {
     out skel qt;
   `;
 
-  const response = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 50000);
 
-  if (!response.ok) throw new Error(`Overpass API error: ${response.status}`);
-  const data = await response.json();
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: `data=${encodeURIComponent(query)}`,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
 
-  // Build node map
-  const nodes = {};
-  for (const el of data.elements) {
-    if (el.type === 'node') nodes[el.id] = [el.lat, el.lon];
-  }
-
-  // Build road segments
-  const roads = [];
-  for (const el of data.elements) {
-    if (el.type === 'way' && el.nodes) {
-      const coords = el.nodes.map((nId) => nodes[nId]).filter(Boolean);
-      if (coords.length >= 2) {
-        roads.push({
-          id: el.id,
-          name: el.tags?.name || 'Unnamed Road',
-          type: el.tags?.highway || 'road',
-          coords,
-        });
+      if (response.status === 504 || response.status === 429) {
+        if (attempt < retries) {
+          await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
       }
+      if (!response.ok) throw new Error(`Overpass API error: ${response.status}`);
+      const data = await response.json();
+
+      const nodes = {};
+      for (const el of data.elements) {
+        if (el.type === 'node') nodes[el.id] = [el.lat, el.lon];
+      }
+
+      const roads = [];
+      for (const el of data.elements) {
+        if (el.type === 'way' && el.nodes) {
+          const coords = el.nodes.map((nId) => nodes[nId]).filter(Boolean);
+          if (coords.length >= 2) {
+            roads.push({
+              id: el.id,
+              name: el.tags?.name || 'Unnamed Road',
+              type: el.tags?.highway || 'road',
+              coords,
+            });
+          }
+        }
+      }
+      return roads;
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
     }
   }
-  return roads;
+  return [];
+}
+
+// ── Fetch suburb boundary from Overpass ──────────────────────────────────────
+
+async function fetchSuburbBoundary(suburbName) {
+  const query = `
+    [out:json][timeout:20];
+    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"];
+    out geom;
+  `;
+
+  try {
+    const response = await fetch(OVERPASS_ENDPOINTS[0], {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+
+    for (const el of data.elements) {
+      if (el.type === 'relation' && el.members) {
+        const outerWays = el.members
+          .filter((m) => m.type === 'way' && m.role === 'outer' && m.geometry)
+          .flatMap((m) => m.geometry.map((g) => [g.lat, g.lon]));
+        if (outerWays.length > 0) return outerWays;
+      }
+    }
+  } catch {
+    // boundary is optional
+  }
+  return null;
 }
 
 // ── Suburb search via Nominatim ─────────────────────────────────────────────
@@ -126,8 +209,8 @@ async function fetchSuburbRoads(suburbName) {
 async function searchSuburbs(query) {
   if (!query || query.length < 2) return [];
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-    query
-  )}&format=json&addressdetails=1&limit=10&countrycodes=au&featuretype=settlement`;
+    query + ', Australia'
+  )}&format=json&addressdetails=1&limit=15&countrycodes=au`;
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'RunningAnalytics/1.0' },
@@ -135,21 +218,26 @@ async function searchSuburbs(query) {
   if (!response.ok) return [];
   const results = await response.json();
 
+  // Deduplicate by suburb name - keep distinct suburbs (handles North/South/East/West)
+  const seen = new Set();
   return results
-    .filter(
-      (r) =>
+    .filter((r) => {
+      const name =
         r.address?.suburb ||
         r.address?.town ||
-        r.address?.city_district ||
-        r.type === 'suburb' ||
-        r.type === 'neighbourhood'
-    )
+        r.address?.city_district;
+      if (!name) return false;
+      // Use name + state as key to distinguish e.g. "Richmond VIC" vs "Richmond NSW"
+      const key = `${name}|${r.address?.state || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map((r) => ({
       name:
         r.address?.suburb ||
         r.address?.town ||
-        r.address?.city_district ||
-        r.display_name.split(',')[0],
+        r.address?.city_district,
       displayName: r.display_name,
       lat: parseFloat(r.lat),
       lon: parseFloat(r.lon),
@@ -157,22 +245,40 @@ async function searchSuburbs(query) {
     }));
 }
 
-// ── Map auto-fit component ──────────────────────────────────────────────────
+// ── Map controller components ───────────────────────────────────────────────
 
 function MapFitter({ bounds }) {
   const map = useMap();
   useEffect(() => {
     if (bounds && bounds.length > 0) {
-      map.fitBounds(bounds, { padding: [30, 30] });
+      try {
+        const latLngs = bounds.map((b) => L.latLng(b[0], b[1]));
+        const b = L.latLngBounds(latLngs);
+        if (b.isValid()) {
+          map.fitBounds(b, { padding: [30, 30], maxZoom: 16 });
+        }
+      } catch {
+        // invalid bounds
+      }
     }
   }, [map, bounds]);
+  return null;
+}
+
+function MapFlyer({ center, zoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.flyTo(center, zoom || 15, { duration: 1 });
+    }
+  }, [map, center, zoom]);
   return null;
 }
 
 // ── Main component ──────────────────────────────────────────────────────────
 
 const RoadCoverage = () => {
-  // Date filter state
+  // Date filter
   const [timeFilter, setTimeFilter] = useState('all-time');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
@@ -185,15 +291,29 @@ const RoadCoverage = () => {
   const [showSearch, setShowSearch] = useState(true);
   const searchTimeout = useRef(null);
 
-  // Map data state
+  // Map data
   const [runRoutes, setRunRoutes] = useState([]);
   const [suburbRoads, setSuburbRoads] = useState({});
   const [roadCoverage, setRoadCoverage] = useState({});
   const [suburbStats, setSuburbStats] = useState({});
+  const [suburbBoundaries, setSuburbBoundaries] = useState({});
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
-  const [isLoadingRoads, setIsLoadingRoads] = useState(false);
+  const [loadingSuburbs, setLoadingSuburbs] = useState(new Set());
   const [mapBounds, setMapBounds] = useState(null);
+  const [flyToTarget, setFlyToTarget] = useState(null);
   const [error, setError] = useState(null);
+  const [mapCenter, setMapCenter] = useState(MELBOURNE_CENTER);
+
+  // Visibility toggles
+  const [showRunRoads, setShowRunRoads] = useState(true);
+  const [showUnrunRoads, setShowUnrunRoads] = useState(true);
+  const [unrunColor, setUnrunColor] = useState('#ef4444'); // red by default
+
+  // Highlighted suburb (from clicking top suburbs or search)
+  const [highlightedSuburb, setHighlightedSuburb] = useState(null);
+
+  // Track if auto-detection has run
+  const autoDetectRan = useRef(false);
 
   // ── Load run routes from Firestore ──────────────────────────────────────
 
@@ -236,6 +356,83 @@ const RoadCoverage = () => {
     loadRoutes();
   }, [timeFilter, customDateFrom, customDateTo]);
 
+  // ── Auto-detect top suburbs from run data ─────────────────────────────
+
+  useEffect(() => {
+    if (autoDetectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
+    autoDetectRan.current = true;
+
+    async function detectSuburbs() {
+      // Sample midpoints from routes to find suburb distribution
+      const samplePoints = [];
+      for (const route of runRoutes) {
+        if (route.coords.length > 0) {
+          const mid = Math.floor(route.coords.length / 2);
+          samplePoints.push(route.coords[mid]);
+        }
+      }
+
+      // Count suburb frequency
+      const suburbCounts = {};
+      const suburbInfo = {};
+
+      // Reverse geocode a representative sample (max 30 to stay within rate limits)
+      const sampled = samplePoints.length > 30
+        ? samplePoints.filter((_, i) => i % Math.ceil(samplePoints.length / 30) === 0)
+        : samplePoints;
+
+      for (const [lat, lon] of sampled) {
+        const suburb = await reverseGeocodeToSuburb(lat, lon);
+        if (suburb) {
+          suburbCounts[suburb.name] = (suburbCounts[suburb.name] || 0) + 1;
+          suburbInfo[suburb.name] = suburb;
+        }
+        // Nominatim rate limit: 1 req/s
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+
+      // Sort by frequency, take top 5
+      const topNames = Object.entries(suburbCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([name]) => name);
+
+      if (topNames.length === 0) return;
+
+      // Center map on most frequent suburb
+      const topSuburb = suburbInfo[topNames[0]];
+      if (topSuburb) {
+        setMapCenter([topSuburb.lat, topSuburb.lon]);
+        setFlyToTarget({ center: [topSuburb.lat, topSuburb.lon], zoom: 14 });
+      }
+
+      // Auto-add top suburbs
+      const newSuburbs = topNames.map((name) => suburbInfo[name]);
+      setSelectedSuburbs(newSuburbs);
+
+      // Load roads for each suburb sequentially to avoid overwhelming Overpass
+      for (const suburb of newSuburbs) {
+        setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
+        try {
+          const roads = await fetchSuburbRoads(suburb.name);
+          setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
+        } catch (err) {
+          console.error(`Failed to load roads for ${suburb.name}:`, err);
+        } finally {
+          setLoadingSuburbs((prev) => {
+            const next = new Set(prev);
+            next.delete(suburb.name);
+            return next;
+          });
+        }
+        // Delay between Overpass requests
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    detectSuburbs();
+  }, [runRoutes, isLoadingActivities]);
+
   // ── Suburb search debounced ─────────────────────────────────────────────
 
   useEffect(() => {
@@ -257,21 +454,60 @@ const RoadCoverage = () => {
 
   const addSuburb = useCallback(
     async (suburb) => {
-      if (selectedSuburbs.find((s) => s.name === suburb.name)) return;
+      if (selectedSuburbs.find((s) => s.name === suburb.name)) {
+        // Already added – just fly to it and highlight
+        setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
+        setHighlightedSuburb(suburb.name);
+        setSuburbSearch('');
+        setSearchResults([]);
+        return;
+      }
+
       setSelectedSuburbs((prev) => [...prev, suburb]);
       setSuburbSearch('');
       setSearchResults([]);
 
-      // Load roads for this suburb
-      setIsLoadingRoads(true);
+      // Fly to the suburb on the map
+      setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
+      setHighlightedSuburb(suburb.name);
+
+      // Load roads
+      setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
       try {
-        const roads = await fetchSuburbRoads(suburb.name);
+        const [roads, boundary] = await Promise.all([
+          fetchSuburbRoads(suburb.name),
+          fetchSuburbBoundary(suburb.name),
+        ]);
         setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
+        if (boundary) {
+          setSuburbBoundaries((prev) => ({ ...prev, [suburb.name]: boundary }));
+        }
       } catch (err) {
         console.error(`Failed to load roads for ${suburb.name}:`, err);
-        setError(`Could not load roads for ${suburb.name}. Try again later.`);
+        setError(`Could not load roads for ${suburb.name}. Retrying...`);
+        // Auto-retry once after delay
+        setTimeout(async () => {
+          try {
+            const roads = await fetchSuburbRoads(suburb.name);
+            setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
+            setError(null);
+          } catch {
+            setError(`Could not load roads for ${suburb.name}. Try again later.`);
+          } finally {
+            setLoadingSuburbs((prev) => {
+              const next = new Set(prev);
+              next.delete(suburb.name);
+              return next;
+            });
+          }
+        }, 3000);
+        return;
       } finally {
-        setIsLoadingRoads(false);
+        setLoadingSuburbs((prev) => {
+          const next = new Set(prev);
+          next.delete(suburb.name);
+          return next;
+        });
       }
     },
     [selectedSuburbs]
@@ -294,24 +530,35 @@ const RoadCoverage = () => {
       delete copy[name];
       return copy;
     });
-  }, []);
+    setSuburbBoundaries((prev) => {
+      const copy = { ...prev };
+      delete copy[name];
+      return copy;
+    });
+    if (highlightedSuburb === name) setHighlightedSuburb(null);
+  }, [highlightedSuburb]);
 
-  // ── Compute road coverage when routes or roads change ───────────────────
+  // ── Compute road coverage ───────────────────────────────────────────────
 
   useEffect(() => {
     if (runRoutes.length === 0 || Object.keys(suburbRoads).length === 0) return;
 
-    // Build a single spatial grid from all run points (with interpolation)
     const allRunPoints = runRoutes.flatMap((r) => interpolatePoints(r.coords));
     const spatialGrid = buildSpatialGrid(allRunPoints);
 
     const newCoverage = {};
     const newStats = {};
+    // Track road IDs globally to deduplicate roads that appear in multiple suburbs
+    const globalSeenRoadIds = new Set();
 
     for (const [suburbName, roads] of Object.entries(suburbRoads)) {
       const coverageMap = {};
+
       for (const road of roads) {
-        // Check each segment (pair of consecutive points) of the road
+        // Skip duplicate roads already processed in another suburb
+        if (globalSeenRoadIds.has(road.id)) continue;
+        globalSeenRoadIds.add(road.id);
+
         let roadCovered = 0;
         let roadTotal = 0;
 
@@ -326,20 +573,20 @@ const RoadCoverage = () => {
         const pct = roadTotal > 0 ? roadCovered / roadTotal : 0;
         coverageMap[road.id] = {
           ...road,
-          covered: pct >= 0.3, // 30% of points matched = "run"
+          covered: pct >= 0.3,
           coveragePercent: Math.round(pct * 100),
         };
       }
 
       newCoverage[suburbName] = coverageMap;
       newStats[suburbName] = {
-        totalRoads: roads.length,
+        totalRoads: Object.keys(coverageMap).length,
         coveredRoads: Object.values(coverageMap).filter((r) => r.covered).length,
         percent:
-          roads.length > 0
+          Object.keys(coverageMap).length > 0
             ? Math.round(
                 (Object.values(coverageMap).filter((r) => r.covered).length /
-                  roads.length) *
+                  Object.keys(coverageMap).length) *
                   100
               )
             : 0,
@@ -366,13 +613,62 @@ const RoadCoverage = () => {
     }
   }, [suburbRoads, runRoutes]);
 
-  // ── Top 5 suburbs (sorted by coverage %) ────────────────────────────────
+  // ── Top 5 suburbs sorted by coverage % ─────────────────────────────────
 
   const topSuburbs = useMemo(() => {
     return Object.entries(suburbStats)
       .sort(([, a], [, b]) => b.percent - a.percent)
       .slice(0, 5);
   }, [suburbStats]);
+
+  // ── Handle clicking a top suburb ────────────────────────────────────────
+
+  const handleSuburbClick = useCallback(
+    async (suburbName) => {
+      const isAlreadyHighlighted = highlightedSuburb === suburbName;
+      setHighlightedSuburb(isAlreadyHighlighted ? null : suburbName);
+
+      if (!isAlreadyHighlighted) {
+        // Fly to suburb
+        const suburb = selectedSuburbs.find((s) => s.name === suburbName);
+        if (suburb) {
+          setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
+        }
+
+        // Load boundary if not already loaded
+        if (!suburbBoundaries[suburbName]) {
+          const boundary = await fetchSuburbBoundary(suburbName);
+          if (boundary) {
+            setSuburbBoundaries((prev) => ({ ...prev, [suburbName]: boundary }));
+          }
+        }
+      }
+    },
+    [highlightedSuburb, selectedSuburbs, suburbBoundaries]
+  );
+
+  // ── Deduplicated road lists for rendering ───────────────────────────────
+
+  const { runRoads, unrunRoads } = useMemo(() => {
+    const seenIds = new Set();
+    const run = [];
+    const unrun = [];
+
+    for (const roads of Object.values(roadCoverage)) {
+      for (const road of Object.values(roads)) {
+        if (seenIds.has(road.id)) continue;
+        seenIds.add(road.id);
+        if (road.covered) {
+          run.push(road);
+        } else {
+          unrun.push(road);
+        }
+      }
+    }
+    return { runRoads: run, unrunRoads: unrun };
+  }, [roadCoverage]);
+
+  const isLoadingRoads = loadingSuburbs.size > 0;
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -396,7 +692,7 @@ const RoadCoverage = () => {
 
       {/* Controls row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left panel: Top suburbs + suburb selector */}
+        {/* Left panel */}
         <div className="lg:col-span-1 space-y-4">
           {/* Date filter */}
           <DateFilter
@@ -408,6 +704,48 @@ const RoadCoverage = () => {
             setCustomDateTo={setCustomDateTo}
           />
 
+          {/* Visibility toggles */}
+          <div className="athletic-card-gradient p-4">
+            <h3 className="text-white font-medium text-sm mb-3">Road Visibility</h3>
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowRunRoads(!showRunRoads)}
+                className={`flex items-center gap-2 w-full p-2 rounded-lg text-sm transition-colors ${
+                  showRunRoads ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700/50 text-slate-400'
+                }`}
+              >
+                {showRunRoads ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <div className="w-6 h-1 rounded" style={{ backgroundColor: '#f97316' }} />
+                Roads you've run
+              </button>
+              <button
+                onClick={() => setShowUnrunRoads(!showUnrunRoads)}
+                className={`flex items-center gap-2 w-full p-2 rounded-lg text-sm transition-colors ${
+                  showUnrunRoads ? 'bg-slate-600/40 text-white' : 'bg-slate-700/50 text-slate-400'
+                }`}
+              >
+                {showUnrunRoads ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <div className="w-6 h-1 rounded" style={{ backgroundColor: unrunColor }} />
+                Roads to conquer
+              </button>
+              {showUnrunRoads && (
+                <div className="flex items-center gap-2 pl-2">
+                  <span className="text-xs text-slate-400">Colour:</span>
+                  {['#ef4444', '#64748b', '#8b5cf6', '#06b6d4', '#eab308'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setUnrunColor(color)}
+                      className={`w-5 h-5 rounded-full border-2 transition-all ${
+                        unrunColor === color ? 'border-white scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Suburb search */}
           <div className="athletic-card-gradient p-4">
             <button
@@ -418,11 +756,7 @@ const RoadCoverage = () => {
                 <Search className="w-4 h-4 text-orange-400" />
                 Add Suburbs
               </span>
-              {showSearch ? (
-                <ChevronUp className="w-4 h-4" />
-              ) : (
-                <ChevronDown className="w-4 h-4" />
-              )}
+              {showSearch ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
 
             {showSearch && (
@@ -443,7 +777,7 @@ const RoadCoverage = () => {
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {searchResults.map((result, idx) => (
                       <button
-                        key={idx}
+                        key={`${result.name}-${result.state}-${idx}`}
                         onClick={() => addSuburb(result)}
                         className="w-full text-left p-2 rounded-lg hover:bg-slate-600/50 text-white text-sm transition-colors"
                       >
@@ -467,11 +801,24 @@ const RoadCoverage = () => {
                 {selectedSuburbs.map((suburb) => (
                   <div
                     key={suburb.name}
-                    className="flex items-center justify-between p-2 bg-slate-700/50 rounded-lg"
+                    className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                      highlightedSuburb === suburb.name
+                        ? 'bg-orange-500/20 border border-orange-500/30'
+                        : 'bg-slate-700/50'
+                    }`}
                   >
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-orange-400" />
+                      {loadingSuburbs.has(suburb.name) ? (
+                        <Loader className="w-3 h-3 text-orange-400 animate-spin" />
+                      ) : (
+                        <MapPin className="w-3 h-3 text-orange-400" />
+                      )}
                       <span className="text-white text-sm">{suburb.name}</span>
+                      {suburbStats[suburb.name] && (
+                        <span className="text-xs text-slate-400">
+                          {suburbStats[suburb.name].percent}%
+                        </span>
+                      )}
                     </div>
                     <button
                       onClick={() => removeSuburb(suburb.name)}
@@ -490,13 +837,19 @@ const RoadCoverage = () => {
             <div className="athletic-card-gradient p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Trophy className="w-4 h-4 text-orange-400" />
-                <h3 className="text-white font-semibold text-sm">
-                  Top Suburbs
-                </h3>
+                <h3 className="text-white font-semibold text-sm">Top Suburbs</h3>
               </div>
               <div className="space-y-2">
                 {topSuburbs.map(([name, stats], idx) => (
-                  <div key={name} className="space-y-1">
+                  <button
+                    key={name}
+                    onClick={() => handleSuburbClick(name)}
+                    className={`w-full text-left space-y-1 p-2 rounded-lg transition-colors ${
+                      highlightedSuburb === name
+                        ? 'bg-orange-500/20 border border-orange-500/30'
+                        : 'hover:bg-slate-700/50'
+                    }`}
+                  >
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-white flex items-center gap-2">
                         <span
@@ -514,9 +867,7 @@ const RoadCoverage = () => {
                         </span>
                         {name}
                       </span>
-                      <span className="text-orange-400 font-semibold">
-                        {stats.percent}%
-                      </span>
+                      <span className="text-orange-400 font-semibold">{stats.percent}%</span>
                     </div>
                     <div className="w-full bg-slate-700 rounded-full h-2">
                       <div
@@ -537,7 +888,7 @@ const RoadCoverage = () => {
                     <div className="text-xs text-slate-400">
                       {stats.coveredRoads}/{stats.totalRoads} roads
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -554,7 +905,7 @@ const RoadCoverage = () => {
                   <p className="text-white text-sm">
                     {isLoadingActivities
                       ? 'Loading activities...'
-                      : 'Loading road data...'}
+                      : `Loading roads${loadingSuburbs.size > 0 ? ` for ${[...loadingSuburbs].join(', ')}` : ''}...`}
                   </p>
                 </div>
               </div>
@@ -562,16 +913,13 @@ const RoadCoverage = () => {
             {error && (
               <div className="absolute top-2 left-2 right-2 z-[1000] bg-red-500/90 text-white p-3 rounded-lg text-sm">
                 {error}
-                <button
-                  onClick={() => setError(null)}
-                  className="ml-2 underline"
-                >
+                <button onClick={() => setError(null)} className="ml-2 underline">
                   Dismiss
                 </button>
               </div>
             )}
             <MapContainer
-              center={MELBOURNE_CENTER}
+              center={mapCenter}
               zoom={DEFAULT_ZOOM}
               style={{ height: '600px', width: '100%', borderRadius: '0.5rem' }}
               className="z-0"
@@ -581,42 +929,56 @@ const RoadCoverage = () => {
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               />
 
-              {mapBounds && <MapFitter bounds={mapBounds} />}
-
-              {/* Render suburb roads – unrun roads first (below), then covered */}
-              {Object.values(roadCoverage).flatMap((roads) =>
-                Object.values(roads)
-                  .filter((r) => !r.covered)
-                  .map((road) => (
-                    <Polyline
-                      key={`unrun-${road.id}`}
-                      positions={road.coords}
-                      pathOptions={{
-                        color: '#64748b',
-                        weight: 2,
-                        opacity: 0.35,
-                        dashArray: '4 6',
-                      }}
-                    />
-                  ))
-              )}
-              {Object.values(roadCoverage).flatMap((roads) =>
-                Object.values(roads)
-                  .filter((r) => r.covered)
-                  .map((road) => (
-                    <Polyline
-                      key={`run-${road.id}`}
-                      positions={road.coords}
-                      pathOptions={{
-                        color: '#f97316',
-                        weight: 3.5,
-                        opacity: 0.9,
-                      }}
-                    />
-                  ))
+              {mapBounds && !flyToTarget && <MapFitter bounds={mapBounds} />}
+              {flyToTarget && (
+                <MapFlyer center={flyToTarget.center} zoom={flyToTarget.zoom} />
               )}
 
-              {/* Run route traces (subtle) when no suburb is selected */}
+              {/* Suburb boundaries */}
+              {highlightedSuburb && suburbBoundaries[highlightedSuburb] && (
+                <Polygon
+                  positions={suburbBoundaries[highlightedSuburb]}
+                  pathOptions={{
+                    color: '#f97316',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillColor: '#f97316',
+                    fillOpacity: 0.08,
+                    dashArray: '6 4',
+                  }}
+                />
+              )}
+
+              {/* Unrun roads */}
+              {showUnrunRoads &&
+                unrunRoads.map((road) => (
+                  <Polyline
+                    key={`unrun-${road.id}`}
+                    positions={road.coords}
+                    pathOptions={{
+                      color: unrunColor,
+                      weight: 2,
+                      opacity: 0.4,
+                      dashArray: '4 6',
+                    }}
+                  />
+                ))}
+
+              {/* Run roads */}
+              {showRunRoads &&
+                runRoads.map((road) => (
+                  <Polyline
+                    key={`run-${road.id}`}
+                    positions={road.coords}
+                    pathOptions={{
+                      color: '#f97316',
+                      weight: 3.5,
+                      opacity: 0.9,
+                    }}
+                  />
+                ))}
+
+              {/* Run route traces when no suburb selected */}
               {selectedSuburbs.length === 0 &&
                 runRoutes.map((route) => (
                   <Polyline
@@ -635,26 +997,19 @@ const RoadCoverage = () => {
           {/* Legend */}
           <div className="athletic-card-gradient p-3 mt-2 flex flex-wrap gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-1 rounded"
-                style={{ backgroundColor: '#f97316' }}
-              />
-              <span className="text-white">Roads you've run</span>
+              <div className="w-8 h-1 rounded" style={{ backgroundColor: '#f97316' }} />
+              <span className="text-white">
+                Roads you've run ({runRoads.length})
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <div
-                className="w-8 h-1 rounded opacity-40"
-                style={{
-                  backgroundColor: '#64748b',
-                  borderStyle: 'dashed',
-                }}
-              />
-              <span className="text-slate-400">Roads still to conquer</span>
+              <div className="w-8 h-1 rounded opacity-50" style={{ backgroundColor: unrunColor }} />
+              <span className="text-slate-400">
+                Roads to conquer ({unrunRoads.length})
+              </span>
             </div>
             {!isLoadingActivities && (
-              <div className="text-slate-500 ml-auto">
-                {runRoutes.length} activities loaded
-              </div>
+              <div className="text-slate-500 ml-auto">{runRoutes.length} activities</div>
             )}
           </div>
         </div>
