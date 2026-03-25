@@ -328,13 +328,22 @@ const RoadCoverage = () => {
           customDateTo
         );
 
-        const routes = activities
-          .filter(
-            (a) =>
-              a.type &&
-              ['Run', 'TrailRun'].includes(a.type) &&
-              a.map?.summary_polyline
-          )
+        const runActivities = activities.filter(
+          (a) => a.type && ['Run', 'TrailRun'].includes(a.type)
+        );
+        const withPolyline = runActivities.filter((a) => a.map?.summary_polyline);
+
+        console.log(
+          `[RoadCoverage] ${runActivities.length} runs, ${withPolyline.length} have polylines`
+        );
+
+        // If no polylines, check if map field exists at all
+        if (withPolyline.length === 0 && runActivities.length > 0) {
+          const sample = runActivities[0];
+          console.log('[RoadCoverage] Sample activity map field:', sample.map);
+        }
+
+        const routes = withPolyline
           .map((a) => {
             try {
               const coords = polyline.decode(a.map.summary_polyline);
@@ -346,6 +355,13 @@ const RoadCoverage = () => {
           .filter(Boolean);
 
         setRunRoutes(routes);
+
+        if (routes.length === 0 && runActivities.length > 0) {
+          setError(
+            `Found ${runActivities.length} runs but none have route data. ` +
+            'Try re-syncing from Settings to pull in GPS polylines from Strava.'
+          );
+        }
       } catch (err) {
         console.error('Failed to load routes:', err);
         setError('Failed to load activity data');
@@ -363,35 +379,43 @@ const RoadCoverage = () => {
     autoDetectRan.current = true;
 
     async function detectSuburbs() {
-      // Sample midpoints from routes to find suburb distribution
-      const samplePoints = [];
+      // Step 1: Cluster start points of runs into ~1km grid cells
+      const cellSize = 0.01; // ~1km
+      const cellCounts = {};
+      const cellPoints = {};
+
       for (const route of runRoutes) {
-        if (route.coords.length > 0) {
-          const mid = Math.floor(route.coords.length / 2);
-          samplePoints.push(route.coords[mid]);
-        }
+        if (route.coords.length === 0) continue;
+        const [lat, lon] = route.coords[0]; // start point
+        const key = `${Math.floor(lat / cellSize)},${Math.floor(lon / cellSize)}`;
+        cellCounts[key] = (cellCounts[key] || 0) + 1;
+        if (!cellPoints[key]) cellPoints[key] = [lat, lon];
       }
 
-      // Count suburb frequency
-      const suburbCounts = {};
+      // Step 2: Get top 5 densest clusters
+      const topCells = Object.entries(cellCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 7); // get 7 to have spares if geocoding fails
+
+      if (topCells.length === 0) return;
+
+      // Step 3: Reverse geocode only the cluster centers (max 7 API calls)
       const suburbInfo = {};
+      const suburbCounts = {};
 
-      // Reverse geocode a representative sample (max 30 to stay within rate limits)
-      const sampled = samplePoints.length > 30
-        ? samplePoints.filter((_, i) => i % Math.ceil(samplePoints.length / 30) === 0)
-        : samplePoints;
-
-      for (const [lat, lon] of sampled) {
-        const suburb = await reverseGeocodeToSuburb(lat, lon);
-        if (suburb) {
-          suburbCounts[suburb.name] = (suburbCounts[suburb.name] || 0) + 1;
+      for (const [key, count] of topCells) {
+        const point = cellPoints[key];
+        const suburb = await reverseGeocodeToSuburb(point[0], point[1]);
+        if (suburb && !suburbInfo[suburb.name]) {
           suburbInfo[suburb.name] = suburb;
+          suburbCounts[suburb.name] = count;
+        } else if (suburb && suburbInfo[suburb.name]) {
+          suburbCounts[suburb.name] += count;
         }
         // Nominatim rate limit: 1 req/s
         await new Promise((r) => setTimeout(r, 1100));
       }
 
-      // Sort by frequency, take top 5
       const topNames = Object.entries(suburbCounts)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
@@ -410,7 +434,7 @@ const RoadCoverage = () => {
       const newSuburbs = topNames.map((name) => suburbInfo[name]);
       setSelectedSuburbs(newSuburbs);
 
-      // Load roads for each suburb sequentially to avoid overwhelming Overpass
+      // Load roads for each suburb sequentially
       for (const suburb of newSuburbs) {
         setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
         try {
@@ -425,7 +449,6 @@ const RoadCoverage = () => {
             return next;
           });
         }
-        // Delay between Overpass requests
         await new Promise((r) => setTimeout(r, 1500));
       }
     }
