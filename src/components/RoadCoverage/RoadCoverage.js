@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
 import DateFilter from '../PersonalBests/DateFilter';
-import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff } from 'lucide-react';
+import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -307,6 +307,7 @@ const RoadCoverage = () => {
   // Visibility toggles
   const [showRunRoads, setShowRunRoads] = useState(true);
   const [showUnrunRoads, setShowUnrunRoads] = useState(true);
+  const [runColor, setRunColor] = useState('#f97316'); // orange by default
   const [unrunColor, setUnrunColor] = useState('#ef4444'); // red by default
 
   // Highlighted suburb (from clicking top suburbs or search)
@@ -638,10 +639,17 @@ const RoadCoverage = () => {
     }
   }, [suburbRoads, runRoutes]);
 
-  // ── Top 5 suburbs sorted by coverage % ─────────────────────────────────
+  // ── Conquered suburbs (100%) and top 5 in-progress ─────────────────────
+
+  const conqueredSuburbs = useMemo(() => {
+    return Object.entries(suburbStats)
+      .filter(([, s]) => s.percent === 100 && s.totalRoads > 0)
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [suburbStats]);
 
   const topSuburbs = useMemo(() => {
     return Object.entries(suburbStats)
+      .filter(([, s]) => s.percent < 100 && s.totalRoads > 0)
       .sort(([, a], [, b]) => b.percent - a.percent)
       .slice(0, 5);
   }, [suburbStats]);
@@ -740,9 +748,24 @@ const RoadCoverage = () => {
                 }`}
               >
                 {showRunRoads ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                <div className="w-6 h-1 rounded" style={{ backgroundColor: '#f97316' }} />
+                <div className="w-6 h-1 rounded" style={{ backgroundColor: runColor }} />
                 Roads you've run
               </button>
+              {showRunRoads && (
+                <div className="flex items-center gap-2 pl-2">
+                  <span className="text-xs text-slate-400">Colour:</span>
+                  {['#f97316', '#22c55e', '#3b82f6', '#a855f7', '#eab308'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setRunColor(color)}
+                      className={`w-5 h-5 rounded-full border-2 transition-all ${
+                        runColor === color ? 'border-white scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              )}
               <button
                 onClick={() => setShowUnrunRoads(!showUnrunRoads)}
                 className={`flex items-center gap-2 w-full p-2 rounded-lg text-sm transition-colors ${
@@ -918,6 +941,39 @@ const RoadCoverage = () => {
               </div>
             </div>
           )}
+
+          {/* Conquered suburbs (100%) */}
+          {conqueredSuburbs.length > 0 && (
+            <div className="athletic-card-gradient p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+                <h3 className="text-white font-semibold text-sm">
+                  Conquered ({conqueredSuburbs.length})
+                </h3>
+              </div>
+              <div className="space-y-1">
+                {conqueredSuburbs.map(([name, stats]) => (
+                  <button
+                    key={name}
+                    onClick={() => handleSuburbClick(name)}
+                    className={`w-full text-left flex items-center justify-between p-2 rounded-lg transition-colors ${
+                      highlightedSuburb === name
+                        ? 'bg-green-500/20 border border-green-500/30'
+                        : 'hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <span className="text-white text-sm flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                      {name}
+                    </span>
+                    <span className="text-green-400 text-xs font-medium">
+                      {stats.totalRoads} roads
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Map */}
@@ -964,10 +1020,10 @@ const RoadCoverage = () => {
                 <Polygon
                   positions={suburbBoundaries[highlightedSuburb]}
                   pathOptions={{
-                    color: '#f97316',
+                    color: runColor,
                     weight: 2,
                     opacity: 0.8,
-                    fillColor: '#f97316',
+                    fillColor: runColor,
                     fillOpacity: 0.08,
                     dashArray: '6 4',
                   }}
@@ -995,32 +1051,33 @@ const RoadCoverage = () => {
                     key={`run-${road.id}`}
                     positions={road.coords}
                     pathOptions={{
-                      color: '#f97316',
+                      color: runColor,
                       weight: 3.5,
                       opacity: 0.9,
                     }}
                   />
                 ))}
 
-              {/* Run route traces (always visible as subtle background) */}
-              {runRoutes.map((route) => (
-                <Polyline
-                  key={`route-${route.id}`}
-                  positions={route.coords}
-                  pathOptions={{
-                    color: '#f97316',
-                    weight: 2,
-                    opacity: selectedSuburbs.length > 0 ? 0.25 : 0.7,
-                  }}
-                />
-              ))}
+              {/* Run route traces (visible as subtle background, respects run toggle) */}
+              {showRunRoads &&
+                runRoutes.map((route) => (
+                  <Polyline
+                    key={`route-${route.id}`}
+                    positions={route.coords}
+                    pathOptions={{
+                      color: runColor,
+                      weight: 2,
+                      opacity: selectedSuburbs.length > 0 ? 0.25 : 0.7,
+                    }}
+                  />
+                ))}
             </MapContainer>
           </div>
 
           {/* Legend */}
           <div className="athletic-card-gradient p-3 mt-2 flex flex-wrap gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 rounded" style={{ backgroundColor: '#f97316' }} />
+              <div className="w-8 h-1 rounded" style={{ backgroundColor: runColor }} />
               <span className="text-white">
                 Roads you've run ({runRoads.length})
               </span>
