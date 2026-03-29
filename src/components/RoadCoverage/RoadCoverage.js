@@ -106,10 +106,19 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
-async function fetchSuburbRoads(suburbName, retries = 2) {
+async function fetchSuburbRoads(suburbName, lat, lon, retries = 2) {
+  // Use a bounding box around the known lat/lon to avoid matching
+  // identically-named suburbs on the other side of the world
+  const bbox = lat && lon
+    ? `(${lat - 0.15},${lon - 0.15},${lat + 0.15},${lon + 0.15})`
+    : '';
+  const areaFilter = bbox
+    ? `area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${bbox}->.suburb;`
+    : `area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]->.suburb;`;
+
   const query = `
     [out:json][timeout:45];
-    area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]->.suburb;
+    ${areaFilter}
     (
       way["highway"~"^(residential|tertiary|secondary|primary|trunk|unclassified|living_street)$"](area.suburb);
     );
@@ -174,10 +183,13 @@ async function fetchSuburbRoads(suburbName, retries = 2) {
 
 // ── Fetch suburb boundary from Overpass ──────────────────────────────────────
 
-async function fetchSuburbBoundary(suburbName) {
+async function fetchSuburbBoundary(suburbName, lat, lon) {
+  const bbox = lat && lon
+    ? `(${lat - 0.15},${lon - 0.15},${lat + 0.15},${lon + 0.15})`
+    : '';
   const query = `
     [out:json][timeout:20];
-    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"];
+    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${bbox};
     out geom;
   `;
 
@@ -498,7 +510,7 @@ const RoadCoverage = () => {
       for (const suburb of allSuburbs) {
         setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
         try {
-          const roads = await fetchSuburbRoads(suburb.name);
+          const roads = await fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon);
           setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
         } catch (err) {
           console.error(`Failed to load roads for ${suburb.name}:`, err);
@@ -558,8 +570,8 @@ const RoadCoverage = () => {
       setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
       try {
         const [roads, boundary] = await Promise.all([
-          fetchSuburbRoads(suburb.name),
-          fetchSuburbBoundary(suburb.name),
+          fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon),
+          fetchSuburbBoundary(suburb.name, suburb.lat, suburb.lon),
         ]);
         setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
         if (boundary) {
@@ -568,10 +580,9 @@ const RoadCoverage = () => {
       } catch (err) {
         console.error(`Failed to load roads for ${suburb.name}:`, err);
         setError(`Could not load roads for ${suburb.name}. Retrying...`);
-        // Auto-retry once after delay
         setTimeout(async () => {
           try {
-            const roads = await fetchSuburbRoads(suburb.name);
+            const roads = await fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon);
             setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
             setError(null);
           } catch {
@@ -708,7 +719,7 @@ const RoadCoverage = () => {
     return Object.entries(suburbStats)
       .filter(([, s]) => s.percent < 100 && s.totalRoads > 0)
       .sort(([, a], [, b]) => b.percent - a.percent)
-      .slice(0, 5);
+      .slice(0, 10);
   }, [suburbStats]);
 
   // ── Handle clicking a suburb (focus/unfocus) ─────────────────────────────
@@ -724,7 +735,8 @@ const RoadCoverage = () => {
           setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
         }
         if (!suburbBoundaries[suburbName]) {
-          const boundary = await fetchSuburbBoundary(suburbName);
+          const suburb = selectedSuburbs.find((s) => s.name === suburbName);
+          const boundary = await fetchSuburbBoundary(suburbName, suburb?.lat, suburb?.lon);
           if (boundary) {
             setSuburbBoundaries((prev) => ({ ...prev, [suburbName]: boundary }));
           }
@@ -911,11 +923,12 @@ const RoadCoverage = () => {
                 {selectedSuburbs.filter((s) => !autoDetectedSuburbs.has(s.name)).map((suburb) => (
                   <div
                     key={suburb.name}
-                    className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                    className={`flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
                       highlightedSuburb === suburb.name
                         ? 'bg-orange-500/20 border border-orange-500/30'
-                        : 'bg-slate-700/50'
+                        : 'bg-slate-700/50 hover:bg-slate-600/50'
                     }`}
+                    onClick={() => handleSuburbClick(suburb.name)}
                   >
                     <div className="flex items-center gap-2">
                       {loadingSuburbs.has(suburb.name) ? (
@@ -931,7 +944,7 @@ const RoadCoverage = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => removeSuburb(suburb.name)}
+                      onClick={(e) => { e.stopPropagation(); removeSuburb(suburb.name); }}
                       className="text-slate-400 hover:text-red-400 text-xs"
                     >
                       Remove
@@ -942,7 +955,7 @@ const RoadCoverage = () => {
             )}
           </div>
 
-          {/* Top 5 suburbs */}
+          {/* Top 10 suburbs */}
           {topSuburbs.length > 0 && (
             <div className="athletic-card-gradient p-4">
               <div className="flex items-center gap-2 mb-3">
