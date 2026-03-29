@@ -130,3 +130,31 @@ code {
     opacity: .5;
   }
 }
+
+/* Mobile menu slide-up animation */
+.animate-slide-up {
+  animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Heading font utility */
+.font-heading {
+  font-family: 'Rajdhani', sans-serif;
+}
