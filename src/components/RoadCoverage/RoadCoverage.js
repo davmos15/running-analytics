@@ -107,18 +107,16 @@ const OVERPASS_ENDPOINTS = [
 ];
 
 async function fetchSuburbRoads(suburbName, lat, lon, retries = 2) {
-  // Use a bounding box around the known lat/lon to avoid matching
-  // identically-named suburbs on the other side of the world
-  const bbox = lat && lon
-    ? `(${lat - 0.15},${lon - 0.15},${lat + 0.15},${lon + 0.15})`
+  // Use 'around' on the relation to find only the suburb near the known
+  // coordinates, preventing identically-named suburbs worldwide from matching
+  const locationFilter = lat && lon
+    ? `(around:15000,${lat},${lon})`
     : '';
-  const areaFilter = bbox
-    ? `area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${bbox}->.suburb;`
-    : `area["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]->.suburb;`;
 
   const query = `
     [out:json][timeout:45];
-    ${areaFilter}
+    rel["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${locationFilter};
+    map_to_area->.suburb;
     (
       way["highway"~"^(residential|tertiary|secondary|primary|trunk|unclassified|living_street)$"](area.suburb);
     );
@@ -184,12 +182,12 @@ async function fetchSuburbRoads(suburbName, lat, lon, retries = 2) {
 // ── Fetch suburb boundary from Overpass ──────────────────────────────────────
 
 async function fetchSuburbBoundary(suburbName, lat, lon) {
-  const bbox = lat && lon
-    ? `(${lat - 0.15},${lon - 0.15},${lat + 0.15},${lon + 0.15})`
+  const locationFilter = lat && lon
+    ? `(around:15000,${lat},${lon})`
     : '';
   const query = `
     [out:json][timeout:20];
-    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${bbox};
+    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${locationFilter};
     out geom;
   `;
 
@@ -320,6 +318,7 @@ const RoadCoverage = () => {
   const [flyToTarget, setFlyToTarget] = useState(null);
   const [error, setError] = useState(null);
   const [mapCenter, setMapCenter] = useState(MELBOURNE_CENTER);
+  const [totalRunCount, setTotalRunCount] = useState(0);
 
   // Visibility toggles
   const [showRunRoads, setShowRunRoads] = useState(true);
@@ -414,6 +413,7 @@ const RoadCoverage = () => {
           .filter(Boolean);
 
         setRunRoutes(routes);
+        setTotalRunCount(runActivities.length);
 
         if (routes.length === 0 && runActivities.length > 0) {
           setError(
@@ -1165,7 +1165,9 @@ const RoadCoverage = () => {
               </span>
             </div>
             {!isLoadingActivities && (
-              <div className="text-slate-500 ml-auto">{runRoutes.length} activities</div>
+              <div className="text-slate-500 ml-auto text-xs">
+                {runRoutes.length} with GPS{totalRunCount > runRoutes.length ? ` (${totalRunCount - runRoutes.length} indoor/no GPS)` : ''}
+              </div>
             )}
           </div>
         </div>
