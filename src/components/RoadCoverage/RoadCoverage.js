@@ -283,8 +283,13 @@ const RoadCoverage = () => {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
-  // Suburb state
-  const [selectedSuburbs, setSelectedSuburbs] = useState([]);
+  // Suburb state – restore from cache
+  const [selectedSuburbs, setSelectedSuburbs] = useState(() => {
+    try {
+      const cached = localStorage.getItem('roadCoverage_suburbs');
+      return cached ? JSON.parse(cached) : [];
+    } catch { return []; }
+  });
   const [suburbSearch, setSuburbSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -315,7 +320,47 @@ const RoadCoverage = () => {
 
   // Track if auto-detection has run
   const autoDetectRan = useRef(false);
-  const [autoDetectedSuburbs, setAutoDetectedSuburbs] = useState(new Set());
+  const [autoDetectedSuburbs, setAutoDetectedSuburbs] = useState(() => {
+    try {
+      const cached = localStorage.getItem('roadCoverage_autoSuburbs');
+      return cached ? new Set(JSON.parse(cached)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  // ── Persist suburbs to localStorage ──────────────────────────────────────
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('roadCoverage_suburbs', JSON.stringify(selectedSuburbs));
+    } catch { /* quota exceeded */ }
+  }, [selectedSuburbs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('roadCoverage_autoSuburbs', JSON.stringify([...autoDetectedSuburbs]));
+    } catch { /* quota exceeded */ }
+  }, [autoDetectedSuburbs]);
+
+  // ── Load cached road data on mount, then refresh from Overpass ─────────
+
+  useEffect(() => {
+    // Restore cached road data for instant display
+    try {
+      const cachedRoads = localStorage.getItem('roadCoverage_roads');
+      if (cachedRoads) {
+        setSuburbRoads(JSON.parse(cachedRoads));
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist road data when it changes
+  useEffect(() => {
+    if (Object.keys(suburbRoads).length > 0) {
+      try {
+        localStorage.setItem('roadCoverage_roads', JSON.stringify(suburbRoads));
+      } catch { /* quota exceeded - road data can be large */ }
+    }
+  }, [suburbRoads]);
 
   // ── Load run routes from Firestore ──────────────────────────────────────
 
@@ -377,7 +422,12 @@ const RoadCoverage = () => {
   // ── Auto-detect top suburbs from run data ─────────────────────────────
 
   useEffect(() => {
+    // Skip if already ran, or if we have cached suburbs
     if (autoDetectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
+    if (selectedSuburbs.length > 0) {
+      autoDetectRan.current = true;
+      return;
+    }
     autoDetectRan.current = true;
 
     async function detectSuburbs() {
@@ -1058,16 +1108,17 @@ const RoadCoverage = () => {
                   />
                 ))}
 
-              {/* Run route traces (visible as subtle background, respects run toggle) */}
+              {/* Raw route traces only when no suburb roads loaded */}
               {showRunRoads &&
+                Object.keys(suburbRoads).length === 0 &&
                 runRoutes.map((route) => (
                   <Polyline
                     key={`route-${route.id}`}
                     positions={route.coords}
                     pathOptions={{
                       color: runColor,
-                      weight: 2,
-                      opacity: selectedSuburbs.length > 0 ? 0.25 : 0.7,
+                      weight: 2.5,
+                      opacity: 0.7,
                     }}
                   />
                 ))}
