@@ -424,11 +424,12 @@ const RoadCoverage = () => {
   useEffect(() => {
     // Skip if already ran, or if we have cached suburbs
     if (autoDetectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
-    if (selectedSuburbs.length > 0) {
-      autoDetectRan.current = true;
-      return;
-    }
     autoDetectRan.current = true;
+    // Check cached suburbs via DOM-independent ref to avoid dep warning
+    try {
+      const cached = localStorage.getItem('roadCoverage_suburbs');
+      if (cached && JSON.parse(cached).length > 0) return;
+    } catch { /* proceed with detection */ }
 
     async function detectSuburbs() {
       // Step 1: Cluster start points of runs into ~1km grid cells
