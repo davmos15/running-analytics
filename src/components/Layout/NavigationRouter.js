@@ -5,20 +5,25 @@ import { Home, Star, Timer, Settings, BarChart3, TrendingUp, Calendar, Map, Menu
 const NavigationRouter = () => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const menuRef = useRef(null);
+  const drawerRef = useRef(null);
+  const toggleRef = useRef(null);
 
   // Close menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Close menu on outside click
+  // Close menu on outside click (ignore clicks on the toggle button itself)
   useEffect(() => {
     if (!mobileMenuOpen) return;
     const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMobileMenuOpen(false);
+      if (
+        toggleRef.current?.contains(e.target) ||
+        drawerRef.current?.contains(e.target)
+      ) {
+        return;
       }
+      setMobileMenuOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('touchstart', handleClick);
@@ -30,11 +35,7 @@ const NavigationRouter = () => {
 
   // Prevent body scroll when menu open
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileMenuOpen]);
 
@@ -51,7 +52,6 @@ const NavigationRouter = () => {
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
-  // Desktop: short labels to fit
   const desktopLabels = {
     '/': 'Home',
     '/personal-bests': 'PBs',
@@ -70,7 +70,6 @@ const NavigationRouter = () => {
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-
           return (
             <NavLink
               key={item.path}
@@ -90,9 +89,7 @@ const NavigationRouter = () => {
 
       {/* Mobile: Fixed bottom bar with burger toggle */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {/* Current page indicator + burger button */}
         <div className="athletic-card-gradient border-t border-blue-500/20 flex items-center justify-between px-4 py-3">
-          {/* Show current page */}
           {(() => {
             const current = navItems.find((n) => isActive(n.path)) || navItems[0];
             const Icon = current.icon;
@@ -104,7 +101,8 @@ const NavigationRouter = () => {
             );
           })()}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            ref={toggleRef}
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
             className="p-2 rounded-lg text-white hover:bg-slate-700/50 transition-colors"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
@@ -117,13 +115,16 @@ const NavigationRouter = () => {
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
 
           {/* Drawer */}
           <div
-            ref={menuRef}
-            className="absolute bottom-0 left-0 right-0 athletic-card-gradient border-t border-blue-500/30 rounded-t-2xl animate-slide-up"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+            ref={drawerRef}
+            className="absolute bottom-0 left-0 right-0 athletic-card-gradient border-t border-blue-500/30 rounded-t-2xl animate-slide-up max-h-[80vh] overflow-y-auto"
+            style={{ paddingBottom: 'calc(60px + env(safe-area-inset-bottom, 0px))' }}
           >
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-2">
@@ -134,7 +135,6 @@ const NavigationRouter = () => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
-
                 return (
                   <NavLink
                     key={item.path}

@@ -419,77 +419,83 @@ const RoadCoverage = () => {
     loadRoutes();
   }, [timeFilter, customDateFrom, customDateTo]);
 
-  // ── Auto-detect top suburbs from run data ─────────────────────────────
+  // ── Auto-detect ALL suburbs from run data ───────────────────────────
 
   useEffect(() => {
-    // Skip if already ran, or if we have cached suburbs
     if (autoDetectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
     autoDetectRan.current = true;
-    // Check cached suburbs via DOM-independent ref to avoid dep warning
+
+    // Skip if we have cached suburbs
     try {
       const cached = localStorage.getItem('roadCoverage_suburbs');
       if (cached && JSON.parse(cached).length > 0) return;
-    } catch { /* proceed with detection */ }
+    } catch { /* proceed */ }
 
     async function detectSuburbs() {
-      // Step 1: Cluster start points of runs into ~1km grid cells
-      const cellSize = 0.01; // ~1km
+      // Sample multiple points per route (start, middle, end) for better suburb coverage
+      const cellSize = 0.01; // ~1km grid
       const cellCounts = {};
       const cellPoints = {};
 
       for (const route of runRoutes) {
         if (route.coords.length === 0) continue;
-        const [lat, lon] = route.coords[0]; // start point
-        const key = `${Math.floor(lat / cellSize)},${Math.floor(lon / cellSize)}`;
-        cellCounts[key] = (cellCounts[key] || 0) + 1;
-        if (!cellPoints[key]) cellPoints[key] = [lat, lon];
+        // Sample start, 25%, 50%, 75% points to catch routes crossing suburbs
+        const indices = [0, Math.floor(route.coords.length * 0.25), Math.floor(route.coords.length * 0.5), Math.floor(route.coords.length * 0.75)];
+        for (const idx of indices) {
+          if (idx >= route.coords.length) continue;
+          const [lat, lon] = route.coords[idx];
+          const key = `${Math.floor(lat / cellSize)},${Math.floor(lon / cellSize)}`;
+          cellCounts[key] = (cellCounts[key] || 0) + 1;
+          if (!cellPoints[key]) cellPoints[key] = [lat, lon];
+        }
       }
 
-      // Step 2: Get top 5 densest clusters
-      const topCells = Object.entries(cellCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 7); // get 7 to have spares if geocoding fails
+      // Get ALL distinct clusters (sorted by density)
+      const allCells = Object.entries(cellCounts)
+        .sort(([, a], [, b]) => b - a);
 
-      if (topCells.length === 0) return;
+      if (allCells.length === 0) return;
 
-      // Step 3: Reverse geocode only the cluster centers (max 7 API calls)
+      // Reverse geocode all cluster centers to find every suburb
       const suburbInfo = {};
       const suburbCounts = {};
+      // Limit to top 25 clusters to stay within rate limits (~28s)
+      const cellsToGeocode = allCells.slice(0, 25);
 
-      for (const [key, count] of topCells) {
+      for (const [key, count] of cellsToGeocode) {
         const point = cellPoints[key];
         const suburb = await reverseGeocodeToSuburb(point[0], point[1]);
-        if (suburb && !suburbInfo[suburb.name]) {
-          suburbInfo[suburb.name] = suburb;
-          suburbCounts[suburb.name] = count;
-        } else if (suburb && suburbInfo[suburb.name]) {
-          suburbCounts[suburb.name] += count;
+        if (suburb) {
+          if (!suburbInfo[suburb.name]) {
+            suburbInfo[suburb.name] = suburb;
+            suburbCounts[suburb.name] = count;
+          } else {
+            suburbCounts[suburb.name] += count;
+          }
         }
-        // Nominatim rate limit: 1 req/s
         await new Promise((r) => setTimeout(r, 1100));
       }
 
-      const topNames = Object.entries(suburbCounts)
+      const allNames = Object.entries(suburbCounts)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
         .map(([name]) => name);
 
-      if (topNames.length === 0) return;
+      if (allNames.length === 0) return;
 
       // Center map on most frequent suburb
-      const topSuburb = suburbInfo[topNames[0]];
+      const topSuburb = suburbInfo[allNames[0]];
       if (topSuburb) {
         setMapCenter([topSuburb.lat, topSuburb.lon]);
         setFlyToTarget({ center: [topSuburb.lat, topSuburb.lon], zoom: 14 });
       }
 
-      // Auto-add top suburbs
-      const newSuburbs = topNames.map((name) => suburbInfo[name]);
-      setSelectedSuburbs(newSuburbs);
-      setAutoDetectedSuburbs(new Set(topNames));
+      // Add ALL detected suburbs
+      const allSuburbs = allNames.map((name) => suburbInfo[name]);
+      setSelectedSuburbs(allSuburbs);
+      setAutoDetectedSuburbs(new Set(allNames));
 
       // Load roads for each suburb sequentially
-      for (const suburb of newSuburbs) {
+      for (const suburb of allSuburbs) {
         setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
         try {
           const roads = await fetchSuburbRoads(suburb.name);
@@ -705,40 +711,45 @@ const RoadCoverage = () => {
       .slice(0, 5);
   }, [suburbStats]);
 
-  // ── Handle clicking a top suburb ────────────────────────────────────────
+  // ── Handle clicking a suburb (focus/unfocus) ─────────────────────────────
 
   const handleSuburbClick = useCallback(
     async (suburbName) => {
-      const isAlreadyHighlighted = highlightedSuburb === suburbName;
-      setHighlightedSuburb(isAlreadyHighlighted ? null : suburbName);
+      const isAlreadyFocused = highlightedSuburb === suburbName;
+      setHighlightedSuburb(isAlreadyFocused ? null : suburbName);
 
-      if (!isAlreadyHighlighted) {
-        // Fly to suburb
+      if (!isAlreadyFocused) {
         const suburb = selectedSuburbs.find((s) => s.name === suburbName);
         if (suburb) {
           setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
         }
-
-        // Load boundary if not already loaded
         if (!suburbBoundaries[suburbName]) {
           const boundary = await fetchSuburbBoundary(suburbName);
           if (boundary) {
             setSuburbBoundaries((prev) => ({ ...prev, [suburbName]: boundary }));
           }
         }
+      } else {
+        // Un-focus: reset fly target so bounds take over
+        setFlyToTarget(null);
       }
     },
     [highlightedSuburb, selectedSuburbs, suburbBoundaries]
   );
 
-  // ── Deduplicated road lists for rendering ───────────────────────────────
+  // ── Road lists filtered to focused suburb if one is selected ────────────
 
   const { runRoads, unrunRoads } = useMemo(() => {
     const seenIds = new Set();
     const run = [];
     const unrun = [];
 
-    for (const roads of Object.values(roadCoverage)) {
+    // If a suburb is focused, show only its roads
+    const source = highlightedSuburb && roadCoverage[highlightedSuburb]
+      ? { [highlightedSuburb]: roadCoverage[highlightedSuburb] }
+      : roadCoverage;
+
+    for (const roads of Object.values(source)) {
       for (const road of Object.values(roads)) {
         if (seenIds.has(road.id)) continue;
         seenIds.add(road.id);
@@ -750,7 +761,7 @@ const RoadCoverage = () => {
       }
     }
     return { runRoads: run, unrunRoads: unrun };
-  }, [roadCoverage]);
+  }, [roadCoverage, highlightedSuburb]);
 
   const isLoadingRoads = loadingSuburbs.size > 0;
 
