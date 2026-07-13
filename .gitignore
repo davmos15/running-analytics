@@ -39,3 +39,10 @@ lerna-debug.log*
 
 # Misc
 .nyc_output
+
+# Garmin sync
+.venv-garmin/
+.garmin_tokens/
+serviceAccountKey.json
+scripts/logs/*.log
+backups/

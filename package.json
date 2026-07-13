@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "firebase-admin": "^14.1.0",
     "gh-pages": "^6.3.0",
     "postcss": "^8.5.6",
     "string.prototype.matchall": "^4.0.12",
