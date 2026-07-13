@@ -6,7 +6,8 @@
    Requires GOOGLE_APPLICATION_CREDENTIALS. */
 const fs = require('fs');
 const path = require('path');
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 
 async function dump(db, name, backup) {
   const snap = await db.collection(name).get();
@@ -16,29 +17,33 @@ async function dump(db, name, backup) {
 
 async function main() {
   const cred = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'serviceAccountKey.json';
-  admin.initializeApp({ credential: admin.credential.cert(require(path.resolve(cred))) });
-  const db = admin.firestore();
+  initializeApp({ credential: cert(require(path.resolve(cred))) });
+  const db = getFirestore();
 
   const backup = {};
   const acts = await dump(db, 'activities', backup);
   const segs = await dump(db, 'segments', backup);
+  // Streams hold large gzipped bytes and are re-syncable from Garmin, so they
+  // are deleted but not written into the backup.
+  const strms = (await db.collection('streams').get()).docs;
 
   fs.mkdirSync('backups', { recursive: true });
   const file = path.join('backups', `reset-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   fs.writeFileSync(file, JSON.stringify(backup));
   const stat = fs.statSync(file);
   if (stat.size < 2) throw new Error('Backup looks empty; aborting delete.');
-  console.log(`Backed up ${acts.length} activities + ${segs.length} segments to ${file}`);
+  console.log(`Backed up ${acts.length} activities + ${segs.length} segments to ${file} `
+    + `(will also delete ${strms.length} stream docs)`);
 
   if (process.argv.includes('--confirm-delete')) {
-    for (const group of [acts, segs]) {
+    for (const group of [acts, segs, strms]) {
       for (let i = 0; i < group.length; i += 400) {
         const batch = db.batch();
         group.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
         await batch.commit();
       }
     }
-    console.log('Deleted activities + segments. Ready for --backfill.');
+    console.log('Deleted activities + segments + streams. Ready for --backfill.');
   } else {
     console.log('Dry run: backup only. Re-run with --confirm-delete to wipe.');
   }

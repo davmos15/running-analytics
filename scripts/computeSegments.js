@@ -18,14 +18,11 @@ function segmentId(seg) {
 }
 
 async function run() {
-  const admin = require('firebase-admin');
+  const { initializeApp, cert } = require('firebase-admin/app');
+  const { getFirestore } = require('firebase-admin/firestore');
   const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'serviceAccountKey.json';
-  admin.initializeApp({
-    credential: admin.credential.cert(require(path.resolve(credPath))),
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  });
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket();
+  initializeApp({ credential: cert(require(path.resolve(credPath))) });
+  const db = getFirestore();
 
   const snap = await db.collection('activities')
     .where('type', 'in', ['Run', 'TrailRun', 'VirtualRun']).get();
@@ -33,10 +30,9 @@ async function run() {
 
   for (const doc of snap.docs) {
     const activity = { id: doc.id, ...doc.data() };
-    const file = bucket.file(`streams/${doc.id}.json.gz`);
-    const [exists] = await file.exists();
-    if (!exists) { console.log(`  ${doc.id}: no streams, skipping`); continue; }
-    const [gz] = await file.download();
+    const streamDoc = await db.collection('streams').doc(doc.id).get();
+    if (!streamDoc.exists) { console.log(`  ${doc.id}: no streams, skipping`); continue; }
+    const gz = streamDoc.data().gz; // Firestore bytes -> Buffer in admin SDK
     const streams = JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
     if (!streams.distance || !streams.time) { console.log(`  ${doc.id}: no dist/time`); continue; }
 

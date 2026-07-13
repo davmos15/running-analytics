@@ -83,7 +83,6 @@ def main():
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--service-account", default=os.environ.get(
         "GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json"))
-    p.add_argument("--bucket", default=os.environ.get("FIREBASE_STORAGE_BUCKET"))
     args = p.parse_args()
 
     today = datetime.date.today()
@@ -95,7 +94,7 @@ def main():
 
     authenticate()
     if not args.dry_run:
-        fw.init(args.service_account, args.bucket)
+        fw.init(args.service_account)
 
     runs = list_running(start, end)
     log.info("Found %d running activities in %s..%s", len(runs), start, end)

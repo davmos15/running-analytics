@@ -5,6 +5,13 @@ service cloud.firestore {
     match /segments/{document=**} {
       allow read, write: if true;
     }
+
+    // Gzipped activity streams written by the server-side Garmin sync (admin
+    // SDK, bypasses rules). The app only reads them.
+    match /streams/{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
     
     // Allow users to read and write their own personal bests using Strava athlete ID
     match /personalBests/{athleteId} {

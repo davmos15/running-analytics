@@ -12,7 +12,6 @@ import {
   limit,
   deleteDoc
 } from 'firebase/firestore';
-import { getStorage, ref, getBytes } from 'firebase/storage';
 import segmentEngine from './segmentEngine';
 
 const firebaseConfig = {
@@ -26,7 +25,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 class FirebaseService {
   constructor() {
@@ -834,15 +832,18 @@ class FirebaseService {
   }
 
   /**
-   * Get activity streams from Firebase Storage (gzipped JSON written by the
-   * Garmin sync). Replaces the old Strava streams API.
+   * Get activity streams from the Firestore `streams` collection (a gzipped
+   * bytes field written by the Garmin sync). Replaces the old Strava streams API.
    */
   async getActivityStreams(activityId) {
     try {
-      const gz = await getBytes(ref(storage, `streams/${activityId}.json.gz`));
+      const snap = await getDoc(doc(db, 'streams', activityId.toString()));
+      if (!snap.exists()) return null;
+      const gz = snap.data().gz; // Firestore Bytes
+      const bytes = gz && gz.toUint8Array ? gz.toUint8Array() : gz;
       // Inflate gzip in the browser via DecompressionStream
       const ds = new DecompressionStream('gzip');
-      const stream = new Blob([gz]).stream().pipeThrough(ds);
+      const stream = new Blob([bytes]).stream().pipeThrough(ds);
       const text = await new Response(stream).text();
       return JSON.parse(text);
     } catch (error) {
