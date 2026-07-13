@@ -48,3 +48,6 @@ scripts/logs/*.log
 backups/
 # Captured Garmin fixtures contain real GPS tracks; keep them local.
 tests/fixtures/
+# Python caches
+__pycache__/
+.pytest_cache/
