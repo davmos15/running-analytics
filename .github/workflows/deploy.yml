@@ -40,4 +40,4 @@ jobs:
     - name: Deploy to Firebase
       env:
         FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-      run: firebase deploy --only hosting --project strava-analytics-b9293
+      run: firebase deploy --only hosting,firestore:rules --project strava-analytics-b9293
