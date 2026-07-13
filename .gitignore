@@ -46,3 +46,5 @@ lerna-debug.log*
 serviceAccountKey.json
 scripts/logs/*.log
 backups/
+# Captured Garmin fixtures contain real GPS tracks; keep them local.
+tests/fixtures/
