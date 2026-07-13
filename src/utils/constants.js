@@ -60,7 +60,7 @@ export const AVAILABLE_COLUMNS = [
   { key: 'fullRunDistance', label: 'Run Distance', default: true, description: 'Total distance of the full run', category: 'activity', enabled: true },
   { key: 'averageSpeed', label: 'Avg Speed', default: false, description: 'Average speed in m/s', category: 'performance', enabled: true },
   { key: 'fullRunTime', label: 'Total Time', default: false, description: 'Total time of the full run', category: 'activity', enabled: true },
-  { key: 'activityId', label: 'Activity ID', default: false, description: 'Strava activity ID', category: 'technical', enabled: true },
+  { key: 'activityId', label: 'Activity ID', default: false, description: 'Garmin activity ID', category: 'technical', enabled: true },
   // Additional performance columns
   { key: 'elevation', label: 'Elevation Gain', default: false, description: 'Elevation gain during segment', category: 'performance', enabled: true },
   { key: 'heartRate', label: 'Avg Heart Rate', default: false, description: 'Average heart rate during segment', category: 'performance', enabled: true },

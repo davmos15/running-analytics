@@ -20,7 +20,7 @@ const RecentRuns = () => {
       <div className="athletic-card-gradient">
         <div className="p-4 border-b border-blue-500/20">
           <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'Rajdhani, sans-serif' }}>Recent Activities</h2>
-          <p className="text-sm text-slate-300 mt-1">Your latest runs from Strava</p>
+          <p className="text-sm text-slate-300 mt-1">Your latest runs from Garmin</p>
         </div>
         
         <div className="divide-y divide-blue-500/10">

@@ -39,7 +39,7 @@ const RunCard = ({ run }) => {
             </span>
             {run.id && (
               <a
-                href={`https://www.strava.com/activities/${run.id}`}
+                href={`https://connect.garmin.com/modern/activity/${run.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-slate-400 hover:text-orange-400 transition-colors"

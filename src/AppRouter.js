@@ -1,9 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LayoutRouter from './components/Layout/LayoutRouter';
-import ErrorMessage from './components/common/ErrorMessage';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import { useStrava } from './hooks/useStrava';
 import './styles/globals.css';
 
 // Lazy load all route components for code splitting - using simple working pattern
@@ -29,48 +27,7 @@ const RouteLoading = () => (
 );
 
 function AppRouter() {
-  const { isAuthenticated, isLoading, error, login } = useStrava();
-
-  // Show fast loading screen while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="athletic-card-gradient p-8 text-center">
-          <div className="w-12 h-12 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Connecting to Strava...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error message if there's an error
-  if (error) {
-    return <ErrorMessage message={error} onRetry={login} />;
-  }
-
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="athletic-card-gradient p-8 text-center max-w-md">
-          <h1 className="text-3xl font-bold text-white mb-4" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            Athletic Performance Hub
-          </h1>
-          <p className="text-slate-300 mb-6">
-            Connect with Strava to unlock your running potential
-          </p>
-          <button
-            onClick={login}
-            className="athletic-button-primary text-white px-8 py-3 rounded-lg font-semibold text-lg"
-          >
-            Connect with Strava
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Main app with routing
+  // Data is synced server-side from Garmin into Firestore; no user login needed.
   return (
     <Router>
       <ErrorBoundary>

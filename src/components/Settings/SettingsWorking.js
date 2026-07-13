@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, Download, ChevronDown, ChevronRight, Columns } from 'lucide-react';
+import { Settings as SettingsIcon, Calendar, Database, Plus, X, Globe, ChevronDown, ChevronRight, Columns } from 'lucide-react';
 import firebaseService from '../../services/firebaseService';
-import syncService from '../../services/syncService';
 import { AVAILABLE_COLUMNS, COLUMN_CATEGORIES } from '../../utils/constants';
 import FirebaseQuotaChecker from './FirebaseQuotaChecker';
 import CacheManager from './CacheManager';
@@ -14,7 +13,6 @@ const SettingsWorking = () => {
   const [newDistance, setNewDistance] = useState('');
   const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
   const [isAddingDistance, setIsAddingDistance] = useState(false);
-  const [isImportingRuns, setIsImportingRuns] = useState(false);
   const [columnSettings, setColumnSettings] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
   const [isSearchingOldRuns, setIsSearchingOldRuns] = useState(false);
@@ -153,22 +151,6 @@ const SettingsWorking = () => {
     }));
   };
 
-
-  const handleImportRecentRuns = async () => {
-    if (window.confirm('This will import your recent activities from Strava. Continue?')) {
-      setIsImportingRuns(true);
-      try {
-        const result = await syncService.syncRecentActivities();
-        alert(`Import complete! Found ${result.newActivitiesCount} new activities. Personal Bests have been automatically updated.`);
-        setShowSuccessMessage(true);
-        setTimeout(() => setShowSuccessMessage(false), 3000);
-      } catch (error) {
-        alert('Error importing recent runs: ' + error.message);
-      } finally {
-        setIsImportingRuns(false);
-      }
-    }
-  };
 
   const handleFindOldRuns = async () => {
     setIsSearchingOldRuns(true);
@@ -530,20 +512,12 @@ const SettingsWorking = () => {
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-white mb-2">
-                Import Recent Activities
+                Automatic Garmin Sync
               </h4>
               <p className="text-sm text-slate-300 mb-3">
-                Import your latest activities from Strava (last 20 runs). 
-                This automatically calculates and updates Personal Bests for all distances.
+                Your activities sync automatically from Garmin Connect every day.
+                No manual import needed.
               </p>
-              <button
-                onClick={handleImportRecentRuns}
-                disabled={isImportingRuns}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-sm flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isImportingRuns ? 'Importing...' : 'Import Recent Runs'}</span>
-              </button>
             </div>
 
             <div>

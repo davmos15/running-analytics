@@ -418,7 +418,7 @@ const RoadCoverage = () => {
         if (routes.length === 0 && runActivities.length > 0) {
           setError(
             `Found ${runActivities.length} runs but none have route data. ` +
-            'Try re-syncing from Settings to pull in GPS polylines from Strava.'
+            'GPS polylines sync automatically from Garmin; check back after the next daily sync.'
           );
         }
       } catch (err) {
