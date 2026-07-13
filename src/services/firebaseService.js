@@ -12,6 +12,7 @@ import {
   limit,
   deleteDoc
 } from 'firebase/firestore';
+import { getStorage, ref, getBytes } from 'firebase/storage';
 import segmentEngine from './segmentEngine';
 
 const firebaseConfig = {
@@ -25,6 +26,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 class FirebaseService {
   constructor() {
@@ -832,17 +834,19 @@ class FirebaseService {
   }
 
   /**
-   * Get activity streams from Strava API
+   * Get activity streams from Firebase Storage (gzipped JSON written by the
+   * Garmin sync). Replaces the old Strava streams API.
    */
   async getActivityStreams(activityId) {
     try {
-      const stravaApi = await import('./stravaApi');
-      const streams = await stravaApi.default.getActivityStreams(activityId, [
-        'time', 'distance', 'heartrate', 'cadence', 'altitude', 'watts', 'velocity_smooth'
-      ]);
-      return streams;
+      const gz = await getBytes(ref(storage, `streams/${activityId}.json.gz`));
+      // Inflate gzip in the browser via DecompressionStream
+      const ds = new DecompressionStream('gzip');
+      const stream = new Blob([gz]).stream().pipeThrough(ds);
+      const text = await new Response(stream).text();
+      return JSON.parse(text);
     } catch (error) {
-      console.error(`Error fetching streams for activity ${activityId}:`, error);
+      console.error(`No stored streams for activity ${activityId}:`, error);
       return null;
     }
   }
