@@ -858,11 +858,8 @@ class TrainingPlanService {
    */
   async saveTrainingPlan(plan) {
     try {
-      const athleteData = localStorage.getItem('strava_athlete');
-      if (!athleteData) throw new Error('User not authenticated');
-      
-      const athlete = JSON.parse(athleteData);
-      const userId = athlete.id.toString();
+      // Single-user app: training plans are stored under a fixed user key.
+      const userId = 'default';
       
       // Sanitize the plan to remove undefined values
       const sanitizedPlan = this.sanitizeForFirebase(plan);
@@ -881,11 +878,8 @@ class TrainingPlanService {
    */
   async loadTrainingPlan() {
     try {
-      const athleteData = localStorage.getItem('strava_athlete');
-      if (!athleteData) return null;
-      
-      const athlete = JSON.parse(athleteData);
-      const userId = athlete.id.toString();
+      // Single-user app: training plans are stored under a fixed user key.
+      const userId = 'default';
       
       const plan = await firebaseService.getTrainingPlan(userId);
       return plan;
@@ -900,11 +894,8 @@ class TrainingPlanService {
    */
   async deleteTrainingPlan() {
     try {
-      const athleteData = localStorage.getItem('strava_athlete');
-      if (!athleteData) throw new Error('User not authenticated');
-      
-      const athlete = JSON.parse(athleteData);
-      const userId = athlete.id.toString();
+      // Single-user app: training plans are stored under a fixed user key.
+      const userId = 'default';
       
       await firebaseService.deleteTrainingPlan(userId);
     } catch (error) {

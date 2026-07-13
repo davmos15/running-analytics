@@ -1597,14 +1597,9 @@ class FirebaseService {
    * Get user ID for data storage (simplified approach)
    */
   getUserId() {
-    // For now, use a simple approach - could be enhanced with actual user auth later
-    let userId = localStorage.getItem('strava_user_id');
-    if (!userId) {
-      // Generate a consistent user ID based on browser/session
-      userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      localStorage.setItem('strava_user_id', userId);
-    }
-    return userId;
+    // Single-user app (no login): use a fixed key so saved courses and training
+    // plans are consistent across devices.
+    return 'default';
   }
 
   /**
