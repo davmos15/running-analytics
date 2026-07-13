@@ -24,11 +24,21 @@ async function run() {
   initializeApp({ credential: cert(require(path.resolve(credPath))) });
   const db = getFirestore();
 
+  // By default only (re)compute segments for recent runs so the daily job stays
+  // within the Firestore free tier. Use --all for a full recompute (backfill).
+  const all = process.argv.includes('--all');
+  const sinceIdx = process.argv.indexOf('--since-days');
+  const sinceDays = sinceIdx >= 0 ? Number(process.argv[sinceIdx + 1]) : 14;
+  const cutoff = new Date(Date.now() - sinceDays * 864e5).toISOString();
+
   const snap = await db.collection('activities')
     .where('type', 'in', ['Run', 'TrailRun', 'VirtualRun']).get();
-  console.log(`Computing segments for ${snap.size} activities`);
+  const docs = snap.docs.filter((d) => all || (d.data().start_date || '') >= cutoff);
+  console.log(`Computing segments for ${docs.length} activities`
+    + (all ? ' (all)' : ` since ${cutoff.slice(0, 10)}`));
 
-  for (const doc of snap.docs) {
+  let processed = 0;
+  for (const doc of docs) {
     const activity = { id: doc.id, ...doc.data() };
     const streamDoc = await db.collection('streams').doc(doc.id).get();
     if (!streamDoc.exists) { console.log(`  ${doc.id}: no streams, skipping`); continue; }
@@ -49,9 +59,10 @@ async function run() {
       batch.set(doc.ref, metrics, { merge: true });
     }
     await batch.commit();
+    processed++;
     console.log(`  ${doc.id}: wrote ${segments.length} segments`);
   }
-  console.log('Done.');
+  console.log(`Done. Processed ${processed}/${docs.length}.`);
 }
 
 module.exports = { buildSegmentsForActivity, segmentId };
