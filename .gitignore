@@ -51,3 +51,6 @@ tests/fixtures/
 # Python caches
 __pycache__/
 .pytest_cache/
+# Transient run logs
+*.log
+build.log
