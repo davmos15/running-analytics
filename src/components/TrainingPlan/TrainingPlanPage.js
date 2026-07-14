@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Target, Download, Play, ChevronRight, Clock, Trash2, FileText, TrendingUp } from 'lucide-react';
+import { Calendar, Target, Download, Play, ChevronRight, Clock, Trash2, FileText, TrendingUp, Edit3, AlertTriangle } from 'lucide-react';
 import trainingPlanService from '../../services/trainingPlanService';
 import predictionService from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -201,6 +201,29 @@ const TrainingPlanPage = () => {
         setError('Failed to delete plan');
       }
     }
+  };
+
+  // Open the config form pre-filled with the current plan's settings so it can
+  // be tweaked and regenerated.
+  const handleEditPlan = () => {
+    if (!currentPlan) return;
+    const m = currentPlan.metadata || {};
+    const standard = [5000, 10000, 21100, 42200];
+    const goalMins = m.goalTime || 0;
+    setPlanConfig({
+      ...planConfig,
+      raceDate: m.raceDate || planConfig.raceDate,
+      raceDistance: standard.includes(m.raceDistance) ? String(m.raceDistance) : 'custom',
+      customDistance: standard.includes(m.raceDistance) ? '' : String((m.raceDistance || 0) / 1000),
+      goalType: m.goalType || 'completion',
+      goalTimeHours: m.goalType === 'time' ? String(Math.floor(goalMins / 60)) : '',
+      goalTimeMinutes: m.goalType === 'time' ? String(goalMins % 60) : '',
+      runsPerWeek: m.runsPerWeek || planConfig.runsPerWeek,
+      availableDays: m.availableDays || planConfig.availableDays,
+      longRunDay: m.longRunDay || planConfig.longRunDay
+    });
+    setShowPlanForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleExportPDF = () => {
@@ -623,6 +646,13 @@ const TrainingPlanPage = () => {
                   <span>Delete</span>
                 </button>
                 <button
+                  onClick={handleEditPlan}
+                  className="px-4 py-2 athletic-button-secondary text-slate-300 rounded-lg flex items-center space-x-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit Plan</span>
+                </button>
+                <button
                   onClick={() => {
                     setCurrentPlan(null);
                     setShowPlanForm(true);
@@ -633,6 +663,16 @@ const TrainingPlanPage = () => {
                 </button>
               </div>
             </div>
+
+            {/* Feasibility warning */}
+            {currentPlan.metadata.feasibility && currentPlan.metadata.feasibility.level !== 'ok' && (
+              <div className={`mb-6 p-4 rounded-lg border ${currentPlan.metadata.feasibility.level === 'high' ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-300'}`}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{currentPlan.metadata.feasibility.message}</p>
+                </div>
+              </div>
+            )}
 
             {/* Phase Overview */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

@@ -57,6 +57,11 @@ class TrainingPlanService {
       userData
     );
 
+    // Persist the input config so the plan can be re-edited / progress-updated.
+    plan.metadata.raceDate = raceDate;
+    plan.metadata.availableDays = availableDays;
+    plan.metadata.longRunDay = longRunDay;
+
     return plan;
   }
 
@@ -112,7 +117,8 @@ class TrainingPlanService {
         goalType,
         totalWeeks: weeks,
         runsPerWeek,
-        createdAt: new Date()
+        createdAt: new Date().toISOString(),
+        feasibility: this.assessFeasibility(weeks, raceDistance, userData)
       },
       weeks: []
     };
@@ -145,8 +151,8 @@ class TrainingPlanService {
       plan.weeks.push(weekPlan);
     }
 
-    // Add taper for final weeks
-    this.applyTaper(plan.weeks, raceDistance);
+    // Taper is handled per-week in calculateWeeklyVolume / calculateLongRunDistance
+    // (applying applyTaper here as well would double-taper the final weeks).
 
     return plan;
   }
@@ -185,7 +191,9 @@ class TrainingPlanService {
         paces,
         phase,
         weekNumber,
-        userData
+        userData,
+        raceDistance,
+        totalWeeks
       );
       week.runs.push(run);
     });
@@ -196,7 +204,7 @@ class TrainingPlanService {
   /**
    * Generate a single run workout
    */
-  generateRun(day, workoutType, weeklyVolume, runsPerWeek, isLongRun, paces, phase, weekNumber, userData) {
+  generateRun(day, workoutType, weeklyVolume, runsPerWeek, isLongRun, paces, phase, weekNumber, userData, raceDistance, totalWeeks) {
     let distance, description, segments;
 
     if (workoutType === this.workoutTypes.REST) {
@@ -211,40 +219,40 @@ class TrainingPlanService {
 
     // Calculate distance based on workout type
     if (isLongRun) {
-      distance = this.calculateLongRunDistance(weeklyVolume, phase, weekNumber, userData);
+      distance = this.calculateLongRunDistance(weeklyVolume, phase, weekNumber, userData, raceDistance, totalWeeks);
       segments = this.generateLongRunSegments(distance, paces);
       description = `Long run at easy pace. Focus on maintaining consistent effort.`;
     } else if (workoutType === this.workoutTypes.TEMPO) {
-      distance = weeklyVolume * 0.25;
+      distance = Math.min(weeklyVolume * 0.25, 14);
       segments = this.generateTempoSegments(distance, paces);
       description = `Tempo run at threshold pace. Comfortably hard effort.`;
     } else if (workoutType === this.workoutTypes.INTERVALS) {
-      distance = weeklyVolume * 0.2;
+      distance = Math.min(weeklyVolume * 0.2, 13);
       segments = this.generateIntervalSegments(distance, paces, phase);
       description = `Interval training. Focus on form during fast segments.`;
     } else if (workoutType === this.workoutTypes.FARTLEK) {
-      distance = weeklyVolume * 0.2;
+      distance = Math.min(weeklyVolume * 0.2, 12);
       segments = this.generateFartlekSegments(distance, paces);
       description = `Fartlek run with varied pace. Play with speed.`;
     } else if (workoutType === this.workoutTypes.RACE_PACE) {
-      distance = weeklyVolume * 0.2;
+      distance = Math.min(weeklyVolume * 0.25, 20);
       segments = this.generateRacePaceSegments(distance, paces);
       description = `Race pace practice. Lock into goal pace.`;
     } else if (workoutType === this.workoutTypes.PROGRESSION) {
-      distance = weeklyVolume * 0.22;
+      distance = Math.min(weeklyVolume * 0.22, 16);
       segments = this.generateProgressionSegments(distance, paces);
       description = `Progression run. Start easy, finish fast.`;
     } else if (workoutType === this.workoutTypes.HILLS) {
-      distance = weeklyVolume * 0.18;
+      distance = Math.min(weeklyVolume * 0.18, 11);
       segments = this.generateHillSegments(distance, paces);
       description = `Hill repeats for strength and power.`;
     } else if (workoutType === this.workoutTypes.RECOVERY) {
-      distance = weeklyVolume * 0.15;
+      distance = Math.min(weeklyVolume * 0.15, 8);
       segments = this.generateRecoverySegments(distance, paces);
       description = `Recovery run. Very easy effort.`;
     } else {
       // Easy run
-      distance = weeklyVolume / runsPerWeek;
+      distance = Math.min(weeklyVolume / runsPerWeek, 18);
       segments = this.generateEasySegments(distance, paces);
       description = `Easy run. Conversational pace.`;
     }
@@ -274,9 +282,9 @@ class TrainingPlanService {
   }
 
   generateIntervalSegments(totalDistance, paces, phase) {
-    const warmup = 2;
-    const cooldown = 1.5;
-    const workDistance = totalDistance - warmup - cooldown;
+    const warmup = Math.min(2, totalDistance * 0.25);
+    const cooldown = Math.min(1.5, totalDistance * 0.2);
+    const workDistance = Math.max(0, totalDistance - warmup - cooldown);
     
     // Vary interval length based on phase
     const intervalOptions = phase === 'peak' ? 
@@ -338,9 +346,9 @@ class TrainingPlanService {
   }
 
   generateRacePaceSegments(totalDistance, paces) {
-    const warmup = 2;
-    const cooldown = 1;
-    const racePaceDistance = totalDistance - warmup - cooldown;
+    const warmup = Math.min(2, totalDistance * 0.25);
+    const cooldown = Math.min(1.5, totalDistance * 0.2);
+    const racePaceDistance = Math.max(0, totalDistance - warmup - cooldown);
 
     return [
       { type: 'Warm-up', distance: warmup, pace: paces.easy },
@@ -350,9 +358,9 @@ class TrainingPlanService {
   }
 
   generateHillSegments(totalDistance, paces) {
-    const warmup = 2;
-    const cooldown = 1;
-    const hillWork = totalDistance - warmup - cooldown;
+    const warmup = Math.min(2, totalDistance * 0.25);
+    const cooldown = Math.min(1.5, totalDistance * 0.2);
+    const hillWork = Math.max(0, totalDistance - warmup - cooldown);
     const reps = Math.floor(hillWork / 0.5);
 
     const segments = [
@@ -445,38 +453,28 @@ class TrainingPlanService {
    * Calculate weekly volume based on phase and progression
    */
   calculateWeeklyVolume(weekNumber, phase, raceDistance, userData, totalWeeks) {
-    const baseVolume = userData.currentWeeklyVolume || 20;
-    const targetPeakVolume = this.calculatePeakVolume(raceDistance, userData);
-    
-    let multiplier;
-    switch (phase) {
-      case 'base':
-        // Gradual build from current volume
-        multiplier = 1 + (weekNumber / totalWeeks) * 0.3;
-        break;
-      case 'build':
-        // Continue building toward peak
-        multiplier = 1.3 + (weekNumber / totalWeeks) * 0.4;
-        break;
-      case 'peak':
-        // Maintain high volume
-        multiplier = 1.6 + Math.sin(weekNumber / 2) * 0.1;
-        break;
-      case 'taper':
-        // Reduce volume for race
-        const weeksUntilRace = totalWeeks - weekNumber + 1;
-        multiplier = 0.6 + (weeksUntilRace / 3) * 0.4;
-        break;
-      default:
-        multiplier = 1;
+    const peak = this.calculatePeakVolume(raceDistance, userData);
+    const start = Math.min(userData.currentWeeklyVolume || 20, peak);
+    const phases = this.dividePlanIntoPhases(totalWeeks);
+    const buildEnd = Math.max(phases.build.end, 1); // volume peaks by end of build
+
+    let volume;
+    if (phase === 'base' || phase === 'build') {
+      // Ramp from the athlete's current base up to the distance-appropriate peak.
+      const frac = Math.min(weekNumber / buildEnd, 1);
+      volume = start + (peak - start) * frac;
+    } else if (phase === 'peak') {
+      volume = peak;
+    } else {
+      // Taper: wind volume down over the final weeks (race week ~40% of peak).
+      const weeksUntilRace = totalWeeks - weekNumber + 1; // 1 == race week
+      volume = peak * Math.max(0.4, Math.min(0.75, 0.25 + 0.15 * weeksUntilRace));
     }
 
-    const volume = Math.min(baseVolume * multiplier, targetPeakVolume);
-    
-    // Apply 10% rule - don't increase more than 10% per week
-    const maxIncrease = baseVolume * Math.pow(1.1, weekNumber - 1);
-    
-    return Math.min(volume, maxIncrease);
+    // Every 4th week is an easier down/recovery week (outside the taper).
+    if (phase !== 'taper' && weekNumber % 4 === 0) volume *= 0.85;
+
+    return Math.round(volume * 10) / 10;
   }
 
   /**
@@ -484,55 +482,79 @@ class TrainingPlanService {
    */
   calculatePeakVolume(raceDistance, userData) {
     const distanceKm = raceDistance / 1000;
-    const currentVolume = userData.currentWeeklyVolume;
-    
-    // Target peak volumes by race distance - increased for marathon
-    const targets = {
-      5: 35,
-      10: 45,
-      21.1: 75,
-      42.2: 120 // Increased from 85 to 120 for marathon
-    };
+    const current = userData.currentWeeklyVolume || 20;
 
-    let target = targets[distanceKm] || distanceKm * 2.5;
-    
-    // For marathon, allow higher volume increases
-    const maxMultiplier = distanceKm >= 42 ? 4 : 2.5;
-    
-    // Don't increase too dramatically from current volume
-    return Math.min(target, currentVolume * maxMultiplier);
+    // Distance-appropriate peak weekly volume (km/week).
+    const targets = { 5: 32, 10: 42, 21.1: 55, 42.2: 72 };
+    const target = targets[distanceKm] || Math.max(distanceKm * 2, 30);
+
+    // Reach the full target for athletes with a decent base; for a low base,
+    // still peak at a substantial, distance-appropriate volume (>= 75% of target).
+    const peak = Math.max(target * 0.75, Math.min(target, current * 3));
+    return Math.round(peak);
+  }
+
+  /**
+   * Distance-appropriate peak long-run distance (km).
+   */
+  peakLongRun(raceDistance) {
+    const distanceKm = (raceDistance || 42200) / 1000;
+    const targets = { 5: 12, 10: 16, 21.1: 22, 42.2: 32 };
+    return targets[distanceKm] || Math.min(distanceKm * 0.9, 32);
+  }
+
+  /**
+   * Assess how realistic the plan is given the athlete's current base and the
+   * time available. Returns { level: 'ok'|'moderate'|'high', message }.
+   */
+  assessFeasibility(weeks, raceDistance, userData) {
+    const start = userData.currentWeeklyVolume || 20;
+    const peak = this.calculatePeakVolume(raceDistance, userData);
+    const peakLong = this.peakLongRun(raceDistance);
+    const longest = userData.longestRun || 8;
+    const phases = this.dividePlanIntoPhases(weeks);
+    const buildWeeks = Math.max(phases.build.end, 1);
+    const weeklyGrowth = Math.pow(peak / Math.max(start, 1), 1 / buildWeeks) - 1;
+
+    if (weeklyGrowth > 0.15 || longest < peakLong * 0.5) {
+      return {
+        level: 'high',
+        message: `Ambitious plan: it ramps from about ${Math.round(start)}km to ${Math.round(peak)}km per week, and long runs from ${Math.round(longest)}km to ${Math.round(peakLong)}km, in ${weeks} weeks — faster than the usual ~10%/week guideline. Build up gradually, don't force every distance, and consider a longer lead-in or a more conservative goal to lower injury risk.`
+      };
+    }
+    if (weeklyGrowth > 0.10) {
+      return {
+        level: 'moderate',
+        message: `This is an aggressive build from your current ~${Math.round(start)}km/week. Progress steadily and add extra recovery if you feel run down.`
+      };
+    }
+    return { level: 'ok', message: '' };
   }
 
   /**
    * Calculate long run distance
    */
-  calculateLongRunDistance(weeklyVolume, phase, weekNumber, userData) {
-    const baseLength = userData.longestRun || 10;
-    let multiplier;
+  calculateLongRunDistance(weeklyVolume, phase, weekNumber, userData, raceDistance, totalWeeks) {
+    const peakLong = this.peakLongRun(raceDistance);
+    const startLong = userData.longestRun || 8;
+    const phases = this.dividePlanIntoPhases(totalWeeks || 12);
+    const longPeakWeek = Math.max(phases.peak.end, 1); // long run peaks by end of peak phase
 
-    switch (phase) {
-      case 'base':
-        multiplier = 0.35; // Increased from 0.3
-        break;
-      case 'build':
-        multiplier = 0.4; // Increased from 0.35
-        break;
-      case 'peak':
-        multiplier = 0.45; // Increased from 0.4
-        break;
-      case 'taper':
-        multiplier = 0.3; // Increased from 0.25
-        break;
-      default:
-        multiplier = 0.35;
+    let dist;
+    if (phase === 'taper') {
+      // Wind long runs down before the race.
+      const weeksUntilRace = (totalWeeks || 12) - weekNumber + 1;
+      dist = peakLong * Math.max(0.35, Math.min(0.7, 0.2 + 0.17 * weeksUntilRace));
+    } else {
+      // Ramp from the athlete's current longest toward the distance-appropriate peak.
+      const frac = Math.min(weekNumber / longPeakWeek, 1);
+      dist = startLong + (peakLong - startLong) * frac;
+      if (weekNumber % 4 === 0) dist *= 0.85; // easier on down weeks
     }
 
-    const longRunDistance = weeklyVolume * multiplier;
-    
-    // Progressive increase from current longest - more aggressive progression
-    const progression = baseLength * (1 + (weekNumber / 15) * 0.8); // Changed from /20 * 0.5
-    
-    return Math.min(longRunDistance, progression, 42); // Increased cap from 35km to 42km
+    // Never exceed the peak long run.
+    dist = Math.min(dist, peakLong);
+    return Math.round(dist * 10) / 10;
   }
 
   /**
@@ -634,7 +656,9 @@ class TrainingPlanService {
     const daysUntilMonday = (today.getDay() + 6) % 7;
     const nextMonday = new Date(today);
     nextMonday.setDate(today.getDate() - daysUntilMonday + (weekNumber - 1) * 7);
-    return nextMonday;
+    // ISO string so it survives Firestore round-trips (a JS Date becomes a
+    // Timestamp on save, which new Date(...) can't parse back -> "Invalid Date").
+    return nextMonday.toISOString();
   }
 
   selectRunDays(availableDays, runsPerWeek, longRunDay) {
