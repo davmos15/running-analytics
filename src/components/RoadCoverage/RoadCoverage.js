@@ -299,6 +299,7 @@ const RoadCoverage = () => {
   const [suburbRoads, setSuburbRoads] = useState({});
   const [roadCoverage, setRoadCoverage] = useState({});
   const [suburbStats, setSuburbStats] = useState({});
+  // eslint-disable-next-line no-unused-vars
   const [suburbBoundaries, setSuburbBoundaries] = useState({});
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [loadingSuburbs, setLoadingSuburbs] = useState(new Set());
@@ -469,6 +470,42 @@ const RoadCoverage = () => {
     detect();
     return () => { cancelled = true; };
   }, [runRoutes, isLoadingActivities, timeFilter, customDateFrom, customDateTo]);
+
+  // ── Derived: suburbs visible on the map (not hidden) ────────────────────
+
+  const visibleSuburbs = useMemo(
+    () => runInSuburbs.filter((s) => !hiddenSuburbs.has(s.name)),
+    [runInSuburbs, hiddenSuburbs]
+  );
+
+  // ── Load Overpass roads for each visible suburb that lacks them ───────────
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRoads() {
+      for (const suburb of visibleSuburbs) {
+        if (cancelled) return;
+        if (suburbRoads[suburb.name] || loadingSuburbs.has(suburb.name)) continue;
+        setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
+        try {
+          const roads = await fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon);
+          if (!cancelled) setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
+        } catch (err) {
+          console.error(`Failed to load roads for ${suburb.name}:`, err);
+        } finally {
+          setLoadingSuburbs((prev) => {
+            const next = new Set(prev);
+            next.delete(suburb.name);
+            return next;
+          });
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    loadRoads();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSuburbs]);
 
   // ── Add a suburb ────────────────────────────────────────────────────────
 
@@ -650,28 +687,17 @@ const RoadCoverage = () => {
   // ── Handle clicking a suburb (focus/unfocus) ─────────────────────────────
 
   const handleSuburbClick = useCallback(
-    async (suburbName) => {
+    (suburbName) => {
       const isAlreadyFocused = highlightedSuburb === suburbName;
       setHighlightedSuburb(isAlreadyFocused ? null : suburbName);
-
       if (!isAlreadyFocused) {
-        const suburb = selectedSuburbs.find((s) => s.name === suburbName);
-        if (suburb) {
-          setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
-        }
-        if (!suburbBoundaries[suburbName]) {
-          const suburb = selectedSuburbs.find((s) => s.name === suburbName);
-          const boundary = await fetchSuburbBoundary(suburbName, suburb?.lat, suburb?.lon);
-          if (boundary) {
-            setSuburbBoundaries((prev) => ({ ...prev, [suburbName]: boundary }));
-          }
-        }
+        const suburb = runInSuburbs.find((s) => s.name === suburbName);
+        if (suburb) setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
       } else {
-        // Un-focus: reset fly target so bounds take over
         setFlyToTarget(null);
       }
     },
-    [highlightedSuburb, selectedSuburbs, suburbBoundaries]
+    [highlightedSuburb, runInSuburbs]
   );
 
   // ── Road lists filtered to focused suburb if one is selected ────────────
@@ -684,7 +710,9 @@ const RoadCoverage = () => {
     // If a suburb is focused, show only its roads
     const source = highlightedSuburb && roadCoverage[highlightedSuburb]
       ? { [highlightedSuburb]: roadCoverage[highlightedSuburb] }
-      : roadCoverage;
+      : Object.fromEntries(
+          Object.entries(roadCoverage).filter(([name]) => !hiddenSuburbs.has(name))
+        );
 
     for (const roads of Object.values(source)) {
       for (const road of Object.values(roads)) {
@@ -698,7 +726,7 @@ const RoadCoverage = () => {
       }
     }
     return { runRoads: run, unrunRoads: unrun };
-  }, [roadCoverage, highlightedSuburb]);
+  }, [roadCoverage, highlightedSuburb, hiddenSuburbs]);
 
   const isLoadingRoads = loadingSuburbs.size > 0;
 
@@ -1016,19 +1044,18 @@ const RoadCoverage = () => {
               )}
 
               {/* Suburb boundaries */}
-              {highlightedSuburb && suburbBoundaries[highlightedSuburb] && (
-                <Polygon
-                  positions={suburbBoundaries[highlightedSuburb]}
-                  pathOptions={{
-                    color: runColor,
-                    weight: 2,
-                    opacity: 0.8,
-                    fillColor: runColor,
-                    fillOpacity: 0.08,
-                    dashArray: '6 4',
-                  }}
-                />
-              )}
+              {highlightedSuburb && (() => {
+                const focused = runInSuburbs.find((s) => s.name === highlightedSuburb);
+                return focused && focused.rings ? (
+                  <Polygon
+                    positions={focused.rings}
+                    pathOptions={{
+                      color: runColor, weight: 2, opacity: 0.8,
+                      fillColor: runColor, fillOpacity: 0.08, dashArray: '6 4',
+                    }}
+                  />
+                ) : null;
+              })()}
 
               {/* Unrun roads */}
               {showUnrunRoads &&
