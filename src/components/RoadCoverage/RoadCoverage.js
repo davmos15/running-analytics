@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -204,11 +204,15 @@ async function fetchSuburbBoundariesInBounds(bounds, retries = 2) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 70000);
       const response = await fetch(endpoint, {
         method: 'POST',
         body: `data=${encodeURIComponent(query)}`,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if ((response.status === 504 || response.status === 429) && attempt < retries) {
         await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
         continue;
@@ -313,9 +317,6 @@ const RoadCoverage = () => {
   // Highlighted suburb (from clicking top suburbs or search)
   const [highlightedSuburb, setHighlightedSuburb] = useState(null);
 
-  // Track if boundary-detection has run
-  const detectRan = useRef(false);
-
   // ── Persist hidden suburbs to localStorage ────────────────────────────────
 
   useEffect(() => {
@@ -414,25 +415,26 @@ const RoadCoverage = () => {
   // ── Detect ALL run-in suburbs via one Overpass boundary query ─────────────
 
   useEffect(() => {
-    if (detectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
-    detectRan.current = true;
+    if (runRoutes.length === 0 || isLoadingActivities) return;
+    let cancelled = false;
 
     async function detect() {
       const allPoints = runRoutes.flatMap((r) => r.coords);
       const bounds = geo.computeBounds(allPoints);
       if (!bounds) return;
 
-      // Cache keyed on a coarse bbox so revisits are instant.
-      const key = [bounds.south, bounds.west, bounds.north, bounds.east]
+      // Cache keyed on the date filter + a coarse bbox so revisits are instant
+      // but different filters (same area) don't collide.
+      const bbox = [bounds.south, bounds.west, bounds.north, bounds.east]
         .map((v) => v.toFixed(2))
         .join(',');
+      const key = `${timeFilter}|${customDateFrom}|${customDateTo}|${bbox}`;
       try {
         const cached = JSON.parse(localStorage.getItem('roadCoverage_runInSuburbs') || 'null');
         if (cached && cached.key === key && Array.isArray(cached.suburbs)) {
+          if (cancelled) return;
           setRunInSuburbs(cached.suburbs);
-          if (cached.suburbs[0]) {
-            setMapCenter([cached.suburbs[0].lat, cached.suburbs[0].lon]);
-          }
+          if (cached.suburbs[0]) setMapCenter([cached.suburbs[0].lat, cached.suburbs[0].lon]);
           return;
         }
       } catch { /* ignore */ }
@@ -442,18 +444,21 @@ const RoadCoverage = () => {
         elements = await fetchSuburbBoundariesInBounds(bounds);
       } catch (err) {
         console.error('[RoadCoverage] boundary fetch failed:', err);
-        setError('Could not load suburb boundaries. Try again later.');
+        if (!cancelled) setError('Could not load suburb boundaries. Try again later.');
         return;
       }
+      if (cancelled) return;
 
       const suburbs = geo.parseBoundaryRelations(elements);
       const hits = geo.assignRunsToSuburbs(runRoutes, suburbs);
       const runIn = suburbs
         .filter((s) => hits.has(s.name))
         .map((s) => ({ name: s.name, lat: s.centroid[0], lon: s.centroid[1], rings: s.rings }))
-        .filter((s, i, arr) => arr.findIndex((x) => x.name === s.name) === i);
+        .filter((s, i, arr) => arr.findIndex((x) => x.name === s.name) === i)
+        .sort((a, b) => (hits.get(b.name) || 0) - (hits.get(a.name) || 0));
 
       console.log(`[RoadCoverage] detected ${runIn.length} run-in suburbs`);
+      if (cancelled) return;
       setRunInSuburbs(runIn);
       if (runIn[0]) setMapCenter([runIn[0].lat, runIn[0].lon]);
       try {
@@ -462,7 +467,8 @@ const RoadCoverage = () => {
     }
 
     detect();
-  }, [runRoutes, isLoadingActivities]);
+    return () => { cancelled = true; };
+  }, [runRoutes, isLoadingActivities, timeFilter, customDateFrom, customDateTo]);
 
   // ── Add a suburb ────────────────────────────────────────────────────────
 
