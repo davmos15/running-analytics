@@ -493,11 +493,13 @@ const RoadCoverage = () => {
         } catch (err) {
           console.error(`Failed to load roads for ${suburb.name}:`, err);
         } finally {
-          setLoadingSuburbs((prev) => {
-            const next = new Set(prev);
-            next.delete(suburb.name);
-            return next;
-          });
+          if (!cancelled) {
+            setLoadingSuburbs((prev) => {
+              const next = new Set(prev);
+              next.delete(suburb.name);
+              return next;
+            });
+          }
         }
         await new Promise((r) => setTimeout(r, 1500));
       }
