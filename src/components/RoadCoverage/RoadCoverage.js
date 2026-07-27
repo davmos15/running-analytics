@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
 import DateFilter from '../PersonalBests/DateFilter';
-import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Map as MapIcon, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -796,7 +796,7 @@ const RoadCoverage = () => {
       {/* Header */}
       <div className="athletic-card-gradient p-4">
         <div className="flex items-center gap-3">
-          <Map className="w-6 h-6 text-orange-400" />
+          <MapIcon className="w-6 h-6 text-orange-400" />
           <h1
             className="text-2xl font-bold text-white"
             style={{ fontFamily: 'Rajdhani, sans-serif' }}
