@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
 import * as geo from './roadCoverageGeo';
 import DateFilter from '../PersonalBests/DateFilter';
-import { Map as MapIcon, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Map as MapIcon, Search, Loader, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,41 +157,6 @@ async function fetchSuburbRoads(suburbName, lat, lon, retries = 2) {
   return [];
 }
 
-// ── Fetch suburb boundary from Overpass ──────────────────────────────────────
-
-async function fetchSuburbBoundary(suburbName, lat, lon) {
-  const locationFilter = lat && lon
-    ? `(around:15000,${lat},${lon})`
-    : '';
-  const query = `
-    [out:json][timeout:20];
-    relation["name"="${suburbName}"]["admin_level"~"9|10"]["boundary"="administrative"]${locationFilter};
-    out geom;
-  `;
-
-  try {
-    const response = await fetch(OVERPASS_ENDPOINTS[0], {
-      method: 'POST',
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-
-    for (const el of data.elements) {
-      if (el.type === 'relation' && el.members) {
-        const outerWays = el.members
-          .filter((m) => m.type === 'way' && m.role === 'outer' && m.geometry)
-          .flatMap((m) => m.geometry.map((g) => [g.lat, g.lon]));
-        if (outerWays.length > 0) return outerWays;
-      }
-    }
-  } catch {
-    // boundary is optional
-  }
-  return null;
-}
-
 // ── Overpass: all suburb boundaries within a bounding box (one query) ─────────
 
 async function fetchSuburbBoundariesInBounds(bounds, retries = 2) {
@@ -270,37 +235,23 @@ const RoadCoverage = () => {
   const [customDateTo, setCustomDateTo] = useState('');
 
   // Run-in suburbs detected from GPS (each: { name, lat, lon, rings })
-  // eslint-disable-next-line no-unused-vars
   const [runInSuburbs, setRunInSuburbs] = useState([]);
-  // Hidden suburb names – persisted (wired in Task 3)
-  const [hiddenSuburbs, setHiddenSuburbs] = useState(() => { // eslint-disable-line no-unused-vars
+  // Hidden suburb names – persisted
+  const [hiddenSuburbs, setHiddenSuburbs] = useState(() => {
     try {
       const cached = localStorage.getItem('roadCoverage_hidden');
       return cached ? new Set(JSON.parse(cached)) : new Set();
     } catch { return new Set(); }
   });
-  // View: 'top5' | 'top10' | 'all' (wired in Task 3)
-  // eslint-disable-next-line no-unused-vars
+  // View: 'top5' | 'top10' | 'all'
   const [suburbView, setSuburbView] = useState('top5');
-  // eslint-disable-next-line no-unused-vars
   const [suburbFilter, setSuburbFilter] = useState('');
-
-  // Legacy suburb state kept for addSuburb/removeSuburb/handleSuburbClick (removed in Task 3–5)
-  const [selectedSuburbs, setSelectedSuburbs] = useState([]);
-  const [suburbSearch, setSuburbSearch] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  // eslint-disable-next-line no-unused-vars
-  const [isSearching, setIsSearching] = useState(false);
-  const [showSearch, setShowSearch] = useState(true);
-  const [autoDetectedSuburbs] = useState(new Set());
 
   // Map data
   const [runRoutes, setRunRoutes] = useState([]);
   const [suburbRoads, setSuburbRoads] = useState({});
   const [roadCoverage, setRoadCoverage] = useState({});
   const [suburbStats, setSuburbStats] = useState({});
-  // eslint-disable-next-line no-unused-vars
-  const [suburbBoundaries, setSuburbBoundaries] = useState({});
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
   const [loadingSuburbs, setLoadingSuburbs] = useState(new Set());
   const [mapBounds, setMapBounds] = useState(null);
@@ -509,92 +460,20 @@ const RoadCoverage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleSuburbs]);
 
-  // ── Add a suburb ────────────────────────────────────────────────────────
+  // ── Hide / un-hide suburbs ───────────────────────────────────────────────
 
-  const addSuburb = useCallback(
-    async (suburb) => {
-      if (selectedSuburbs.find((s) => s.name === suburb.name)) {
-        // Already added – just fly to it and highlight
-        setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
-        setHighlightedSuburb(suburb.name);
-        setSuburbSearch('');
-        setSearchResults([]);
-        return;
-      }
+  const hideSuburb = useCallback((name) => {
+    setHiddenSuburbs((prev) => new Set([...prev, name]));
+    setHighlightedSuburb((h) => (h === name ? null : h));
+  }, []);
 
-      setSelectedSuburbs((prev) => [...prev, suburb]);
-      setSuburbSearch('');
-      setSearchResults([]);
-
-      // Fly to the suburb on the map
-      setFlyToTarget({ center: [suburb.lat, suburb.lon], zoom: 15 });
-      setHighlightedSuburb(suburb.name);
-
-      // Load roads
-      setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
-      try {
-        const [roads, boundary] = await Promise.all([
-          fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon),
-          fetchSuburbBoundary(suburb.name, suburb.lat, suburb.lon),
-        ]);
-        setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
-        if (boundary) {
-          setSuburbBoundaries((prev) => ({ ...prev, [suburb.name]: boundary }));
-        }
-      } catch (err) {
-        console.error(`Failed to load roads for ${suburb.name}:`, err);
-        setError(`Could not load roads for ${suburb.name}. Retrying...`);
-        setTimeout(async () => {
-          try {
-            const roads = await fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon);
-            setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
-            setError(null);
-          } catch {
-            setError(`Could not load roads for ${suburb.name}. Try again later.`);
-          } finally {
-            setLoadingSuburbs((prev) => {
-              const next = new Set(prev);
-              next.delete(suburb.name);
-              return next;
-            });
-          }
-        }, 3000);
-        return;
-      } finally {
-        setLoadingSuburbs((prev) => {
-          const next = new Set(prev);
-          next.delete(suburb.name);
-          return next;
-        });
-      }
-    },
-    [selectedSuburbs]
-  );
-
-  const removeSuburb = useCallback((name) => {
-    setSelectedSuburbs((prev) => prev.filter((s) => s.name !== name));
-    setSuburbRoads((prev) => {
-      const copy = { ...prev };
-      delete copy[name];
-      return copy;
+  const unhideSuburb = useCallback((name) => {
+    setHiddenSuburbs((prev) => {
+      const next = new Set(prev);
+      next.delete(name);
+      return next;
     });
-    setRoadCoverage((prev) => {
-      const copy = { ...prev };
-      delete copy[name];
-      return copy;
-    });
-    setSuburbStats((prev) => {
-      const copy = { ...prev };
-      delete copy[name];
-      return copy;
-    });
-    setSuburbBoundaries((prev) => {
-      const copy = { ...prev };
-      delete copy[name];
-      return copy;
-    });
-    if (highlightedSuburb === name) setHighlightedSuburb(null);
-  }, [highlightedSuburb]);
+  }, []);
 
   // ── Compute road coverage ───────────────────────────────────────────────
 
@@ -671,20 +550,31 @@ const RoadCoverage = () => {
     }
   }, [suburbRoads, runRoutes]);
 
-  // ── Conquered suburbs (100%) and top 5 in-progress ─────────────────────
+  // ── Conquered suburbs (100%), ranked in-progress list, hidden list ───────
 
   const conqueredSuburbs = useMemo(() => {
     return Object.entries(suburbStats)
-      .filter(([, s]) => s.percent === 100 && s.totalRoads > 0)
+      .filter(([name, s]) => s.percent === 100 && s.totalRoads > 0 && !hiddenSuburbs.has(name))
       .sort(([a], [b]) => a.localeCompare(b));
-  }, [suburbStats]);
+  }, [suburbStats, hiddenSuburbs]);
 
-  const topSuburbs = useMemo(() => {
-    return Object.entries(suburbStats)
-      .filter(([, s]) => s.percent < 100 && s.totalRoads > 0)
-      .sort(([, a], [, b]) => b.percent - a.percent)
-      .slice(0, 10);
-  }, [suburbStats]);
+  const rankedSuburbs = useMemo(() => {
+    const q = suburbFilter.trim().toLowerCase();
+    const list = Object.entries(suburbStats)
+      .filter(([name, s]) =>
+        s.percent < 100 && s.totalRoads > 0 &&
+        !hiddenSuburbs.has(name) &&
+        (!q || name.toLowerCase().includes(q)))
+      .sort(([, a], [, b]) => b.percent - a.percent);
+    if (suburbView === 'top5') return list.slice(0, 5);
+    if (suburbView === 'top10') return list.slice(0, 10);
+    return list;
+  }, [suburbStats, hiddenSuburbs, suburbView, suburbFilter]);
+
+  const hiddenList = useMemo(
+    () => runInSuburbs.filter((s) => hiddenSuburbs.has(s.name)).map((s) => s.name).sort(),
+    [runInSuburbs, hiddenSuburbs]
+  );
 
   // ── Handle clicking a suburb (focus/unfocus) ─────────────────────────────
 
@@ -823,86 +713,35 @@ const RoadCoverage = () => {
             </div>
           </div>
 
-          {/* Suburb search */}
-          <div className="athletic-card-gradient p-4">
-            <button
-              onClick={() => setShowSearch(!showSearch)}
-              className="flex items-center justify-between w-full text-white font-medium mb-2"
-            >
-              <span className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-orange-400" />
-                Add Suburbs
-              </span>
-              {showSearch ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-
-            {showSearch && (
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={suburbSearch}
-                  onChange={(e) => setSuburbSearch(e.target.value)}
-                  placeholder="Search suburbs..."
-                  className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-white placeholder-slate-400"
-                />
-                {isSearching && (
-                  <div className="flex items-center gap-2 text-slate-400 text-sm p-2">
-                    <Loader className="w-4 h-4 animate-spin" /> Searching...
-                  </div>
-                )}
-                {searchResults.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto space-y-1">
-                    {searchResults.map((result, idx) => (
-                      <button
-                        key={`${result.name}-${result.state}-${idx}`}
-                        onClick={() => addSuburb(result)}
-                        className="w-full text-left p-2 rounded-lg hover:bg-slate-600/50 text-white text-sm transition-colors"
-                      >
-                        <div className="font-medium">{result.name}</div>
-                        <div className="text-slate-400 text-xs truncate">
-                          {result.displayName}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Manually added suburbs (not auto-detected) */}
-            {selectedSuburbs.filter((s) => !autoDetectedSuburbs.has(s.name)).length > 0 && (
-              <div className="mt-3 space-y-1">
+          {/* Find / hidden suburbs */}
+          <div className="athletic-card-gradient p-4 space-y-3">
+            <div className="flex items-center gap-2 text-white font-medium">
+              <Search className="w-4 h-4 text-orange-400" />
+              Suburbs
+            </div>
+            <input
+              type="text"
+              value={suburbFilter}
+              onChange={(e) => setSuburbFilter(e.target.value)}
+              placeholder="Filter suburbs..."
+              className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-white placeholder-slate-400"
+            />
+            {hiddenList.length > 0 && (
+              <div className="space-y-1">
                 <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">
-                  Added
+                  Hidden ({hiddenList.length})
                 </div>
-                {selectedSuburbs.filter((s) => !autoDetectedSuburbs.has(s.name)).map((suburb) => (
-                  <div
-                    key={suburb.name}
-                    className={`flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
-                      highlightedSuburb === suburb.name
-                        ? 'bg-orange-500/20 border border-orange-500/30'
-                        : 'bg-slate-700/50 hover:bg-slate-600/50'
-                    }`}
-                    onClick={() => handleSuburbClick(suburb.name)}
-                  >
-                    <div className="flex items-center gap-2">
-                      {loadingSuburbs.has(suburb.name) ? (
-                        <Loader className="w-3 h-3 text-orange-400 animate-spin" />
-                      ) : (
-                        <MapPin className="w-3 h-3 text-orange-400" />
-                      )}
-                      <span className="text-white text-sm">{suburb.name}</span>
-                      {suburbStats[suburb.name] && (
-                        <span className="text-xs text-slate-400">
-                          {suburbStats[suburb.name].percent}%
-                        </span>
-                      )}
-                    </div>
+                {hiddenList.map((name) => (
+                  <div key={name} className="flex items-center justify-between p-2 rounded-lg bg-slate-700/50">
+                    <span className="text-slate-300 text-sm flex items-center gap-2">
+                      <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                      {name}
+                    </span>
                     <button
-                      onClick={(e) => { e.stopPropagation(); removeSuburb(suburb.name); }}
-                      className="text-slate-400 hover:text-red-400 text-xs"
+                      onClick={() => unhideSuburb(name)}
+                      className="text-orange-400 hover:text-orange-300 text-xs"
                     >
-                      Remove
+                      Unhide
                     </button>
                   </div>
                 ))}
@@ -910,67 +749,92 @@ const RoadCoverage = () => {
             )}
           </div>
 
-          {/* Top 10 suburbs */}
-          {topSuburbs.length > 0 && (
-            <div className="athletic-card-gradient p-4">
-              <div className="flex items-center gap-2 mb-3">
+          {/* Ranked suburbs with view toggle */}
+          <div className="athletic-card-gradient p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-orange-400" />
-                <h3 className="text-white font-semibold text-sm">Top Suburbs</h3>
+                <h3 className="text-white font-semibold text-sm">Suburbs</h3>
               </div>
-              <div className="space-y-2">
-                {topSuburbs.map(([name, stats], idx) => (
+              <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
+                {[['top5', 'Top 5'], ['top10', 'Top 10'], ['all', 'All']].map(([val, label]) => (
                   <button
+                    key={val}
+                    onClick={() => setSuburbView(val)}
+                    className={`px-2 py-1 transition-colors ${
+                      suburbView === val ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {rankedSuburbs.length === 0 ? (
+              <p className="text-slate-400 text-sm">
+                {isLoadingActivities || loadingSuburbs.size > 0
+                  ? 'Loading suburbs…'
+                  : 'No suburbs to show yet.'}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {rankedSuburbs.map(([name, stats], idx) => (
+                  <div
                     key={name}
-                    onClick={() => handleSuburbClick(name)}
-                    className={`w-full text-left space-y-1 p-2 rounded-lg transition-colors ${
+                    className={`space-y-1 p-2 rounded-lg transition-colors ${
                       highlightedSuburb === name
                         ? 'bg-orange-500/20 border border-orange-500/30'
                         : 'hover:bg-slate-700/50'
                     }`}
                   >
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-white flex items-center gap-2">
-                        <span
-                          className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
-                            idx === 0
-                              ? 'bg-orange-500 text-white'
-                              : idx === 1
-                              ? 'bg-slate-400 text-slate-900'
-                              : idx === 2
-                              ? 'bg-amber-700 text-white'
-                              : 'bg-slate-600 text-slate-300'
-                          }`}
-                        >
+                      <button onClick={() => handleSuburbClick(name)} className="text-white flex items-center gap-2 text-left">
+                        <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
+                          idx === 0 ? 'bg-orange-500 text-white'
+                          : idx === 1 ? 'bg-slate-400 text-slate-900'
+                          : idx === 2 ? 'bg-amber-700 text-white'
+                          : 'bg-slate-600 text-slate-300'
+                        }`}>
                           {idx + 1}
                         </span>
+                        {loadingSuburbs.has(name) && <Loader className="w-3 h-3 text-orange-400 animate-spin" />}
                         {name}
-                      </span>
-                      <span className="text-orange-400 font-semibold">{stats.percent}%</span>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-orange-400 font-semibold">{stats.percent}%</span>
+                        <button
+                          onClick={() => hideSuburb(name)}
+                          title="Hide suburb"
+                          className="text-slate-400 hover:text-red-400"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-700 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${stats.percent}%`,
-                          background:
-                            stats.percent >= 75
-                              ? 'linear-gradient(90deg, #22c55e, #16a34a)'
-                              : stats.percent >= 50
-                              ? 'linear-gradient(90deg, #f97316, #ea580c)'
-                              : stats.percent >= 25
-                              ? 'linear-gradient(90deg, #eab308, #ca8a04)'
+                    <button onClick={() => handleSuburbClick(name)} className="block w-full">
+                      <div className="w-full bg-slate-700 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${stats.percent}%`,
+                            background:
+                              stats.percent >= 75 ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                              : stats.percent >= 50 ? 'linear-gradient(90deg, #f97316, #ea580c)'
+                              : stats.percent >= 25 ? 'linear-gradient(90deg, #eab308, #ca8a04)'
                               : 'linear-gradient(90deg, #ef4444, #dc2626)',
-                        }}
-                      />
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {stats.coveredRoads}/{stats.totalRoads} roads
-                    </div>
-                  </button>
+                          }}
+                        />
+                      </div>
+                      <div className="text-xs text-slate-400 text-left">
+                        {stats.coveredRoads}/{stats.totalRoads} roads
+                      </div>
+                    </button>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Conquered suburbs (100%) */}
           {conqueredSuburbs.length > 0 && (
