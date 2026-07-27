@@ -754,7 +754,7 @@ const RoadCoverage = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-orange-400" />
-                <h3 className="text-white font-semibold text-sm">Suburbs</h3>
+                <h3 className="text-white font-semibold text-sm">In Progress</h3>
               </div>
               <div className="flex rounded-lg overflow-hidden border border-slate-600 text-xs">
                 {[['top5', 'Top 5'], ['top10', 'Top 10'], ['all', 'All']].map(([val, label]) => (
