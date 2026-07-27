@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, Polygon, useMap } from 'react-leafle
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
+import * as geo from './roadCoverageGeo';
 import DateFilter from '../PersonalBests/DateFilter';
 import { Map as MapIcon, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 
@@ -74,33 +75,6 @@ function interpolatePoints(coords, maxGapMetres = 15) {
     }
   }
   return result;
-}
-
-// ── Reverse geocode a point to suburb name ──────────────────────────────────
-
-async function reverseGeocodeToSuburb(lat, lon) {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=16`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'RunningAnalytics/1.0' },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    const suburb =
-      data.address?.suburb ||
-      data.address?.town ||
-      data.address?.city_district ||
-      data.address?.neighbourhood;
-    if (!suburb) return null;
-    return {
-      name: suburb,
-      lat: parseFloat(data.lat),
-      lon: parseFloat(data.lon),
-      state: data.address?.state || '',
-    };
-  } catch {
-    return null;
-  }
 }
 
 // ── Overpass API: fetch suburb roads with retry ──────────────────────────────
@@ -218,45 +192,39 @@ async function fetchSuburbBoundary(suburbName, lat, lon) {
   return null;
 }
 
-// ── Suburb search via Nominatim ─────────────────────────────────────────────
+// ── Overpass: all suburb boundaries within a bounding box (one query) ─────────
 
-async function searchSuburbs(query) {
-  if (!query || query.length < 2) return [];
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-    query + ', Australia'
-  )}&format=json&addressdetails=1&limit=15&countrycodes=au`;
-
-  const response = await fetch(url, {
-    headers: { 'User-Agent': 'RunningAnalytics/1.0' },
-  });
-  if (!response.ok) return [];
-  const results = await response.json();
-
-  // Deduplicate by suburb name - keep distinct suburbs (handles North/South/East/West)
-  const seen = new Set();
-  return results
-    .filter((r) => {
-      const name =
-        r.address?.suburb ||
-        r.address?.town ||
-        r.address?.city_district;
-      if (!name) return false;
-      // Use name + state as key to distinguish e.g. "Richmond VIC" vs "Richmond NSW"
-      const key = `${name}|${r.address?.state || ''}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map((r) => ({
-      name:
-        r.address?.suburb ||
-        r.address?.town ||
-        r.address?.city_district,
-      displayName: r.display_name,
-      lat: parseFloat(r.lat),
-      lon: parseFloat(r.lon),
-      state: r.address?.state || '',
-    }));
+async function fetchSuburbBoundariesInBounds(bounds, retries = 2) {
+  const bbox = `${bounds.south},${bounds.west},${bounds.north},${bounds.east}`;
+  const query = `
+    [out:json][timeout:60];
+    relation["admin_level"~"9|10"]["boundary"="administrative"](${bbox});
+    out geom;
+  `;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: `data=${encodeURIComponent(query)}`,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+      if ((response.status === 504 || response.status === 429) && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      if (!response.ok) throw new Error(`Overpass boundaries error: ${response.status}`);
+      const data = await response.json();
+      return data.elements || [];
+    } catch (err) {
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+  return [];
 }
 
 // ── Map controller components ───────────────────────────────────────────────
@@ -297,18 +265,30 @@ const RoadCoverage = () => {
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
 
-  // Suburb state – restore from cache
-  const [selectedSuburbs, setSelectedSuburbs] = useState(() => {
+  // Run-in suburbs detected from GPS (each: { name, lat, lon, rings })
+  // eslint-disable-next-line no-unused-vars
+  const [runInSuburbs, setRunInSuburbs] = useState([]);
+  // Hidden suburb names – persisted (wired in Task 3)
+  const [hiddenSuburbs, setHiddenSuburbs] = useState(() => { // eslint-disable-line no-unused-vars
     try {
-      const cached = localStorage.getItem('roadCoverage_suburbs');
-      return cached ? JSON.parse(cached) : [];
-    } catch { return []; }
+      const cached = localStorage.getItem('roadCoverage_hidden');
+      return cached ? new Set(JSON.parse(cached)) : new Set();
+    } catch { return new Set(); }
   });
+  // View: 'top5' | 'top10' | 'all' (wired in Task 3)
+  // eslint-disable-next-line no-unused-vars
+  const [suburbView, setSuburbView] = useState('top5');
+  // eslint-disable-next-line no-unused-vars
+  const [suburbFilter, setSuburbFilter] = useState('');
+
+  // Legacy suburb state kept for addSuburb/removeSuburb/handleSuburbClick (removed in Task 3–5)
+  const [selectedSuburbs, setSelectedSuburbs] = useState([]);
   const [suburbSearch, setSuburbSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(true);
-  const searchTimeout = useRef(null);
+  const [autoDetectedSuburbs] = useState(new Set());
 
   // Map data
   const [runRoutes, setRunRoutes] = useState([]);
@@ -333,28 +313,16 @@ const RoadCoverage = () => {
   // Highlighted suburb (from clicking top suburbs or search)
   const [highlightedSuburb, setHighlightedSuburb] = useState(null);
 
-  // Track if auto-detection has run
-  const autoDetectRan = useRef(false);
-  const [autoDetectedSuburbs, setAutoDetectedSuburbs] = useState(() => {
-    try {
-      const cached = localStorage.getItem('roadCoverage_autoSuburbs');
-      return cached ? new Set(JSON.parse(cached)) : new Set();
-    } catch { return new Set(); }
-  });
+  // Track if boundary-detection has run
+  const detectRan = useRef(false);
 
-  // ── Persist suburbs to localStorage ──────────────────────────────────────
+  // ── Persist hidden suburbs to localStorage ────────────────────────────────
 
   useEffect(() => {
     try {
-      localStorage.setItem('roadCoverage_suburbs', JSON.stringify(selectedSuburbs));
-    } catch { /* quota exceeded */ }
-  }, [selectedSuburbs]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('roadCoverage_autoSuburbs', JSON.stringify([...autoDetectedSuburbs]));
-    } catch { /* quota exceeded */ }
-  }, [autoDetectedSuburbs]);
+      localStorage.setItem('roadCoverage_hidden', JSON.stringify([...hiddenSuburbs]));
+    } catch { /* quota */ }
+  }, [hiddenSuburbs]);
 
   // ── Load cached road data on mount, then refresh from Overpass ─────────
 
@@ -443,119 +411,58 @@ const RoadCoverage = () => {
     loadRoutes();
   }, [timeFilter, customDateFrom, customDateTo]);
 
-  // ── Auto-detect ALL suburbs from run data ───────────────────────────
+  // ── Detect ALL run-in suburbs via one Overpass boundary query ─────────────
 
   useEffect(() => {
-    if (autoDetectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
-    autoDetectRan.current = true;
+    if (detectRan.current || runRoutes.length === 0 || isLoadingActivities) return;
+    detectRan.current = true;
 
-    // Skip if we have cached suburbs
-    try {
-      const cached = localStorage.getItem('roadCoverage_suburbs');
-      if (cached && JSON.parse(cached).length > 0) return;
-    } catch { /* proceed */ }
+    async function detect() {
+      const allPoints = runRoutes.flatMap((r) => r.coords);
+      const bounds = geo.computeBounds(allPoints);
+      if (!bounds) return;
 
-    async function detectSuburbs() {
-      // Sample multiple points per route (start, middle, end) for better suburb coverage
-      const cellSize = 0.01; // ~1km grid
-      const cellCounts = {};
-      const cellPoints = {};
-
-      for (const route of runRoutes) {
-        if (route.coords.length === 0) continue;
-        // Sample start, 25%, 50%, 75% points to catch routes crossing suburbs
-        const indices = [0, Math.floor(route.coords.length * 0.25), Math.floor(route.coords.length * 0.5), Math.floor(route.coords.length * 0.75)];
-        for (const idx of indices) {
-          if (idx >= route.coords.length) continue;
-          const [lat, lon] = route.coords[idx];
-          const key = `${Math.floor(lat / cellSize)},${Math.floor(lon / cellSize)}`;
-          cellCounts[key] = (cellCounts[key] || 0) + 1;
-          if (!cellPoints[key]) cellPoints[key] = [lat, lon];
-        }
-      }
-
-      // Get ALL distinct clusters (sorted by density)
-      const allCells = Object.entries(cellCounts)
-        .sort(([, a], [, b]) => b - a);
-
-      if (allCells.length === 0) return;
-
-      // Reverse geocode all cluster centers to find every suburb
-      const suburbInfo = {};
-      const suburbCounts = {};
-      // Limit to top 25 clusters to stay within rate limits (~28s)
-      const cellsToGeocode = allCells.slice(0, 25);
-
-      for (const [key, count] of cellsToGeocode) {
-        const point = cellPoints[key];
-        const suburb = await reverseGeocodeToSuburb(point[0], point[1]);
-        if (suburb) {
-          if (!suburbInfo[suburb.name]) {
-            suburbInfo[suburb.name] = suburb;
-            suburbCounts[suburb.name] = count;
-          } else {
-            suburbCounts[suburb.name] += count;
+      // Cache keyed on a coarse bbox so revisits are instant.
+      const key = [bounds.south, bounds.west, bounds.north, bounds.east]
+        .map((v) => v.toFixed(2))
+        .join(',');
+      try {
+        const cached = JSON.parse(localStorage.getItem('roadCoverage_runInSuburbs') || 'null');
+        if (cached && cached.key === key && Array.isArray(cached.suburbs)) {
+          setRunInSuburbs(cached.suburbs);
+          if (cached.suburbs[0]) {
+            setMapCenter([cached.suburbs[0].lat, cached.suburbs[0].lon]);
           }
+          return;
         }
-        await new Promise((r) => setTimeout(r, 1100));
+      } catch { /* ignore */ }
+
+      let elements;
+      try {
+        elements = await fetchSuburbBoundariesInBounds(bounds);
+      } catch (err) {
+        console.error('[RoadCoverage] boundary fetch failed:', err);
+        setError('Could not load suburb boundaries. Try again later.');
+        return;
       }
 
-      const allNames = Object.entries(suburbCounts)
-        .sort(([, a], [, b]) => b - a)
-        .map(([name]) => name);
+      const suburbs = geo.parseBoundaryRelations(elements);
+      const hits = geo.assignRunsToSuburbs(runRoutes, suburbs);
+      const runIn = suburbs
+        .filter((s) => hits.has(s.name))
+        .map((s) => ({ name: s.name, lat: s.centroid[0], lon: s.centroid[1], rings: s.rings }))
+        .filter((s, i, arr) => arr.findIndex((x) => x.name === s.name) === i);
 
-      if (allNames.length === 0) return;
-
-      // Center map on most frequent suburb
-      const topSuburb = suburbInfo[allNames[0]];
-      if (topSuburb) {
-        setMapCenter([topSuburb.lat, topSuburb.lon]);
-        setFlyToTarget({ center: [topSuburb.lat, topSuburb.lon], zoom: 14 });
-      }
-
-      // Add ALL detected suburbs
-      const allSuburbs = allNames.map((name) => suburbInfo[name]);
-      setSelectedSuburbs(allSuburbs);
-      setAutoDetectedSuburbs(new Set(allNames));
-
-      // Load roads for each suburb sequentially
-      for (const suburb of allSuburbs) {
-        setLoadingSuburbs((prev) => new Set([...prev, suburb.name]));
-        try {
-          const roads = await fetchSuburbRoads(suburb.name, suburb.lat, suburb.lon);
-          setSuburbRoads((prev) => ({ ...prev, [suburb.name]: roads }));
-        } catch (err) {
-          console.error(`Failed to load roads for ${suburb.name}:`, err);
-        } finally {
-          setLoadingSuburbs((prev) => {
-            const next = new Set(prev);
-            next.delete(suburb.name);
-            return next;
-          });
-        }
-        await new Promise((r) => setTimeout(r, 1500));
-      }
+      console.log(`[RoadCoverage] detected ${runIn.length} run-in suburbs`);
+      setRunInSuburbs(runIn);
+      if (runIn[0]) setMapCenter([runIn[0].lat, runIn[0].lon]);
+      try {
+        localStorage.setItem('roadCoverage_runInSuburbs', JSON.stringify({ key, suburbs: runIn }));
+      } catch { /* quota */ }
     }
 
-    detectSuburbs();
+    detect();
   }, [runRoutes, isLoadingActivities]);
-
-  // ── Suburb search debounced ─────────────────────────────────────────────
-
-  useEffect(() => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    if (!suburbSearch || suburbSearch.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    searchTimeout.current = setTimeout(async () => {
-      const results = await searchSuburbs(suburbSearch);
-      setSearchResults(results);
-      setIsSearching(false);
-    }, 400);
-    return () => clearTimeout(searchTimeout.current);
-  }, [suburbSearch]);
 
   // ── Add a suburb ────────────────────────────────────────────────────────
 
