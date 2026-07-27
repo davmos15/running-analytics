@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, Polygon, useMap } from 'react-leaflet';
-import polyline from '@mapbox/polyline';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import firebaseService from '../../services/firebaseService';
@@ -12,6 +11,11 @@ import { Map, Search, ChevronDown, ChevronUp, Loader, MapPin, Trophy, Eye, EyeOf
 const MELBOURNE_CENTER = [-37.8136, 144.9631];
 const DEFAULT_ZOOM = 13;
 const ROAD_MATCH_TOLERANCE = 25;
+
+// Session cache of decompressed GPS routes keyed by activity id. Avoids re-fetching
+// and re-inflating stream docs when the date filter changes. Not persisted to
+// localStorage: full coordinate arrays for hundreds of runs would exceed its quota.
+const routeCache = new Map();
 
 function haversineDistance([lat1, lon1], [lat2, lon2]) {
   const R = 6371000;
@@ -389,36 +393,44 @@ const RoadCoverage = () => {
         const runActivities = activities.filter(
           (a) => a.type && ['Run', 'TrailRun'].includes(a.type)
         );
-        const withPolyline = runActivities.filter((a) => a.map?.summary_polyline);
 
-        console.log(
-          `[RoadCoverage] ${runActivities.length} runs, ${withPolyline.length} have polylines`
+        // GPS routes live in the `streams/{id}` collection (latlng), not on the
+        // activity doc. Fetch them with a small concurrency pool to stay friendly
+        // to the browser and the free Firestore tier.
+        const routes = [];
+        const POOL_SIZE = 8;
+        let cursor = 0;
+        async function worker() {
+          while (cursor < runActivities.length) {
+            const a = runActivities[cursor++];
+            let coords = routeCache.get(a.id);
+            if (coords === undefined) {
+              const streams = await firebaseService.getActivityStreams(a.id);
+              coords = (streams?.latlng?.data || []).filter(
+                (p) => Array.isArray(p) && p[0] != null && p[1] != null
+              );
+              routeCache.set(a.id, coords); // cache empty results too, to skip refetch
+            }
+            if (coords.length > 0) {
+              routes.push({ id: a.id, coords, date: a.start_date });
+            }
+          }
+        }
+        await Promise.all(
+          Array.from({ length: Math.min(POOL_SIZE, runActivities.length) }, worker)
         );
 
-        // If no polylines, check if map field exists at all
-        if (withPolyline.length === 0 && runActivities.length > 0) {
-          const sample = runActivities[0];
-          console.log('[RoadCoverage] Sample activity map field:', sample.map);
-        }
-
-        const routes = withPolyline
-          .map((a) => {
-            try {
-              const coords = polyline.decode(a.map.summary_polyline);
-              return { id: a.id, coords, date: a.start_date };
-            } catch {
-              return null;
-            }
-          })
-          .filter(Boolean);
+        console.log(
+          `[RoadCoverage] ${runActivities.length} runs, ${routes.length} have GPS routes`
+        );
 
         setRunRoutes(routes);
         setTotalRunCount(runActivities.length);
 
         if (routes.length === 0 && runActivities.length > 0) {
           setError(
-            `Found ${runActivities.length} runs but none have route data. ` +
-            'GPS polylines sync automatically from Garmin; check back after the next daily sync.'
+            `Found ${runActivities.length} runs but none have GPS route data yet. ` +
+            'GPS streams sync automatically from Garmin; check back after the next daily sync.'
           );
         }
       } catch (err) {
