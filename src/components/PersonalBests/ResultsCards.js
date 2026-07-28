@@ -108,46 +108,28 @@ const ResultsCards = ({ personalBests, visibleColumns }) => {
         );
       }
 
-      case 'avgPower': {
-        const avgPwr = run.averagePower || run.average_watts || run.average_watts_calculated;
-        if (!avgPwr) return null;
+      case 'activityType': {
+        const at = run.activityType || run.type;
+        if (!at) return null;
         return (
           <div className="text-sm">
             <span className="text-slate-400">{column.label}:</span>
-            <span className="text-white ml-2">{avgPwr}W</span>
+            <span className="text-white ml-2">{at}</span>
           </div>
         );
       }
 
-      case 'maxPower': {
-        const maxPwr = run.maxPower || run.max_watts || run.max_watts_calculated;
-        if (!maxPwr) return null;
+      case 'startTime': {
+        const t = run.startTime ? new Date(run.startTime) : null;
+        if (!t || isNaN(t.getTime())) return null;
         return (
           <div className="text-sm">
             <span className="text-slate-400">{column.label}:</span>
-            <span className="text-white ml-2">{maxPwr}W</span>
+            <span className="text-white ml-2">{t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         );
       }
 
-      case 'activityType':
-        if (!run.activityType) return null;
-        return (
-          <div className="text-sm">
-            <span className="text-slate-400">{column.label}:</span>
-            <span className="text-white ml-2">{run.activityType}</span>
-          </div>
-        );
-        
-      case 'startTime':
-        if (!run.startTime) return null;
-        return (
-          <div className="text-sm">
-            <span className="text-slate-400">{column.label}:</span>
-            <span className="text-white ml-2">{run.startTime}</span>
-          </div>
-        );
-        
       case 'activityId':
         if (!run.activityId) return null;
         return (
@@ -247,9 +229,6 @@ const ResultsCards = ({ personalBests, visibleColumns }) => {
                   )}
                   {run.elevationGain !== undefined && run.elevationGain > 0 && (
                     <span>⛰️ {run.elevationGain}m</span>
-                  )}
-                  {(run.averagePower || run.average_watts) && (
-                    <span>⚡ {run.averagePower || run.average_watts}W</span>
                   )}
                   {(run.strideLength || run.average_stride_length) && (
                     <span>📏 {run.strideLength || run.average_stride_length}m stride</span>

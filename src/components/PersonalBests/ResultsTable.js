@@ -104,19 +104,13 @@ const ResultsTable = ({ personalBests, visibleColumns = [] }) => {
           </div>
         );
       }
-      case 'avgPower': {
-        const avgPower = run.averagePower || run.average_watts || run.average_watts_calculated;
+      case 'activityType':
+        return <div className="text-sm text-slate-300">{run.activityType || run.type || 'N/A'}</div>;
+      case 'startTime': {
+        const t = run.startTime ? new Date(run.startTime) : null;
         return (
           <div className="text-sm text-slate-300">
-            {avgPower ? `${avgPower}W` : 'N/A'}
-          </div>
-        );
-      }
-      case 'maxPower': {
-        const maxPower = run.maxPower || run.max_watts || run.max_watts_calculated;
-        return (
-          <div className="text-sm text-slate-300">
-            {maxPower ? `${maxPower}W` : 'N/A'}
+            {t && !isNaN(t.getTime()) ? t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
           </div>
         );
       }
