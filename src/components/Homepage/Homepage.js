@@ -5,13 +5,11 @@ import BarGraph from '../Graphs/BarGraph';
 import DistanceThresholdGraph from '../Graphs/DistanceThresholdGraph';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { formatTime } from '../../utils/timeUtils';
+import GoalCard from './GoalCard';
 
 const Homepage = () => {
-  const [totalStats, setTotalStats] = useState({
-    totalDistance: 0,
-    totalTime: 0,
-    totalRuns: 0
-  });
+  const [allRunActivities, setAllRunActivities] = useState([]);
+  const [range, setRange] = useState('all-time'); // 'all-time' | 'this-year' | a 4-digit year string
   const [keyPBs, setKeyPBs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [homepageSettings, setHomepageSettings] = useState({
@@ -27,24 +25,16 @@ const Homepage = () => {
     try {
       setIsLoading(true);
       
-      // Load data in parallel instead of sequential
-      const [statsResponse, ...pbResponses] = await Promise.allSettled([
-        // Load summary stats (optimized method)
-        firebaseService.getRunningStatsSummary(),
-        // Load PBs in parallel
-        ...homepageSettings.pbDistances.map(distance => 
+      // Load PBs in parallel
+      const pbResponses = await Promise.allSettled([
+        ...homepageSettings.pbDistances.map(distance =>
           firebaseService.getPersonalBests(distance, 'all-time').catch(error => {
             console.error(`Error loading PB for ${distance}:`, error);
             return [];
           })
         )
       ]);
-      
-      // Process total stats
-      if (statsResponse.status === 'fulfilled') {
-        setTotalStats(statsResponse.value);
-      }
-      
+
       // Process PBs
       const pbMap = {};
       pbResponses.forEach((response, index) => {
@@ -70,7 +60,22 @@ const Homepage = () => {
     if (savedSettings) {
       const settings = JSON.parse(savedSettings);
       setHomepageSettings(settings);
+      if (settings.defaultHomeRange) setRange(settings.defaultHomeRange);
     }
+  }, []);
+
+  // Fetch all-time run activities once for client-side totals and goals
+  useEffect(() => {
+    (async () => {
+      try {
+        const activities = await firebaseService.getActivities('all-time');
+        setAllRunActivities(
+          activities.filter(a => a.type && ['Run', 'TrailRun', 'VirtualRun'].includes(a.type))
+        );
+      } catch (e) {
+        console.error('Error loading activities for home totals:', e);
+      }
+    })();
   }, []);
 
   // Separate effect for loading data only when settings are loaded
@@ -99,6 +104,23 @@ const Homepage = () => {
       '42.2K': { name: 'Marathon', emoji: '🏃‍♂️', color: 'from-purple-500 to-pink-600' }
     };
     return info[distance] || { name: distance, emoji: '🏃', color: 'from-gray-500 to-slate-600' };
+  };
+
+  const yearOptions = Array.from(
+    new Set(allRunActivities.map(a => new Date(a.start_date).getFullYear()))
+  ).sort((x, y) => y - x);
+
+  const filteredForRange = allRunActivities.filter(a => {
+    if (range === 'all-time') return true;
+    const y = new Date(a.start_date).getFullYear();
+    if (range === 'this-year') return y === new Date().getFullYear();
+    return y === Number(range);
+  });
+
+  const rangeStats = {
+    totalDistance: filteredForRange.reduce((s, a) => s + (a.distance || 0), 0) / 1000,
+    totalTime: filteredForRange.reduce((s, a) => s + (a.elapsed_time || a.moving_time || 0), 0),
+    totalRuns: filteredForRange.length
   };
 
   if (isLoading) {
@@ -132,44 +154,61 @@ const Homepage = () => {
 
       {/* Total Stats Cards */}
       {homepageSettings.showTotals && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="athletic-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Total Distance</p>
-                <p className="text-2xl font-bold text-white">{totalStats.totalDistance.toFixed(0)}km</p>
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="px-3 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-orange-400"
+            >
+              <option value="all-time">All Time</option>
+              <option value="this-year">This Year</option>
+              {yearOptions.map(y => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="athletic-card p-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Total Distance</p>
+                  <p className="text-2xl font-bold text-white">{rangeStats.totalDistance.toFixed(0)}km</p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="athletic-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                <Timer className="w-6 h-6 text-orange-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Total Time</p>
-                <p className="text-2xl font-bold text-white">{formatDuration(totalStats.totalTime)}</p>
+
+            <div className="athletic-card p-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                  <Timer className="w-6 h-6 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Total Time</p>
+                  <p className="text-2xl font-bold text-white">{formatDuration(rangeStats.totalTime)}</p>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="athletic-card p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <Activity className="w-6 h-6 text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Total Runs</p>
-                <p className="text-2xl font-bold text-white">{totalStats.totalRuns}</p>
+
+            <div className="athletic-card p-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Total Runs</p>
+                  <p className="text-2xl font-bold text-white">{rangeStats.totalRuns}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <GoalCard activities={allRunActivities} goal={homepageSettings.goal} />
 
       {/* Personal Bests Cards */}
       {homepageSettings.showPBs && (
