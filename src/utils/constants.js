@@ -67,18 +67,9 @@ export const AVAILABLE_COLUMNS = [
   { key: 'maxHeartRate', label: 'Max Heart Rate', default: false, description: 'Maximum heart rate during segment', category: 'performance', enabled: true },
   { key: 'cadence', label: 'Avg Cadence', default: false, description: 'Average steps per minute', category: 'performance', enabled: true },
   { key: 'strideLength', label: 'Stride Length', default: false, description: 'Average stride length in meters', category: 'performance', enabled: true },
-  { key: 'avgPower', label: 'Avg Power', default: false, description: 'Average running power (watts)', category: 'performance', enabled: true },
-  { key: 'maxPower', label: 'Max Power', default: false, description: 'Maximum running power (watts)', category: 'performance', enabled: true },
-  // Weather columns
-  { key: 'temperature', label: 'Temperature', default: false, description: 'Temperature during run', category: 'conditions', enabled: false },
-  { key: 'weather', label: 'Weather', default: false, description: 'Weather conditions', category: 'conditions', enabled: false },
   // Activity details
-  { key: 'activityType', label: 'Activity Type', default: false, description: 'Type of activity (Run, TrailRun)', category: 'activity', enabled: false },
-  { key: 'startTime', label: 'Start Time', default: false, description: 'Time when activity started', category: 'activity', enabled: false },
-  { key: 'location', label: 'Location', default: false, description: 'Starting location of run', category: 'activity', enabled: false },
-  // Technical columns
-  { key: 'gpsAccuracy', label: 'GPS Accuracy', default: false, description: 'GPS tracking accuracy', category: 'technical', enabled: false },
-  { key: 'deviceType', label: 'Device', default: false, description: 'Recording device used', category: 'technical', enabled: false }
+  { key: 'activityType', label: 'Activity Type', default: false, description: 'Type of activity (Run, TrailRun)', category: 'activity', enabled: true },
+  { key: 'startTime', label: 'Start Time', default: false, description: 'Time when activity started', category: 'activity', enabled: true }
 ];
 
 export const COLUMN_CATEGORIES = {
