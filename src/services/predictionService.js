@@ -1,6 +1,20 @@
 import firebaseService from './firebaseService';
 import enhancedPredictionService from './predictionServiceEnhanced';
 
+const _predictionCache = new Map();
+
+function _cacheKey(raceDate, customDistances, raceConditions) {
+  const dist = [...(customDistances || [])]
+    .map(d => `${d.label}:${d.meters}`)
+    .sort()
+    .join(',');
+  return JSON.stringify({ raceDate, dist, raceConditions: raceConditions || {} });
+}
+
+export function clearPredictionCache() {
+  _predictionCache.clear();
+}
+
 class PredictionService {
   constructor() {
     // Default target distances for predictions (in meters)
@@ -16,9 +30,15 @@ class PredictionService {
    * Generate race predictions for a specific race date
    */
   async generatePredictionsForRaceDate(raceDate, customDistances = [], raceConditions = {}) {
+    const key = _cacheKey(raceDate, customDistances, raceConditions);
+    if (_predictionCache.has(key)) {
+      return _predictionCache.get(key);
+    }
+
+    let result;
     try {
       // Use enhanced prediction service with NaN fixes
-      return await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances, raceConditions);
+      result = await enhancedPredictionService.generatePredictionsForRaceDate(raceDate, customDistances, raceConditions);
     } catch (error) {
       console.error('Enhanced prediction failed, falling back to original:', error);
       // Fallback to original implementation if enhanced fails
@@ -26,10 +46,12 @@ class PredictionService {
       const race = new Date(raceDate);
       const daysUntilRace = Math.ceil((race - today) / (1000 * 60 * 60 * 24));
       const weeksBack = Math.min(24, Math.max(8, Math.ceil(daysUntilRace / 7) + 8));
-      
-      const predictions = await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
-      return predictions;
+
+      result = await this.generatePredictionsOriginal(weeksBack, customDistances, daysUntilRace);
     }
+
+    _predictionCache.set(key, result);
+    return result;
   }
 
   /**

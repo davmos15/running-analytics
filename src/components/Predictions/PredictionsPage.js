@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Calendar, Info, RefreshCw, AlertTriangle, X, Mountain, Cloud, Wind } from 'lucide-react';
-import predictionService from '../../services/predictionService';
+import predictionService, { clearPredictionCache } from '../../services/predictionService';
 import LoadingSpinner from '../common/LoadingSpinner';
 import PredictionCard from './PredictionCard';
 import CoursePrediction from './CoursePrediction';
@@ -136,7 +136,7 @@ const PredictionsPage = () => {
               </ul>
             </div>
             <button
-              onClick={loadPredictionsCallback}
+              onClick={() => { clearPredictionCache(); loadPredictionsCallback(); }}
               className="mt-6 px-4 py-2 athletic-button-primary text-white rounded-lg"
             >
               <RefreshCw className="w-4 h-4 inline mr-2" />
@@ -182,7 +182,7 @@ const PredictionsPage = () => {
             </button>
             
             <button
-              onClick={loadPredictionsCallback}
+              onClick={() => { clearPredictionCache(); loadPredictionsCallback(); }}
               className="flex items-center space-x-2 px-3 py-2 athletic-button-primary text-white rounded-lg transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
