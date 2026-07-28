@@ -22,7 +22,9 @@ const SettingsWorking = () => {
     showTotals: true,
     showPBs: true,
     selectedGraphs: ['avg-speed', 'total-distance'],
-    pbDistances: ['5K', '10K', '21.1K', '42.2K']
+    pbDistances: ['5K', '10K', '21.1K', '42.2K'],
+    defaultHomeRange: 'all-time',
+    goal: { enabled: true, period: 'yearly', metric: 'distance', target: 2000 }
   });
 
   // Load settings from localStorage
@@ -67,6 +69,18 @@ const SettingsWorking = () => {
     localStorage.setItem('dateFormat', format);
     setShowSuccessMessage(true);
     setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  const updateHomepageSettings = (patch) => {
+    const next = { ...homepageSettings, ...patch };
+    setHomepageSettings(next);
+    localStorage.setItem('homepageSettings', JSON.stringify(next));
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
+  };
+
+  const updateGoal = (patch) => {
+    updateHomepageSettings({ goal: { ...(homepageSettings.goal || {}), ...patch } });
   };
 
   const handleReprocessActivities = async () => {
@@ -435,6 +449,70 @@ const SettingsWorking = () => {
               </div>
             )}
             
+          </div>
+        </div>
+
+        {/* Home Page */}
+        <div className="border-t border-blue-500/20 pt-6">
+          <h3 className="text-md font-medium text-white mb-4">Home Page</h3>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-2">Default totals range</label>
+            <select
+              value={homepageSettings.defaultHomeRange || 'all-time'}
+              onChange={(e) => updateHomepageSettings({ defaultHomeRange: e.target.value })}
+              className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            >
+              <option value="all-time">All Time</option>
+              <option value="this-year">This Year</option>
+            </select>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center space-x-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={homepageSettings.goal?.enabled !== false}
+                onChange={(e) => updateGoal({ enabled: e.target.checked })}
+                className="w-4 h-4 text-orange-500 bg-slate-700 border-slate-600 rounded"
+              />
+              <span className="text-sm text-slate-300">Show goal card</span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Period</label>
+                <select
+                  value={homepageSettings.goal?.period || 'yearly'}
+                  onChange={(e) => updateGoal({ period: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                >
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Metric</label>
+                <select
+                  value={homepageSettings.goal?.metric || 'distance'}
+                  onChange={(e) => updateGoal({ metric: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                >
+                  <option value="distance">Distance (km)</option>
+                  <option value="time">Time (hours)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Target</label>
+                <input
+                  type="number"
+                  value={homepageSettings.goal?.target ?? ''}
+                  onChange={(e) => updateGoal({ target: e.target.value ? Number(e.target.value) : 0 })}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
