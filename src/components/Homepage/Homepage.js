@@ -119,7 +119,7 @@ const Homepage = () => {
 
   const rangeStats = {
     totalDistance: filteredForRange.reduce((s, a) => s + (a.distance || 0), 0) / 1000,
-    totalTime: filteredForRange.reduce((s, a) => s + (a.elapsed_time || a.moving_time || 0), 0),
+    totalTime: filteredForRange.reduce((s, a) => s + (a.moving_time || a.elapsed_time || 0), 0),
     totalRuns: filteredForRange.length
   };
 
