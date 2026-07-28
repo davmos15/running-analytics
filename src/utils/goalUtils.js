@@ -1,4 +1,5 @@
 const MS_DAY = 24 * 60 * 60 * 1000;
+const TREND_WINDOW_DAYS = 28;
 
 function getPeriodWindow(period, now = new Date()) {
   const year = now.getFullYear();
@@ -51,9 +52,12 @@ function computeGoalProgress(activities, goal, now = new Date()) {
 
   const paceToDate = daysElapsed > 0 ? (periodTotal / daysElapsed) * daysInPeriod : periodTotal;
 
-  const trendStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  // Recent-trend uses a fixed 28-day window regardless of how far into the period
+  // we are, so early in a period it can understate the rate (fewer real days of
+  // running divided by the full 28). This is intentional — it smooths noise.
+  const trendStart = new Date(now.getTime() - TREND_WINDOW_DAYS * MS_DAY);
   const recentTotal = sumBetween(activities, metric, trendStart, now);
-  const recentRate = recentTotal / 28;
+  const recentRate = recentTotal / TREND_WINDOW_DAYS;
   const daysRemaining = Math.max(daysInPeriod - daysElapsed, 0);
   const recentTrend = periodTotal + recentRate * daysRemaining;
 
