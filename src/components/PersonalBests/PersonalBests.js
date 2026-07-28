@@ -31,20 +31,19 @@ const PersonalBests = () => {
       setHomepageSettings(settings);
     }
     
+    const validKeys = new Set(AVAILABLE_COLUMNS.map(c => c.key));
     const savedColumns = localStorage.getItem('visibleColumns');
     if (savedColumns) {
       try {
         const parsedColumns = JSON.parse(savedColumns);
-        // Ensure rank is always first
+        // Drop removed keys and ensure rank is always first
         if (parsedColumns && Array.isArray(parsedColumns)) {
-          if (!parsedColumns.includes('rank')) {
-            setVisibleColumns(['rank', ...parsedColumns]);
-          } else if (parsedColumns[0] !== 'rank') {
-            const withoutRank = parsedColumns.filter(col => col !== 'rank');
-            setVisibleColumns(['rank', ...withoutRank]);
-          } else {
-            setVisibleColumns(parsedColumns);
-          }
+          const cleaned = parsedColumns.filter(col => validKeys.has(col));
+          const withRank = cleaned.includes('rank') ? cleaned : ['rank', ...cleaned];
+          const ordered = withRank[0] === 'rank'
+            ? withRank
+            : ['rank', ...withRank.filter(c => c !== 'rank')];
+          setVisibleColumns(ordered);
         } else {
           // Invalid saved data, use defaults
           const defaultColumns = AVAILABLE_COLUMNS
