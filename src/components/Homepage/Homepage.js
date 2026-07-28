@@ -12,6 +12,7 @@ const Homepage = () => {
   const [range, setRange] = useState('all-time'); // 'all-time' | 'this-year' | a 4-digit year string
   const [keyPBs, setKeyPBs] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [homepageSettings, setHomepageSettings] = useState({
     showGraphs: true,
     showTotals: true,
@@ -74,6 +75,8 @@ const Homepage = () => {
         );
       } catch (e) {
         console.error('Error loading activities for home totals:', e);
+      } finally {
+        setActivitiesLoading(false);
       }
     })();
   }, []);
@@ -123,7 +126,7 @@ const Homepage = () => {
     totalRuns: filteredForRange.length
   };
 
-  if (isLoading) {
+  if (isLoading || activitiesLoading) {
     return (
       <div className="mt-6 space-y-6 mx-4">
         <div className="athletic-card-gradient p-6">
