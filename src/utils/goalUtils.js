@@ -25,4 +25,46 @@ function getPeriodWindow(period, now = new Date()) {
   return { start, end: now, daysElapsed, daysInPeriod };
 }
 
-module.exports = { getPeriodWindow };
+const RUN_TYPES = ['Run', 'TrailRun', 'VirtualRun'];
+
+function metricValue(activity, metric) {
+  if (metric === 'time') return (activity.moving_time || activity.elapsed_time || 0) / 3600; // hours
+  return (activity.distance || 0) / 1000; // km
+}
+
+function sumBetween(activities, metric, start, end) {
+  return activities.reduce((sum, a) => {
+    if (!a.type || !RUN_TYPES.includes(a.type)) return sum;
+    const d = new Date(a.start_date);
+    if (d >= start && d <= end) return sum + metricValue(a, metric);
+    return sum;
+  }, 0);
+}
+
+function computeGoalProgress(activities, goal, now = new Date()) {
+  const { period, metric, target } = goal;
+  const { start, end, daysElapsed, daysInPeriod } = getPeriodWindow(period, now);
+
+  const periodTotal = sumBetween(activities, metric, start, end);
+  const percent = target > 0 ? (periodTotal / target) * 100 : 0;
+  const remaining = Math.max(target - periodTotal, 0);
+
+  const paceToDate = daysElapsed > 0 ? (periodTotal / daysElapsed) * daysInPeriod : periodTotal;
+
+  const trendStart = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+  const recentTotal = sumBetween(activities, metric, trendStart, now);
+  const recentRate = recentTotal / 28;
+  const daysRemaining = Math.max(daysInPeriod - daysElapsed, 0);
+  const recentTrend = periodTotal + recentRate * daysRemaining;
+
+  return {
+    periodTotal,
+    percent,
+    remaining,
+    daysElapsed,
+    daysInPeriod,
+    projections: { paceToDate, recentTrend }
+  };
+}
+
+module.exports = { getPeriodWindow, computeGoalProgress };
